@@ -1,0 +1,56 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.idea/
+.vscode/
+
+# Local database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local configuration
+settings.local.json
+
+# Generated archives
+*.zip
+
+# Test images / temporary files
+test_hardware.jpg
+test_images/
+
+# Generated/build files
+build/
+dist/
+*.spec
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated RAG data
+data/faiss/*
+data/images/*
+data/manuals/*
+
+# Keep directory placeholders
+!data/faiss/.gitkeep
+!data/images/.gitkeep
+!data/manuals/.gitkeep

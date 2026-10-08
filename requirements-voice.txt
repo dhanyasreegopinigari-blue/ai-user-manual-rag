@@ -1,0 +1,3 @@
+# Optional: offline voice input (the app works without these)
+faster-whisper
+sounddevice

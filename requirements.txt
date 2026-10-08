@@ -1,0 +1,7 @@
+PyQt6
+requests
+numpy
+faiss-cpu
+PyMuPDF
+Pillow
+opencv-python
