@@ -1,9 +1,11 @@
 """PyQt6 GUI: Home, Manual Library, Hardware Result, Ask the Manual, Step Viewer (+ busy screen)."""
 import os
+import time
 import traceback
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QPixmap
+import cv2
+from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
+from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QFrame, QGridLayout, QHBoxLayout,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QProgressBar, QPushButton,
@@ -185,6 +187,79 @@ class SettingsDialog(QDialog):
         self.accept()
 
 
+class CameraDialog(QDialog):
+    """Live camera viewfinder to preview and capture hardware photos."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Live Camera Capture")
+        self.resize(700, 560)
+        self.captured_path = None
+        self.cap = cv2.VideoCapture(0)
+
+        lay = QVBoxLayout(self)
+        self.view = QLabel("Starting camera...", self)
+        self.view.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.view.setStyleSheet("background:#0d0f14; border-radius:12px;")
+        self.view.setMinimumSize(640, 420)
+        lay.addWidget(self.view)
+
+        btn_row = QHBoxLayout()
+        self.cancel_btn = button("Cancel", slot=self.reject)
+        self.snap_btn = button("📸 Capture Photo", "primary", self.capture_frame)
+        btn_row.addWidget(self.cancel_btn)
+        btn_row.addStretch()
+        btn_row.addWidget(self.snap_btn)
+        lay.addLayout(btn_row)
+
+        if not self.cap.isOpened():
+            self.view.setText("No camera detected or camera is in use by another application.")
+            self.snap_btn.setEnabled(False)
+            return
+
+        self.last_frame = None
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._update_frame)
+        self.timer.start(33)
+
+    def _update_frame(self):
+        ret, frame = self.cap.read()
+        if ret and frame is not None:
+            self.last_frame = frame
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, ch = rgb.shape
+            qimg = QImage(rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
+            self.view.setPixmap(QPixmap.fromImage(qimg).scaled(
+                self.view.width(), self.view.height(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation))
+
+    def capture_frame(self):
+        if self.last_frame is not None:
+            config.ensure_dirs()
+            dest = os.path.join(config.IMAGES_DIR, f"camera_snap_{int(time.time())}.jpg")
+            cv2.imwrite(dest, self.last_frame)
+            self.captured_path = dest
+            self.accept()
+
+    def closeEvent(self, event):
+        self._cleanup()
+        super().closeEvent(event)
+
+    def reject(self):
+        self._cleanup()
+        super().reject()
+
+    def accept(self):
+        self._cleanup()
+        super().accept()
+
+    def _cleanup(self):
+        if hasattr(self, "timer") and self.timer.isActive():
+            self.timer.stop()
+        if hasattr(self, "cap") and self.cap.isOpened():
+            self.cap.release()
+
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -312,9 +387,11 @@ class MainWindow(QWidget):
         lay.addSpacing(18)
         row = QHBoxLayout()
         row.addStretch()
-        for text, slot in (("📷  Upload Photo", self.upload_photo), ("🎬  Upload Video", self.upload_video)):
+        for text, slot in (("📷  Upload Photo", self.upload_photo),
+                           ("🎥  Live Camera", self.open_camera),
+                           ("🎬  Upload Video", self.upload_video)):
             b = button(text, "primary", slot)
-            b.setMinimumSize(200, 52)
+            b.setMinimumSize(180, 52)
             row.addWidget(b)
         row.addStretch()
         lay.addLayout(row)
@@ -353,6 +430,12 @@ class MainWindow(QWidget):
                                               "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)")
         if path:
             self.run_task(lambda cb: manual_mod.analyze_photo(path, cb), self.show_hardware,
+                          "Identifying hardware...")
+
+    def open_camera(self):
+        dlg = CameraDialog(self)
+        if dlg.exec() == QDialog.DialogCode.Accepted and dlg.captured_path:
+            self.run_task(lambda cb: manual_mod.analyze_photo(dlg.captured_path, cb), self.show_hardware,
                           "Identifying hardware...")
 
     def upload_video(self):
@@ -681,6 +764,8 @@ class MainWindow(QWidget):
         row = QHBoxLayout()
         row.addWidget(button("← Questions", slot=lambda: self.go(self.ask_page)))
         row.addStretch()
+        self.open_pdf_btn = button("📖 Open Manual PDF", slot=self.open_current_pdf)
+        row.addWidget(self.open_pdf_btn)
         lay.addLayout(row)
         self.v_title = label("", "h1", align=Qt.AlignmentFlag.AlignCenter)
         self.v_step = label("", "muted", align=Qt.AlignmentFlag.AlignCenter)
@@ -779,3 +864,15 @@ class MainWindow(QWidget):
             self.render_step()
         else:
             self.go(self.ask_page)   # finished: ask another question without restarting
+
+    def open_current_pdf(self):
+        if not self.manual_id:
+            return
+        m = db.get_manual(self.manual_id)
+        if m and m.get("file_path") and os.path.isfile(m["file_path"]):
+            try:
+                os.startfile(m["file_path"])
+            except Exception as e:
+                QMessageBox.warning(self, "PDF Viewer", f"Could not open PDF file:\n{e}")
+        else:
+            QMessageBox.information(self, "PDF Viewer", "Original PDF file could not be found.")

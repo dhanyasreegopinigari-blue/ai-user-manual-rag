@@ -27,13 +27,16 @@ EMBED_MODEL = "nomic-embed-text:latest" # embeddings for FAISS
 REQUEST_TIMEOUT = 600                   # seconds (local models can be slow)
 
 # ---- Tuning -----------------------------------------------------------------
+ANSWER_MAX_TOKENS = 1024 # max tokens for LLM answers to prevent JSON truncation
 CHUNK_MIN_WORDS = 250    # keep adding pages to a chunk until it has this many words
 CHUNK_MAX_WORDS = 800    # never let a chunk grow beyond this
+CHUNK_OVERLAP_WORDS = 60 # word overlap between consecutive chunks
 FULL_TOP_K = 14          # chunks read for 'full setup / end-to-end' questions
 FULL_BATCH = 3           # chunks sent to the LLM per call in full mode
 MAX_STEPS = 40           # cap on steps in a full guide
 TOP_K = 4                # chunks sent to the LLM per question
 VIDEO_MAX_FRAMES = 6     # frames actually sent to the vision model
+VISION_MAX_SIDE = 1024   # max resolution dimension for hardware vision input
 VOICE_SECONDS = 6        # microphone recording length
 
 _SETTING_KEYS = ("OLLAMA_URL", "VISION_MODEL", "LLM_MODEL", "EMBED_MODEL")

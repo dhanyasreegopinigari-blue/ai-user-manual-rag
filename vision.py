@@ -127,7 +127,8 @@ def _normalize(data):
     return out
 
 
-def _to_b64_jpeg(img, max_side=512):
+def _to_b64_jpeg(img, max_side=None):
+    max_side = max_side or getattr(config, "VISION_MAX_SIDE", 1024)
     img = img.convert("RGB")
     img.thumbnail((max_side, max_side))
     buf = io.BytesIO()
@@ -143,10 +144,10 @@ def _identify_b64(b64, progress=None):
         config.VISION_MODEL,
         PROMPT,
         images=[b64],
-        json_mode=False,
+        json_mode=True,
         temperature=0.0,
         num_ctx=4096,
-        num_predict=180
+        num_predict=350
     )
 
     print("\n========== RAW VISION RESPONSE ==========")
@@ -213,7 +214,6 @@ def _identify_b64(b64, progress=None):
             "unknown",
             "n/a",
             "none",
-            "raspberry pi"
         }:
             continue
 
@@ -310,7 +310,6 @@ def extract_frames(path, max_frames=None):
     preview = os.path.join(config.IMAGES_DIR, "last_video_preview.jpg")
     cv2.imwrite(preview, best[len(best) // 2][2])
     return frames_b64, preview
-
 
 def _vote(values):
     """Most common non-empty value (case-insensitive); ties -> the longer one."""

@@ -39,6 +39,13 @@ CREATE TABLE IF NOT EXISTS manual_chunks (
 CREATE INDEX IF NOT EXISTS idx_pages_manual ON manual_pages(manual_id, page_number);
 CREATE INDEX IF NOT EXISTS idx_images_manual ON manual_images(manual_id, page_number);
 CREATE INDEX IF NOT EXISTS idx_chunks_manual ON manual_chunks(manual_id);
+CREATE VIRTUAL TABLE IF NOT EXISTS manual_chunks_fts USING fts5(
+    chunk_id UNINDEXED,
+    manual_id UNINDEXED,
+    chunk_text,
+    section,
+    tokenize = 'unicode61'
+);
 """
 
 
@@ -53,6 +60,12 @@ def init_db():
     conn = _connect()
     try:
         conn.executescript(SCHEMA)
+        # Backfill any existing manual_chunks into FTS5
+        conn.execute("""
+            INSERT INTO manual_chunks_fts (chunk_id, manual_id, chunk_text, section)
+            SELECT id, manual_id, chunk_text, section FROM manual_chunks
+            WHERE id NOT IN (SELECT chunk_id FROM manual_chunks_fts)
+        """)
         conn.commit()
     finally:
         conn.close()
@@ -115,7 +128,12 @@ def add_chunks(manual_id, chunks):
                 "INSERT INTO manual_chunks (manual_id, page_number, chunk_text, image_path, section) "
                 "VALUES (?,?,?,?,?)",
                 (manual_id, c["page_number"], c["text"], c.get("image_path"), c.get("section", "")))
-            ids.append(cur.lastrowid)
+            cid = cur.lastrowid
+            ids.append(cid)
+            conn.execute(
+                "INSERT INTO manual_chunks_fts (chunk_id, manual_id, chunk_text, section) "
+                "VALUES (?,?,?,?)",
+                (cid, manual_id, c["text"], c.get("section", "")))
         conn.commit()
     finally:
         conn.close()
@@ -133,6 +151,7 @@ def delete_manual_rows(manual_id):
               if r["page_image"]]
     conn = _connect()
     try:
+        conn.execute("DELETE FROM manual_chunks_fts WHERE manual_id=?", (manual_id,))
         for table in ("manual_chunks", "manual_images", "manual_pages"):
             conn.execute(f"DELETE FROM {table} WHERE manual_id=?", (manual_id,))
         conn.execute("DELETE FROM manuals WHERE id=?", (manual_id,))
@@ -140,6 +159,27 @@ def delete_manual_rows(manual_id):
     finally:
         conn.close()
     return files
+
+
+def search_chunks_fts(manual_id, query_text, limit=10):
+    """Keyword search using SQLite FTS5. Returns [(chunk_id, bm25_rank)] sorted best first."""
+    tokens = re.findall(r"[A-Za-z0-9_]+", query_text)
+    if not tokens:
+        return []
+    fts_query = " OR ".join(f'"{t}"' for t in tokens)
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT chunk_id, rank FROM manual_chunks_fts "
+            "WHERE manual_id=? AND manual_chunks_fts MATCH ? "
+            "ORDER BY rank LIMIT ?",
+            (manual_id, fts_query, limit)
+        ).fetchall()
+        return [(int(r["chunk_id"]), float(r["rank"])) for r in rows]
+    except (sqlite3.OperationalError, sqlite3.DatabaseError):
+        return []
+    finally:
+        conn.close()
 
 
 # ---- reading ----------------------------------------------------------------

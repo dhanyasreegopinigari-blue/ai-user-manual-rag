@@ -1,11 +1,9 @@
 """Ollama client + FAISS index + question generation + grounded answering."""
 import difflib
-from email.mime import message
 import json
 import os
 import re
 
-from cv2 import data
 import faiss
 import numpy as np
 import requests
@@ -65,9 +63,11 @@ def chat(
     json_mode=False,
     temperature=0.2,
     num_ctx=8192,
-    num_predict=None
+    num_predict=None,
+    on_token=None
 ):
-    """Single-turn chat call. `images` = list of base64 strings (vision models)."""
+    """Single-turn chat call. `images` = list of base64 strings (vision models).
+    If `on_token` is provided, streams tokens as they arrive."""
 
     messages = []
 
@@ -99,7 +99,7 @@ def chat(
     payload = {
         "model": model,
         "messages": messages,
-        "stream": False,
+        "stream": bool(on_token),
         "think": False,
         "options": options,
     }
@@ -107,28 +107,36 @@ def chat(
     if json_mode:
         payload["format"] = "json"
 
+    if on_token:
+        url = config.OLLAMA_URL.rstrip("/") + "/api/chat"
+        try:
+            r = requests.post(url, json=payload, timeout=config.REQUEST_TIMEOUT, stream=True)
+        except requests.exceptions.ConnectionError:
+            raise AppError("Ollama is not running.\n\nPlease start Ollama and try again.")
+        except requests.exceptions.Timeout:
+            raise AppError("Ollama took too long to respond.\n\nTry again, or use a smaller model.")
+        except requests.exceptions.RequestException as e:
+            raise AppError(f"Could not talk to Ollama:\n{e}")
+        if r.status_code != 200:
+            raise AppError(f"Ollama error ({r.status_code}):\n{r.text[:300]}")
+
+        full_content = []
+        for line in r.iter_lines():
+            if not line:
+                continue
+            try:
+                chunk = json.loads(line)
+            except ValueError:
+                continue
+            token = chunk.get("message", {}).get("content", "")
+            if token:
+                full_content.append(token)
+                on_token(token)
+        return strip_think("".join(full_content))
+
     data = _post("/api/chat", payload, model)
-
-    print("\n========== FULL OLLAMA RESPONSE ==========")
-    print(repr(data))
-    print("===========================================\n")
-
     message = data.get("message", {})
-
-    print("\n========== OLLAMA MESSAGE ==========")
-    print(repr(message))
-    print("====================================\n")
-
-    content = message.get("content", "")
-    thinking = message.get("thinking", "")
-
-    print("[OLLAMA CONTENT]")
-    print(repr(content))
-
-    print("[OLLAMA THINKING]")
-    print(repr(thinking))
-
-    return strip_think(content)
+    return strip_think(message.get("content", ""))
 
 def embed(texts, prefix="search_document: "):
     """Embed texts with nomic-embed-text -> normalised float32 array (cosine via inner product)."""
@@ -158,7 +166,9 @@ def test_connection(url=None):
         return False, "Ollama is not running.\n\nPlease start Ollama and try again."
     missing = []
     for name in (config.VISION_MODEL, config.LLM_MODEL, config.EMBED_MODEL):
-        if name not in installed and f"{name}:latest" not in installed:
+        clean_name = name[:-7] if name.endswith(":latest") else name
+        found = any(m == name or m == clean_name or (m[:-7] if m.endswith(":latest") else m) == clean_name for m in installed)
+        if not found:
             missing.append(name)
     if missing:
         return False, "Ollama is running, but these models were not found:\n\n" + "\n".join(missing)
@@ -203,12 +213,31 @@ def _search_index(manual_id, qvec, k):
 
 
 def search(manual_id, question, k=None):
-    """Top-k manual chunks for a question (SQLite rows, each with a 'score')."""
-    hits = _search_index(manual_id, embed([question], "search_query: "), k or config.TOP_K)
-    chunks = db.get_chunks([i for i, _ in hits])
-    scores = dict(hits)
+    """Top-k manual chunks for a question using Hybrid Search (FAISS dense vector + SQLite FTS5 RRF)."""
+    target_k = k or config.TOP_K
+    fetch_k = max(target_k * 2, 8)
+
+    # 1. Dense semantic search via FAISS
+    dense_hits = _search_index(manual_id, embed([question], "search_query: "), fetch_k)
+
+    # 2. Keyword/lexical search via SQLite FTS5
+    fts_hits = db.search_chunks_fts(manual_id, question, limit=fetch_k)
+
+    if not dense_hits and not fts_hits:
+        return []
+
+    # 3. Reciprocal Rank Fusion (RRF)
+    rrf_k = 60
+    rrf_scores = {}
+    for rank, (cid, _) in enumerate(dense_hits, 1):
+        rrf_scores[cid] = rrf_scores.get(cid, 0.0) + 1.0 / (rrf_k + rank)
+    for rank, (cid, _) in enumerate(fts_hits, 1):
+        rrf_scores[cid] = rrf_scores.get(cid, 0.0) + 1.0 / (rrf_k + rank)
+
+    sorted_ids = sorted(rrf_scores.keys(), key=lambda i: -rrf_scores[i])[:target_k]
+    chunks = db.get_chunks(sorted_ids)
     for c in chunks:
-        c["score"] = scores.get(c["id"], 0.0)
+        c["score"] = rrf_scores.get(c["id"], 0.0)
     return chunks
 
 
@@ -372,6 +401,13 @@ def _answer_quick(manual_id, question, progress=None):
         f"{ANSWER_FORMAT}\n/no_think"
     )
 
+    streamed = []
+    def on_token(t):
+        streamed.append(t)
+        if len(streamed) % 5 == 0 or len(streamed) < 10:
+            preview = "".join(streamed)[-80:].replace("\n", " ").strip()
+            cb(f"Writing the answer ({len(streamed)} tokens)...\n{preview}")
+
     raw = chat(
         config.LLM_MODEL,
         prompt,
@@ -379,7 +415,8 @@ def _answer_quick(manual_id, question, progress=None):
         json_mode=True,
         temperature=0.1,
         num_ctx=4096,
-        num_predict=400
+        num_predict=config.ANSWER_MAX_TOKENS,
+        on_token=on_token
     )
 
     data = parse_json(raw)
@@ -628,13 +665,21 @@ Give a helpful answer based only on the visual information above.
 
     cb("Generating image-based answer...")
 
+    streamed = []
+    def on_token(t):
+        streamed.append(t)
+        if len(streamed) % 5 == 0 or len(streamed) < 10:
+            preview = "".join(streamed)[-80:].replace("\n", " ").strip()
+            cb(f"Generating answer ({len(streamed)} tokens)...\n{preview}")
+
     answer = chat(
         config.LLM_MODEL,
         prompt,
         system=system,
         temperature=0.2,
         num_ctx=4096,
-        num_predict=400
+        num_predict=config.ANSWER_MAX_TOKENS,
+        on_token=on_token
     )
 
     return {
