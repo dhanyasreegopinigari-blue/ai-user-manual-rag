@@ -1,6 +1,7 @@
 """PyQt6 GUI: Home, Manual Library, Hardware Result, Ask the Manual, Step Viewer (+ busy screen)."""
 import os
 import traceback
+from unittest import result
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap
@@ -271,10 +272,19 @@ class MainWindow(QWidget):
                     f"Unexpected error:\n{e}"
                 )
 
-            # Remove this worker after its result has been handled.
-            if w in self._workers:
-                self._workers.remove(w)
+            finally:
+                # Remove the completed worker.
+                if w in self._workers:
+                    self._workers.remove(w)
 
+                # Leave the loading screen after the task finishes.
+                if self.stack.currentWidget() is self.busy_page:
+                    self.go(
+                        prev if prev is not self.busy_page
+                        else self.home_page
+                    )
+
+                print("[RUN_TASK] Loading screen cleanup completed")
         def fail(msg):
             print("\n[RUN_TASK] FAILED:", msg)
 
@@ -611,7 +621,7 @@ class MainWindow(QWidget):
         worker.done.connect(done)
         worker.failed.connect(fail)
 
-        worker.start()    
+        worker.start()
 
     def show_ask(self, questions):
         m = db.get_manual(self.manual_id)
@@ -729,7 +739,7 @@ class MainWindow(QWidget):
         self.go(self.viewer_page)
 
         print("[SHOW_ANSWER] Viewer page opened")
-        
+
 
     def render_step(self):
         ans = self.answer
