@@ -5,11 +5,11 @@ import traceback
 
 import cv2
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtGui import QImage, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QFrame, QGridLayout, QHBoxLayout,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QProgressBar, QPushButton,
-    QScrollArea, QStackedWidget, QVBoxLayout, QWidget)
+    QScrollArea, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget)
 
 import config
 import database as db
@@ -30,6 +30,11 @@ QPushButton[kind="primary"]:disabled { background:#2a3550; color:#7b86a3; }
 QPushButton[kind="danger"] { background:#3a2025; border-color:#6a2f38; color:#ff9aa5; }
 QPushButton[kind="card"] { text-align:left; border-radius:14px; background:#1b202b; border:1px solid #2a3142; }
 QPushButton[kind="card"]:hover { border-color:#4f8cff; background:#212838; }
+QPushButton[kind="secondary"] { background:#1f2636; border:1px solid #333f57; color:#c9d3e8; border-radius:8px; padding:7px 14px; font-size:13px; font-weight:600; }
+QPushButton[kind="secondary"]:hover { background:#2a354c; color:white; border-color:#4f8cff; }
+QPushButton[kind="stepTab"] { background:#1c2331; border:1px solid #2c364b; color:#9aa6bd; border-radius:7px; padding:5px 12px; font-weight:600; font-size:12px; }
+QPushButton[kind="stepTab"]:hover { background:#273145; color:#ffffff; border-color:#4f8cff; }
+QPushButton[kind="stepTabActive"] { background:#3b72db; border:1px solid #4f8cff; color:#ffffff; border-radius:7px; padding:5px 12px; font-weight:700; font-size:12px; }
 QLineEdit, QComboBox { background:#1b202b; border:1px solid #333b4f; border-radius:10px; padding:9px 12px; }
 QLineEdit:focus, QComboBox:focus { border-color:#4f8cff; }
 QComboBox QAbstractItemView { background:#1b202b; selection-background-color:#2d3a5a; }
@@ -37,18 +42,24 @@ QListWidget { background:#1b202b; border:1px solid #2a3142; border-radius:12px; 
 QListWidget::item { padding:10px; border-radius:8px; }
 QListWidget::item:selected { background:#2d3a5a; color:white; }
 QFrame#card { background:#1b202b; border:1px solid #2a3142; border-radius:16px; }
+QFrame#refCard { background:#151a24; border:1px solid #283347; border-left:5px solid #4f8cff; border-radius:14px; }
 QLabel#title { font-size:36px; font-weight:700; letter-spacing:2px; }
-QLabel#h1 { font-size:24px; font-weight:700; }
-QLabel#subtitle { font-size:17px; color:#9aa4ba; }
+QLabel#h1 { font-size:22px; font-weight:700; }
+QLabel#subtitle { font-size:16px; color:#9aa4ba; }
 QLabel#muted { color:#8791a8; }
 QLabel#caption { color:#8791a8; font-size:12px; }
-QLabel#stepText { font-size:19px; }
+QLabel#stepText { font-size:17px; font-weight:600; color:#ffffff; line-height:1.4; }
 QLabel#ok { color:#5fd38d; font-weight:600; font-size:16px; }
 QLabel#bad { color:#ffcf6b; font-weight:600; font-size:16px; }
 QLabel#source { background:#1b202b; border-left:4px solid #4f8cff; border-radius:8px; padding:10px 14px; color:#c9d1e3; }
-QLabel#answerBox { background:#1b202b; border:1px solid #2a3142; border-radius:12px; padding:12px 16px; font-size:16px; }
-QLabel#warning { background:#3a2c12; border:1px solid #8a6a1f; border-radius:10px; padding:10px 14px; color:#ffcf6b; }
+QLabel#answerBox { background:#151a24; border:1px solid #283347; border-radius:12px; padding:14px 16px; font-size:14.5px; color:#d6dce7; line-height:1.5; }
+QLabel#warning { background:#3a2c12; border:1px solid #8a6a1f; border-radius:10px; padding:10px 14px; color:#ffcf6b; font-size:13.5px; }
 QLabel#image { background:#0d0f14; border:1px solid #2a3142; border-radius:12px; color:#8791a8; }
+QLabel#imageContainer { background:#0d0f14; border:1px solid #252d3d; border-radius:12px; color:#8791a8; }
+QLabel#sectionHeader { font-size:12px; font-weight:700; color:#6ea4ff; letter-spacing:1.2px; }
+QLabel#badge { background:#21293b; color:#8ab4f8; border:1px solid #32405d; border-radius:6px; padding:3px 9px; font-size:12px; font-weight:600; }
+QLabel#refHeader { font-size:12px; font-weight:700; color:#8ab4f8; letter-spacing:1px; }
+QLabel#refText { font-size:13.5px; color:#c4cddb; font-style:italic; line-height:1.5; }
 QProgressBar { background:#1b202b; border:none; border-radius:5px; height:10px; }
 QProgressBar::chunk { background:#4f8cff; border-radius:5px; }
 """
@@ -260,11 +271,85 @@ class CameraDialog(QDialog):
             self.cap.release()
 
 
+class ImagePreviewDialog(QDialog):
+    """Full-size image dialog to inspect diagrams, schematics, and pinouts."""
+    def __init__(self, parent, image_path, title="Manual Illustration"):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.resize(960, 720)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(16, 16, 16, 16)
+        lay.setSpacing(12)
+
+        lbl = QLabel()
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl.setStyleSheet("background:#0d0f14; border-radius:12px;")
+        pm = QPixmap(image_path) if image_path else QPixmap()
+        if not pm.isNull():
+            lbl.setPixmap(pm.scaled(920, 640, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        else:
+            lbl.setText("Image could not be loaded.")
+
+        lay.addWidget(lbl, 1)
+        close_btn = button("Close", slot=self.accept)
+        close_btn.setFixedWidth(120)
+        lay.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+
+class ImageViewerWidget(QLabel):
+    """Smooth scaling image widget with aspect-ratio preservation and click-to-zoom."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setObjectName("imageContainer")
+        self.setMinimumSize(280, 240)
+        self._pixmap = QPixmap()
+        self._image_path = None
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip("Click to view full size")
+
+    def set_image(self, path):
+        self._image_path = path
+        if path and os.path.isfile(path):
+            self._pixmap = QPixmap(path)
+            self.setText("")
+        else:
+            self._pixmap = QPixmap()
+            self.setText("No illustration available for this step.")
+        self.update()
+
+    def get_image_path(self):
+        return self._image_path
+
+    def paintEvent(self, event):
+        if self._pixmap.isNull():
+            super().paintEvent(event)
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        avail_w = max(self.width() - 16, 100)
+        avail_h = max(self.height() - 16, 100)
+        scaled = self._pixmap.scaled(
+            avail_w, avail_h,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+        x = (self.width() - scaled.width()) // 2
+        y = (self.height() - scaled.height()) // 2
+        painter.drawPixmap(x, y, scaled)
+
+    def mousePressEvent(self, event):
+        if self._image_path and os.path.isfile(self._image_path):
+            ImagePreviewDialog(self.window(), self._image_path).exec()
+        super().mousePressEvent(event)
+
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("AI User Manual")
-        self.resize(1000, 760)
+        self.resize(1060, 780)
+        self.setMinimumSize(880, 640)
         self._workers = []
         self.manual_id = None
         self.question_cache = {}
@@ -760,40 +845,132 @@ class MainWindow(QWidget):
 
     # ---- Step viewer ----------------------------------------------------------
     def _build_viewer(self):
-        p, lay = self._page()
-        row = QHBoxLayout()
-        row.addWidget(button("← Questions", slot=lambda: self.go(self.ask_page)))
-        row.addStretch()
+        p, lay = self._page(margins=(28, 16, 28, 20))
+        lay.setSpacing(14)
+
+        # Header row: Back button, Title, Open PDF
+        header_row = QHBoxLayout()
+        header_row.addWidget(button("← Questions", slot=lambda: self.go(self.ask_page)))
+        header_row.addStretch()
+        self.v_title = label("", "h1", wrap=False, align=Qt.AlignmentFlag.AlignCenter)
+        header_row.addWidget(self.v_title)
+        header_row.addStretch()
         self.open_pdf_btn = button("📖 Open Manual PDF", slot=self.open_current_pdf)
-        row.addWidget(self.open_pdf_btn)
-        lay.addLayout(row)
-        self.v_title = label("", "h1", align=Qt.AlignmentFlag.AlignCenter)
-        self.v_step = label("", "muted", align=Qt.AlignmentFlag.AlignCenter)
-        self.v_summary = label("", "subtitle", align=Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self.v_title)
-        lay.addWidget(self.v_summary)
-        lay.addWidget(self.v_step)
-        self.v_answer = label("", "answerBox")   # LLM-written sentences from the manual
-        lay.addWidget(self.v_answer)
-        self.v_image = label("", "image", align=Qt.AlignmentFlag.AlignCenter)
-        self.v_image.setMinimumHeight(260)
-        lay.addWidget(self.v_image, 1)
-        self.v_caption = label("", "caption", align=Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self.v_caption)
-        self.v_text = label("", "stepText", align=Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self.v_text)
-        self.v_source = label("", "source")
-        lay.addWidget(self.v_source)
+        header_row.addWidget(self.open_pdf_btn)
+        lay.addLayout(header_row)
+
+        # Main 2-column layout: Left = Answer, Right = Image
+        cols_row = QHBoxLayout()
+        cols_row.setSpacing(16)
+
+        # -------------------------------------------------------------
+        # LEFT: ANSWER PANEL
+        # -------------------------------------------------------------
+        left_card = QFrame()
+        left_card.setObjectName("card")
+        left_lay = QVBoxLayout(left_card)
+        left_lay.setContentsMargins(20, 18, 20, 18)
+        left_lay.setSpacing(12)
+
+        l_head = QHBoxLayout()
+        l_head.addWidget(label("💡 ANSWER & INSTRUCTIONS", "sectionHeader", wrap=False))
+        l_head.addStretch()
+        self.v_step_badge = label("", "badge")
+        l_head.addWidget(self.v_step_badge)
+        left_lay.addLayout(l_head)
+
+        # Step tabs / pills for jumping between steps
+        self.step_tabs_host = QWidget()
+        self.step_tabs_host.setStyleSheet("background:transparent;")
+        self.step_tabs_lay = QHBoxLayout(self.step_tabs_host)
+        self.step_tabs_lay.setContentsMargins(0, 0, 0, 0)
+        self.step_tabs_lay.setSpacing(6)
+        left_lay.addWidget(self.step_tabs_host)
+
+        # Step instruction text (prominent)
+        self.v_text = label("", "stepText")
+        left_lay.addWidget(self.v_text)
+
+        # Detailed answer / explanation text
+        self.v_answer = label("", "answerBox")
+        left_lay.addWidget(self.v_answer)
+
+        # Warning box
         self.v_warning = label("", "warning")
-        lay.addWidget(self.v_warning)
-        row = QHBoxLayout()
-        self.prev_btn = button("← Previous", slot=self.prev_step)
-        self.next_btn = button("Next →", "primary", self.next_step)
-        row.addWidget(self.prev_btn)
-        row.addStretch()
-        row.addWidget(self.next_btn)
-        lay.addLayout(row)
-        scroll = QScrollArea()          # long text never gets cut off
+        left_lay.addWidget(self.v_warning)
+
+        left_lay.addStretch(1)
+
+        # Navigation buttons row in left panel
+        nav_row = QHBoxLayout()
+        self.prev_btn = button("← Previous Step", slot=self.prev_step)
+        self.next_btn = button("Next Step →", "primary", slot=self.next_step)
+        nav_row.addWidget(self.prev_btn)
+        nav_row.addStretch()
+        nav_row.addWidget(self.next_btn)
+        left_lay.addLayout(nav_row)
+
+        cols_row.addWidget(left_card, stretch=5)
+
+        # -------------------------------------------------------------
+        # RIGHT: IMAGE PANEL
+        # -------------------------------------------------------------
+        right_card = QFrame()
+        right_card.setObjectName("card")
+        right_lay = QVBoxLayout(right_card)
+        right_lay.setContentsMargins(20, 18, 20, 18)
+        right_lay.setSpacing(12)
+
+        r_head = QHBoxLayout()
+        r_head.addWidget(label("📷 MANUAL ILLUSTRATION", "sectionHeader", wrap=False))
+        r_head.addStretch()
+        self.v_img_badge = label("", "badge")
+        r_head.addWidget(self.v_img_badge)
+        right_lay.addLayout(r_head)
+
+        # High-definition image viewer
+        self.v_image = ImageViewerWidget()
+        right_lay.addWidget(self.v_image, 1)
+
+        # Caption & zoom button row
+        cap_row = QHBoxLayout()
+        self.v_caption = label("", "caption")
+        cap_row.addWidget(self.v_caption)
+        cap_row.addStretch()
+        self.zoom_btn = button("🔍 View Full Size", "secondary", slot=self.zoom_image)
+        cap_row.addWidget(self.zoom_btn)
+        right_lay.addLayout(cap_row)
+
+        cols_row.addWidget(right_card, stretch=5)
+
+        lay.addLayout(cols_row, 1)
+
+        # -------------------------------------------------------------
+        # BOTTOM: REFERENCE PANEL
+        # -------------------------------------------------------------
+        self.ref_card = QFrame()
+        self.ref_card.setObjectName("refCard")
+        ref_lay = QVBoxLayout(self.ref_card)
+        ref_lay.setContentsMargins(18, 14, 18, 14)
+        ref_lay.setSpacing(8)
+
+        ref_head = QHBoxLayout()
+        ref_head.addWidget(label("📑 REFERENCE FROM MANUAL", "refHeader", wrap=False))
+        ref_head.addStretch()
+        self.v_ref_badge = label("", "badge")
+        ref_head.addWidget(self.v_ref_badge)
+        ref_lay.addLayout(ref_head)
+
+        self.v_source = label("", "refText")
+        ref_lay.addWidget(self.v_source)
+
+        lay.addWidget(self.ref_card)
+
+        # Backward compatibility aliases
+        self.v_step = self.v_step_badge
+        self.v_summary = label("", "subtitle")
+
+        scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setWidget(p)
@@ -807,51 +984,141 @@ class MainWindow(QWidget):
         self.answer = ans
         self.step_i = 0
 
-        print("[SHOW_ANSWER] Calling render_step()...")
         self.render_step()
-
-        print("[SHOW_ANSWER] Going to viewer page...")
         self.go(self.viewer_page)
 
-        print("[SHOW_ANSWER] Viewer page opened")
-        
-
     def render_step(self):
-        ans = self.answer
-        steps = ans["steps"]
-        self.v_title.setText(ans["title"].upper())
-        self.v_answer.setText(ans.get("answer") or ans.get("summary") or "")
-        self.v_answer.setVisible(bool(self.v_answer.text()))
-        self.v_summary.setText(ans.get("summary", ""))
-        self.v_summary.setVisible(bool(ans.get("summary")) and bool(steps))
-        self.v_source.hide()
-        if not steps:   # manual has no answer / nothing to show
-            self.v_step.setText("")
-            self.v_image.clear()
-            self.v_image.setText("The manual does not contain this information.")
-            self.v_caption.setText("")
-            self.v_text.setText(ans["summary"])
+        ans = self.answer or {}
+        steps = ans.get("steps") or []
+        self.v_title.setText((ans.get("title") or "ANSWER").upper())
+
+        # When manual has no answer / nothing to show
+        if not steps:
+            self.v_step_badge.setText("Not in manual" if not ans.get("found") else "Overview")
+            self.step_tabs_host.hide()
+            self.v_text.setText(ans.get("summary") or "The manual does not contain this information.")
+            ans_text = (ans.get("answer") or "").strip()
+            if ans_text and ans_text != self.v_text.text():
+                self.v_answer.setText(ans_text)
+                self.v_answer.show()
+            else:
+                self.v_answer.hide()
             self.v_warning.hide()
             self.prev_btn.hide()
-            self.next_btn.setText("Done ✓")
+            self.next_btn.show()
+            self.next_btn.setText("Back to Questions")
+            self.v_image.set_image(None)
+            self.v_img_badge.hide()
+            self.v_caption.setText("")
+            self.zoom_btn.hide()
+            self.ref_card.hide()
             return
+
+        total_steps = len(steps)
+        self.step_i = max(0, min(self.step_i, total_steps - 1))
         s = steps[self.step_i]
-        self.v_step.setText(f"Step {self.step_i + 1} of {len(steps)}")
-        if show_image(self.v_image, s["image"], 760, 330):
-            self.v_caption.setText(f"Manual page {s['page']}" if s["image_kind"] == "page"
-                                   else f"Manual illustration · Page {s['page']}")
+
+        # 1. Update Step Badge
+        self.v_step_badge.setText(f"Step {self.step_i + 1} of {total_steps}")
+        self.v_step_badge.show()
+
+        # 2. Update Step Tabs (Pills)
+        while self.step_tabs_lay.count():
+            item = self.step_tabs_lay.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+
+        if total_steps > 1:
+            self.step_tabs_host.show()
+            for idx in range(total_steps):
+                tab_btn = QPushButton(f"Step {idx + 1}")
+                tab_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                tab_btn.setProperty("kind", "stepTabActive" if idx == self.step_i else "stepTab")
+                tab_btn.clicked.connect(lambda _, step_idx=idx: self.go_to_step(step_idx))
+                self.step_tabs_lay.addWidget(tab_btn)
+            self.step_tabs_lay.addStretch()
         else:
-            self.v_image.setText("No illustration available for this step.")
-            self.v_caption.setText(f"Page {s['page']}")
-        self.v_text.setText(s["text"])
-        self.v_source.setVisible(bool(s.get("source")))
-        self.v_source.setText(f"From the manual (page {s['page']}):\n“{s.get('source', '')}”")
-        warning = s.get("warning") or ans["warning"]
-        self.v_warning.setVisible(bool(warning))
-        self.v_warning.setText(f"⚠ WARNING\n{warning}")
+            self.step_tabs_host.hide()
+
+        # 3. Update Step Action / Instruction Text
+        step_text = str(s.get("text") or "").strip()
+        self.v_text.setText(f"Step {self.step_i + 1}: {step_text}" if total_steps > 1 else step_text)
+        self.v_text.show()
+
+        # 4. Update Answer Explanation Text
+        ans_text = str(ans.get("answer") or ans.get("summary") or "").strip()
+        if ans_text and ans_text.lower() != step_text.lower():
+            self.v_answer.setText(ans_text)
+            self.v_answer.show()
+        else:
+            self.v_answer.hide()
+
+        # 5. Warning
+        warning = str(s.get("warning") or ans.get("warning") or "").strip()
+        if warning:
+            self.v_warning.setText(f"⚠ WARNING\n{warning}")
+            self.v_warning.show()
+        else:
+            self.v_warning.hide()
+
+        # 6. Previous / Next buttons
         self.prev_btn.show()
         self.prev_btn.setEnabled(self.step_i > 0)
-        self.next_btn.setText("Done ✓" if self.step_i == len(steps) - 1 else "Next →")
+        self.next_btn.setText("Done ✓" if self.step_i == total_steps - 1 else "Next Step →")
+
+        # 7. Update Image Panel (Right)
+        image_path = s.get("image")
+        page_num = s.get("page", "")
+        image_kind = s.get("image_kind", "illustration")
+
+        self.v_image.set_image(image_path)
+        if page_num:
+            kind_label = "Illustration" if image_kind == "illustration" else "Page Render"
+            self.v_img_badge.setText(f"Page {page_num} · {kind_label}")
+            self.v_img_badge.show()
+            self.v_caption.setText(f"Manual Page {page_num} ({kind_label})")
+        else:
+            self.v_img_badge.hide()
+            self.v_caption.setText("")
+
+        self.zoom_btn.setVisible(bool(image_path and os.path.isfile(image_path)))
+
+        # 8. Update Reference Panel (Bottom)
+        source_text = str(s.get("source") or "").strip()
+        m_name = ""
+        if self.manual_id:
+            m = db.get_manual(self.manual_id)
+            if m:
+                m_name = m.get("name") or ""
+
+        ref_parts = []
+        if page_num:
+            ref_parts.append(f"Page {page_num}")
+        if m_name:
+            ref_parts.append(m_name[:40] + ("..." if len(m_name) > 40 else ""))
+        self.v_ref_badge.setText(" · ".join(ref_parts))
+
+        if source_text:
+            self.v_source.setText(f"“{source_text}”")
+            self.ref_card.show()
+        elif page_num:
+            self.v_source.setText(f"Reference from manual page {page_num}.")
+            self.ref_card.show()
+        else:
+            self.ref_card.hide()
+
+    def go_to_step(self, idx):
+        steps = (self.answer or {}).get("steps") or []
+        if 0 <= idx < len(steps):
+            self.step_i = idx
+            self.render_step()
+
+    def zoom_image(self):
+        img_path = self.v_image.get_image_path()
+        if img_path and os.path.isfile(img_path):
+            title = self.v_caption.text() or "Manual Illustration"
+            ImagePreviewDialog(self, img_path, title).exec()
 
     def prev_step(self):
         if self.step_i > 0:
@@ -859,11 +1126,12 @@ class MainWindow(QWidget):
             self.render_step()
 
     def next_step(self):
-        if self.answer["steps"] and self.step_i < len(self.answer["steps"]) - 1:
+        steps = (self.answer or {}).get("steps") or []
+        if steps and self.step_i < len(steps) - 1:
             self.step_i += 1
             self.render_step()
         else:
-            self.go(self.ask_page)   # finished: ask another question without restarting
+            self.go(self.ask_page)   # finished: return to questions
 
     def open_current_pdf(self):
         if not self.manual_id:
