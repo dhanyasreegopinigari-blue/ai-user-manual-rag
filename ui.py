@@ -605,9 +605,35 @@ class MainWindow(QWidget):
     def _build_result(self):
         p, lay = self._page()
         lay.addLayout(self._header("HARDWARE FOUND", self.home_page))
+
+        # Photo / Frame preview area (supports side-by-side when matched with a manual image)
+        self.img_row = QHBoxLayout()
+        self.img_row.setSpacing(16)
+
+        self.uploaded_box = QWidget()
+        up_lay = QVBoxLayout(self.uploaded_box)
+        up_lay.setContentsMargins(0, 0, 0, 0)
+        up_lay.setSpacing(4)
+        self.uploaded_caption = label("Uploaded Photo / Video Frame", "caption", align=Qt.AlignmentFlag.AlignCenter)
+        up_lay.addWidget(self.uploaded_caption)
         self.hw_image = label("", "image", align=Qt.AlignmentFlag.AlignCenter)
-        self.hw_image.setFixedHeight(260)
-        lay.addWidget(self.hw_image)
+        self.hw_image.setFixedHeight(240)
+        up_lay.addWidget(self.hw_image)
+        self.img_row.addWidget(self.uploaded_box, 1)
+
+        self.matched_box = QWidget()
+        mat_lay = QVBoxLayout(self.matched_box)
+        mat_lay.setContentsMargins(0, 0, 0, 0)
+        mat_lay.setSpacing(4)
+        self.matched_caption = label("Matched Manual Illustration", "caption", align=Qt.AlignmentFlag.AlignCenter)
+        mat_lay.addWidget(self.matched_caption)
+        self.matched_hw_image = label("", "image", align=Qt.AlignmentFlag.AlignCenter)
+        self.matched_hw_image.setFixedHeight(240)
+        mat_lay.addWidget(self.matched_hw_image)
+        self.img_row.addWidget(self.matched_box, 1)
+        self.matched_box.setVisible(False)
+
+        lay.addLayout(self.img_row)
 
         card = QFrame()
         card.setObjectName("card")
@@ -641,8 +667,25 @@ class MainWindow(QWidget):
 
     def show_hardware(self, res):
         self.hw_result = res
-        if not show_image(self.hw_image, res["preview"], 700, 250):
-            self.hw_image.setText("(image preview unavailable)")
+        match_info = res.get("match_info") or {}
+        source = match_info.get("source")
+        matched_img = match_info.get("matched_image_path")
+
+        # Handle visual match image comparison preview
+        if source in ("visual_image", "visual_image_similar") and matched_img and os.path.isfile(matched_img):
+            pno = match_info.get("page", "")
+            pct = match_info.get("score_pct", 0)
+            self.uploaded_caption.setVisible(True)
+            self.matched_caption.setText(f"Matched Manual Image (Page {pno} · {pct}% Visual Match)")
+            self.matched_box.setVisible(True)
+            show_image(self.hw_image, res["preview"], 360, 240)
+            show_image(self.matched_hw_image, matched_img, 360, 240)
+        else:
+            self.matched_box.setVisible(False)
+            self.uploaded_caption.setVisible(False)
+            if not show_image(self.hw_image, res["preview"], 700, 240):
+                self.hw_image.setText("(image preview unavailable)")
+
         for k, lbl in self.hw_values.items():
             lbl.setText(res["hardware"].get(k) or "Unknown")
 
@@ -664,8 +707,17 @@ class MainWindow(QWidget):
 
         if exact:
             self.match_status.setObjectName("ok")
-            self.match_status.setText("✓ Manual Found")
-            self.match_detail.setText(f"Matching manual: {exact[0]['name']}")
+            if source == "visual_image":
+                self.match_status.setText("✓ Visual Match Found in Manual Images")
+                pno = match_info.get("page")
+                score = match_info.get("score_pct", 0)
+                detail = f"Matching manual: {exact[0]['name']}"
+                if pno:
+                    detail += f"\nMatched illustration from manual on Page {pno} (Visual match: {score}%)"
+                self.match_detail.setText(detail)
+            else:
+                self.match_status.setText("✓ Manual Found")
+                self.match_detail.setText(f"Matching manual: {exact[0]['name']}")
         else:
             self.match_status.setObjectName("bad")
             self.match_status.setText("⚠ No matching manual found")
@@ -675,12 +727,18 @@ class MainWindow(QWidget):
                 "using General Image AI."
             )
             if similar:
-                msg += "\n\nClosest by content (not verified): " + ", ".join(m["name"] for m in similar)
+                if source == "visual_image_similar":
+                    pno = match_info.get("page")
+                    score = match_info.get("score_pct", 0)
+                    msg += f"\n\nClosest visual manual image: {similar[0]['name']} (Page {pno}, ~{score}%)"
+                else:
+                    msg += "\n\nClosest by content (not verified): " + ", ".join(m["name"] for m in similar)
             self.match_detail.setText(msg)
         self.match_status.style().unpolish(self.match_status)
         self.match_status.style().polish(self.match_status)
         self._update_continue()
         self.go(self.result_page)
+
 
     def _update_continue(self, *_):
         self.continue_btn.setEnabled(
