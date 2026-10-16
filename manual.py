@@ -126,28 +126,61 @@ def _extract_images(doc, page, manual_id, pno, repeated):
 # Chunking
 # =============================================================================
 def make_chunks(page_texts):
-    """Group page text into chunks of ~CHUNK_MIN..CHUNK_MAX words.
+    """Group page text into chunks of ~CHUNK_MIN..CHUNK_MAX words with overlap.
     Every page's text is prefixed with a [Page N] marker so answers can cite pages."""
-    segments = []   # (page, text); very long pages are split into several segments
+    segments = []   # (page, text); very long pages are split along paragraph/sentence boundaries
     for pno, text in page_texts:
         words = text.split()
-        for i in range(0, len(words), config.CHUNK_MAX_WORDS):
-            part = " ".join(words[i:i + config.CHUNK_MAX_WORDS]) if len(words) > config.CHUNK_MAX_WORDS else text
-            if part.strip():
-                segments.append((pno, part))
-            if len(words) <= config.CHUNK_MAX_WORDS:
-                break
+        if not words:
+            continue
+        if len(words) <= config.CHUNK_MAX_WORDS:
+            segments.append((pno, text))
+        else:
+            paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+            part_words = []
+            for para in paragraphs:
+                pw = para.split()
+                if len(part_words) + len(pw) > config.CHUNK_MAX_WORDS and part_words:
+                    segments.append((pno, " ".join(part_words)))
+                    part_words = []
+                if len(pw) > config.CHUNK_MAX_WORDS:
+                    for i in range(0, len(pw), config.CHUNK_MAX_WORDS):
+                        slice_w = pw[i:i + config.CHUNK_MAX_WORDS]
+                        if slice_w:
+                            segments.append((pno, " ".join(slice_w)))
+                else:
+                    part_words.extend(pw)
+            if part_words:
+                segments.append((pno, " ".join(part_words)))
 
     chunks, cur, count = [], [], 0
+    has_new = False
+    overlap_words = getattr(config, "CHUNK_OVERLAP_WORDS", 60)
 
     def flush():
-        nonlocal cur, count
-        if cur:
+        nonlocal cur, count, has_new
+        if cur and has_new:
             body = "\n".join(f"[Page {p}]\n{t}" for p, t in cur)
             first_line = next((ln.strip() for ln in cur[0][1].splitlines() if ln.strip()), "")
             chunks.append({"page_number": cur[0][0], "pages": sorted({p for p, _ in cur}),
                            "text": body, "section": first_line[:80]})
-        cur, count = [], 0
+            overlap_cur = []
+            overlap_count = 0
+            if overlap_words > 0:
+                for pno, txt in reversed(cur):
+                    w_list = txt.split()
+                    if overlap_count + len(w_list) <= overlap_words:
+                        overlap_cur.insert(0, (pno, txt))
+                        overlap_count += len(w_list)
+                    else:
+                        needed = overlap_words - overlap_count
+                        if needed > 10:
+                            overlap_cur.insert(0, (pno, " ".join(w_list[-needed:])))
+                            overlap_count += needed
+                        break
+            cur = overlap_cur
+            count = overlap_count
+            has_new = False
 
     for pno, text in segments:
         w = len(text.split())
@@ -155,6 +188,7 @@ def make_chunks(page_texts):
             flush()
         cur.append((pno, text))
         count += w
+        has_new = True
         if count >= config.CHUNK_MIN_WORDS:
             flush()
     flush()

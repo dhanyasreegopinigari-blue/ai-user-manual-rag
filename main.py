@@ -10,6 +10,7 @@ import database
 
 def main():
     config.ensure_dirs()
+    # database init
     database.init_db()
     from ui import STYLE, MainWindow   # imported after DB init
 

@@ -105,7 +105,7 @@ def chat(
     num_ctx=8192,
     num_predict=None
 ):
-    """Single-turn Ollama chat call. Images must be base64 strings."""
+    """Single-turn chat call. `images` = list of base64 strings (vision models)."""
 
     messages = []
 
@@ -146,10 +146,25 @@ def chat(
 
     data = _post("/api/chat", payload, model)
 
-    message_data = data.get("message", {})
-    content = message_data.get("content", "")
+    print("\n========== FULL OLLAMA RESPONSE ==========")
+    print(repr(data))
+    print("===========================================\n")
 
-    # Avoid printing the entire response and prompt-related information.
+    message = data.get("message", {})
+
+    print("\n========== OLLAMA MESSAGE ==========")
+    print(repr(message))
+    print("====================================\n")
+
+    content = message.get("content", "")
+    thinking = message.get("thinking", "")
+
+    print("[OLLAMA CONTENT]")
+    print(repr(content))
+
+    print("[OLLAMA THINKING]")
+    print(repr(thinking))
+
     return strip_think(content)
 
 
@@ -234,12 +249,7 @@ def test_connection(url=None):
         )
 
     missing = []
-
-    for name in (
-        config.VISION_MODEL,
-        config.LLM_MODEL,
-        config.EMBED_MODEL
-    ):
+    for name in (config.VISION_MODEL, config.LLM_MODEL, config.EMBED_MODEL):
         if name not in installed and f"{name}:latest" not in installed:
             missing.append(name)
 
@@ -347,29 +357,12 @@ def _search_index(manual_id, qvec, k):
 
 
 def search(manual_id, question, k=None):
-    """Return the most relevant manual chunks with similarity scores."""
-
-    top_k = k or config.TOP_K
-
-    hits = _search_index(
-        manual_id,
-        embed([question], "search_query: "),
-        top_k
-    )
-
-    if not hits:
-        return []
-
-    chunks = db.get_chunks([
-        chunk_id
-        for chunk_id, score in hits
-    ])
-
+    """Top-k manual chunks for a question (SQLite rows, each with a 'score')."""
+    hits = _search_index(manual_id, embed([question], "search_query: "), k or config.TOP_K)
+    chunks = db.get_chunks([i for i, _ in hits])
     scores = dict(hits)
-
-    for chunk in chunks:
-        chunk["score"] = scores.get(chunk["id"], 0.0)
-
+    for c in chunks:
+        c["score"] = scores.get(c["id"], 0.0)
     return chunks
 
 

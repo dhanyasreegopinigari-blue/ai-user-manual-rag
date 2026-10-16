@@ -10,7 +10,7 @@ instructions with the real images/pages from the manual**. Everything runs local
 - Models:
 ```text
 ollama pull nomic-embed-text
-ollama pull qwen3-vl:2b
+ollama pull qwen3-vl:2b-instruct
 ollama pull qwen3:4b
 ```
 
