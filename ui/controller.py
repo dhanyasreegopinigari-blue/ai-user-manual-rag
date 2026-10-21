@@ -2,8 +2,8 @@
 import os
 import traceback
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtWidgets import QDialog, QFileDialog, QMessageBox, QWidget
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt6.QtWidgets import QDialog, QFileDialog, QMessageBox, QWidget, QFrame, QGridLayout, QHBoxLayout, QVBoxLayout, QLabel, QListWidgetItem
 
 import config
 import database as db
@@ -11,7 +11,11 @@ import services.manual as manual_mod
 import services.rag as rag
 import services.voice as voice
 from config import AppError
-from ui.view import MainView, QuestionCard, MetaDialog, CameraDialog, ImagePreviewDialog, VoiceInputDialog, show_image
+from ui.view import (
+    MainView, QuestionCard, MetaDialog, CameraDialog, ImagePreviewDialog,
+    VoiceInputDialog, UserManualDialog, ChatMessageWidget, show_image, label, button
+)
+import services.export as export_mod
 
 
 class Worker(QThread):
@@ -118,6 +122,23 @@ class MainWindow(QWidget):
         self.open_pdf_btn = self.view.open_pdf_btn
         self.v_step = self.view.v_step
         self.v_summary = self.view.v_summary
+
+        # Chat & User Manual View References
+        self.active_conv_id = None
+        self.chat_page = self.view.chat_page
+        self.chat_sidebar = self.view.chat_sidebar
+        self.chat_history_list = self.view.chat_history_list
+        self.chat_scroll = self.view.chat_scroll
+        self.chat_thread_widget = self.view.chat_thread_widget
+        self.chat_thread_lay = self.view.chat_thread_lay
+        self.chat_input = self.view.chat_input
+        self.chat_send_btn = self.view.chat_send_btn
+        self.chat_speak_btn = self.view.chat_speak_btn
+        self.chat_full_check = self.view.chat_full_check
+        self.typing_card = self.view.typing_card
+        self.typing_lbl = self.view.typing_lbl
+        self.chat_manual_badge = self.view.chat_manual_badge
+        self.expand_sidebar_btn = self.view.expand_sidebar_btn
 
         self.go(self.home_page)
 
@@ -329,20 +350,7 @@ class MainWindow(QWidget):
 
     def open_manual(self, manual_id):
         self.manual_id = manual_id
-
-        # If AI-generated questions were already created, show them immediately.
-        if manual_id in self.question_cache:
-            self.show_ask(self.question_cache[manual_id])
-            self.go(self.ask_page)
-            return
-
-        # Show the Ask page immediately using fast fallback questions.
-        fallback = self.default_questions(manual_id)
-        self.show_ask(fallback)
-        self.go(self.ask_page)
-
-        # Generate better AI questions in the background without blocking.
-        self._generate_questions_background(manual_id)
+        self.open_chat(manual_id=manual_id)
 
     def _generate_questions_background(self, manual_id):
         """Generate AI questions without blocking the GUI."""
@@ -626,13 +634,344 @@ class MainWindow(QWidget):
             self.return_to_ask_page()
 
     def open_current_pdf(self):
-        if not self.manual_id:
-            return
-        m = db.get_manual(self.manual_id)
-        if m and m.get("file_path") and os.path.isfile(m["file_path"]):
-            try:
-                os.startfile(m["file_path"])
-            except Exception as e:
-                QMessageBox.warning(self, "PDF Viewer", f"Could not open PDF file:\n{e}")
+        self.open_user_manual()
+
+    # ---- Chat & Conversation System -------------------------------------------
+    def toggle_sidebar(self):
+        visible = not self.chat_sidebar.isVisible()
+        self.chat_sidebar.setVisible(visible)
+        self.expand_sidebar_btn.setVisible(not visible)
+
+    def refresh_history_sidebar(self):
+        self.chat_history_list.clear()
+        convs = db.list_conversations()
+        for c in convs:
+            title = c.get("title") or "New Chat"
+            mname = c.get("manual_name") or "Manual"
+            date = (c.get("updated_at") or "")[:10]
+            item = QListWidgetItem(f"💬 {title}\n  {mname} • {date}")
+            item.setData(Qt.ItemDataRole.UserRole, c["id"])
+            if c["id"] == self.active_conv_id:
+                item.setSelected(True)
+            self.chat_history_list.addItem(item)
+
+    def _on_history_item_clicked(self, item):
+        cid = item.data(Qt.ItemDataRole.UserRole)
+        if cid:
+            self.load_conversation(cid)
+
+    def open_chat(self, manual_id=None, conv_id=None):
+        if manual_id:
+            self.manual_id = manual_id
+        elif not self.manual_id:
+            manuals = db.list_manuals()
+            if manuals:
+                self.manual_id = manuals[0]["id"]
+
+        m = db.get_manual(self.manual_id) if self.manual_id else None
+        mname = m["name"] if m else "General Manual"
+        self.chat_manual_badge.setText(f"📖 Manual: {mname}")
+
+        self.refresh_history_sidebar()
+
+        if conv_id:
+            self.load_conversation(conv_id)
+        elif self.active_conv_id:
+            self.load_conversation(self.active_conv_id)
         else:
-            QMessageBox.information(self, "PDF Viewer", "Original PDF file could not be found.")
+            convs = db.list_conversations()
+            if convs:
+                self.load_conversation(convs[0]["id"])
+            else:
+                self.new_chat()
+
+        self.go(self.chat_page)
+
+    def new_chat(self):
+        if not self.manual_id:
+            manuals = db.list_manuals()
+            if manuals:
+                self.manual_id = manuals[0]["id"]
+
+        cid = db.create_conversation(self.manual_id, "New Chat")
+        self.active_conv_id = cid
+        self.render_empty_chat_welcome()
+        self.refresh_history_sidebar()
+        self.chat_input.setFocus()
+
+    def render_empty_chat_welcome(self):
+        while self.chat_thread_lay.count() > 1:
+            child = self.chat_thread_lay.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        welcome_card = QFrame()
+        welcome_card.setObjectName("asstCard")
+        w_lay = QVBoxLayout(welcome_card)
+        w_lay.setContentsMargins(24, 20, 24, 20)
+        w_lay.setSpacing(12)
+
+        m = db.get_manual(self.manual_id) if self.manual_id else None
+        mtitle = m["name"] if m else "User Manual Assistant"
+        w_lay.addWidget(label(f"👋 Welcome to {mtitle}", "h1"))
+        w_lay.addWidget(label("Ask any question below or click a suggested topic to get step-by-step instructions directly verified from the manufacturer's manual.", "muted"))
+
+        qs = self.default_questions(self.manual_id) if self.manual_id else ["How do I install this?", "What are the safety instructions?", "How do I troubleshoot errors?"]
+        w_lay.addWidget(label("✨ SUGGESTED QUESTIONS:", "sectionHeader", wrap=False))
+
+        grid = QGridLayout()
+        grid.setSpacing(8)
+        for i, q in enumerate(qs[:6]):
+            card = QuestionCard(q)
+            card.clicked.connect(lambda _, qtext=q: self.send_chat_message(qtext))
+            grid.addWidget(card, i // 2, i % 2)
+        w_lay.addLayout(grid)
+
+        self.chat_thread_lay.insertWidget(0, welcome_card)
+
+    def send_chat_message(self, explicit_question=None):
+        question = (explicit_question or self.chat_input.text()).strip()
+        if not question:
+            return
+
+        if not explicit_question:
+            self.chat_input.clear()
+
+        if not self.active_conv_id:
+            self.active_conv_id = db.create_conversation(self.manual_id, question[:35])
+
+        if self.chat_thread_lay.count() == 2:
+            item = self.chat_thread_lay.itemAt(0)
+            if item and item.widget() and item.widget().objectName() == "asstCard":
+                item.widget().deleteLater()
+
+        db.add_chat_message(self.active_conv_id, "user", question)
+        user_w = ChatMessageWidget("user", question, parent_win=self)
+        self.chat_thread_lay.insertWidget(self.chat_thread_lay.count() - 1, user_w)
+
+        conv = db.get_conversation(self.active_conv_id)
+        if conv and conv.get("title") == "New Chat":
+            db.update_conversation_title(self.active_conv_id, question[:35])
+
+        QTimer.singleShot(50, lambda: self.chat_scroll.verticalScrollBar().setValue(
+            self.chat_scroll.verticalScrollBar().maximum()))
+
+        self.typing_lbl.setText("Searching manual & reasoning answer...")
+        self.typing_card.setVisible(True)
+        self.chat_send_btn.setEnabled(False)
+        self.chat_speak_btn.setEnabled(False)
+
+        history = db.get_chat_messages(self.active_conv_id)[-6:]
+        mode = "full" if self.chat_full_check.isChecked() else "auto"
+
+        def task_fn(progress_cb):
+            return rag.answer_question(self.manual_id, question, progress=progress_cb, mode=mode, history=history)
+
+        def on_done(ans):
+            self.typing_card.setVisible(False)
+            self.chat_send_btn.setEnabled(True)
+            self.chat_speak_btn.setEnabled(True)
+
+            summary = ans.get("summary") or ans.get("answer") or "Here are the instructions from the manual."
+            db.add_chat_message(self.active_conv_id, "assistant", summary, data=ans)
+
+            asst_w = ChatMessageWidget("assistant", summary, data=ans, parent_win=self)
+            self.chat_thread_lay.insertWidget(self.chat_thread_lay.count() - 1, asst_w)
+
+            self.refresh_history_sidebar()
+            QTimer.singleShot(60, lambda: self.chat_scroll.verticalScrollBar().setValue(
+                self.chat_scroll.verticalScrollBar().maximum()))
+
+        worker = Worker(task_fn)
+        self._workers.append(worker)
+        worker.progress.connect(self.typing_lbl.setText)
+        worker.done.connect(on_done)
+        worker.failed.connect(lambda err: (
+            self.typing_card.setVisible(False),
+            self.chat_send_btn.setEnabled(True),
+            self.chat_speak_btn.setEnabled(True),
+            QMessageBox.warning(self, "Chat Problem", err)
+        ))
+        worker.start()
+
+    def load_conversation(self, conv_id):
+        self.active_conv_id = conv_id
+        conv = db.get_conversation(conv_id)
+        if conv and conv.get("manual_id"):
+            self.manual_id = conv["manual_id"]
+            mname = conv.get("manual_name") or "Manual"
+            self.chat_manual_badge.setText(f"📖 Manual: {mname}")
+
+        while self.chat_thread_lay.count() > 1:
+            child = self.chat_thread_lay.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        msgs = db.get_chat_messages(conv_id)
+        if not msgs:
+            self.render_empty_chat_welcome()
+        else:
+            for m in msgs:
+                widget = ChatMessageWidget(
+                    m["role"],
+                    m["content"],
+                    data=m.get("data"),
+                    created_at=(m.get("created_at") or "")[-8:],
+                    parent_win=self
+                )
+                self.chat_thread_lay.insertWidget(self.chat_thread_lay.count() - 1, widget)
+
+        self.refresh_history_sidebar()
+        QTimer.singleShot(50, lambda: self.chat_scroll.verticalScrollBar().setValue(
+            self.chat_scroll.verticalScrollBar().maximum()))
+
+    def delete_selected_conversation(self):
+        item = self.chat_history_list.currentItem()
+        if not item:
+            QMessageBox.information(self, "Delete Chat", "Please select a conversation from the sidebar first.")
+            return
+
+        cid = item.data(Qt.ItemDataRole.UserRole)
+        if not cid:
+            return
+
+        if QMessageBox.question(self, "Delete Chat", "Delete this conversation history?") != QMessageBox.StandardButton.Yes:
+            return
+
+        db.delete_conversation(cid)
+        if cid == self.active_conv_id:
+            self.active_conv_id = None
+            convs = db.list_conversations()
+            if convs:
+                self.load_conversation(convs[0]["id"])
+            else:
+                self.new_chat()
+        else:
+            self.refresh_history_sidebar()
+
+    def speak_chat(self):
+        if not voice.is_available():
+            QMessageBox.information(self, "Voice", voice.UNAVAILABLE)
+            return
+
+        dlg = VoiceInputDialog(self)
+        if dlg.exec() == QDialog.DialogCode.Accepted and getattr(dlg, "transcribed_text", None):
+            text = dlg.transcribed_text.strip()
+            if text:
+                self.chat_input.setText(text)
+                self.chat_input.setFocus()
+
+    def open_user_manual(self, page_number=None):
+        """Open the interactive User Manual viewer with Outline, Search, and Page Zoom."""
+        if not self.manual_id:
+            manuals = db.list_manuals()
+            if manuals:
+                self.manual_id = manuals[0]["id"]
+            else:
+                QMessageBox.information(self, "User Manual", "No manuals found. Please import a PDF manual first.")
+                self.open_library()
+                return
+
+        dlg = UserManualDialog(self, manual_id=self.manual_id, initial_page=page_number or 1)
+        dlg.exec()
+
+    def view_selected_manual(self):
+        mid = self._selected_id()
+        if mid:
+            dlg = UserManualDialog(self, manual_id=mid, initial_page=1)
+            dlg.exec()
+        else:
+            QMessageBox.information(self, "Manual Library", "Please select a manual from the list first.")
+
+    def export_current_chat(self, fmt="txt"):
+        if not self.active_conv_id:
+            QMessageBox.information(self, "Export", "No active conversation to export.")
+            return
+
+        conv = db.get_conversation(self.active_conv_id)
+        msgs = db.get_chat_messages(self.active_conv_id)
+        if not msgs:
+            QMessageBox.information(self, "Export", "The conversation is empty.")
+            return
+
+        title = conv.get("title") or "Conversation"
+        mname = conv.get("manual_name") or ""
+        ext = f".{fmt}"
+        filter_str = f"{fmt.upper()} files (*{ext})"
+        dest, _ = QFileDialog.getSaveFileName(self, f"Export Conversation as {fmt.upper()}", f"{title}{ext}", filter_str)
+        if not dest:
+            return
+
+        try:
+            if fmt == "pdf":
+                html = export_mod.format_conversation_html(msgs, title=title, manual_name=mname)
+                export_mod.save_as_pdf(html, dest)
+            elif fmt == "md":
+                content = export_mod.format_conversation_md(msgs, title=title, manual_name=mname)
+                with open(dest, "w", encoding="utf-8") as f:
+                    f.write(content)
+            else:
+                content = export_mod.format_conversation_txt(msgs, title=title, manual_name=mname)
+                with open(dest, "w", encoding="utf-8") as f:
+                    f.write(content)
+            QMessageBox.information(self, "Export Complete", f"Conversation exported successfully to:\n{dest}")
+        except Exception as e:
+            QMessageBox.warning(self, "Export Failed", f"Could not export conversation:\n{e}")
+
+    def export_recent_chats(self, fmt="txt"):
+        convs = db.list_conversations()
+        if not convs:
+            QMessageBox.information(self, "Export", "No recent chats found to export.")
+            return
+
+        all_msgs = []
+        for c in convs[:15]:
+            all_msgs.append({"role": "user", "content": f"--- CHAT: {c.get('title')} ({c.get('manual_name')}) ---"})
+            all_msgs.extend(db.get_chat_messages(c["id"]))
+
+        ext = f".{fmt}"
+        dest, _ = QFileDialog.getSaveFileName(self, f"Export Recent Chats as {fmt.upper()}", f"Recent_Chats_Export{ext}", f"{fmt.upper()} files (*{ext})")
+        if not dest:
+            return
+
+        try:
+            if fmt == "pdf":
+                html = export_mod.format_conversation_html(all_msgs, title="Recent Chats Export", manual_name="All Manuals")
+                export_mod.save_as_pdf(html, dest)
+            elif fmt == "md":
+                content = export_mod.format_conversation_md(all_msgs, title="Recent Chats Export", manual_name="All Manuals")
+                with open(dest, "w", encoding="utf-8") as f:
+                    f.write(content)
+            else:
+                content = export_mod.format_conversation_txt(all_msgs, title="Recent Chats Export", manual_name="All Manuals")
+                with open(dest, "w", encoding="utf-8") as f:
+                    f.write(content)
+            QMessageBox.information(self, "Export Complete", f"Recent chats exported successfully to:\n{dest}")
+        except Exception as e:
+            QMessageBox.warning(self, "Export Failed", f"Could not export recent chats:\n{e}")
+
+    def export_single_answer(self, answer_data, question="", fmt="txt"):
+        title = answer_data.get("title") or "Manual_Answer"
+        safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "_", "-")).strip()[:40]
+        ext = f".{fmt}"
+        dest, _ = QFileDialog.getSaveFileName(self, f"Export Answer as {fmt.upper()}", f"{safe_title}{ext}", f"{fmt.upper()} files (*{ext})")
+        if not dest:
+            return
+
+        m = db.get_manual(self.manual_id) if self.manual_id else None
+        mname = m["name"] if m else ""
+        try:
+            if fmt == "pdf":
+                html = export_mod.format_answer_html(answer_data, question=question, manual_name=mname)
+                export_mod.save_as_pdf(html, dest)
+            elif fmt == "md":
+                content = export_mod.format_answer_md(answer_data, question=question)
+                with open(dest, "w", encoding="utf-8") as f:
+                    f.write(content)
+            else:
+                content = export_mod.format_answer_txt(answer_data, question=question)
+                with open(dest, "w", encoding="utf-8") as f:
+                    f.write(content)
+            QMessageBox.information(self, "Export Complete", f"Answer exported successfully to:\n{dest}")
+        except Exception as e:
+            QMessageBox.warning(self, "Export Failed", f"Could not export answer:\n{e}")

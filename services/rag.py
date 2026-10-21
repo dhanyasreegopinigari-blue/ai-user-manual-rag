@@ -103,9 +103,10 @@ def chat(
     json_mode=False,
     temperature=0.2,
     num_ctx=8192,
-    num_predict=None
+    num_predict=None,
+    history=None
 ):
-    """Single-turn chat call. `images` = list of base64 strings (vision models)."""
+    """Multi-turn chat call with history. `images` = list of base64 strings (vision models)."""
 
     messages = []
 
@@ -114,6 +115,16 @@ def chat(
             "role": "system",
             "content": system
         })
+
+    if history:
+        for h in history:
+            role = h.get("role", "user")
+            content = h.get("content", "")
+            if role in ("user", "assistant") and content:
+                messages.append({
+                    "role": role,
+                    "content": content
+                })
 
     msg = {
         "role": "user",
@@ -599,7 +610,7 @@ def _page_excerpt(manual_id, page, step_text, max_sentences=2):
     )[:500]
 
 
-def _answer_quick(manual_id, question, progress=None):
+def _answer_quick(manual_id, question, progress=None, history=None):
     """
     Quick RAG pipeline.
 
@@ -685,7 +696,8 @@ def _answer_quick(manual_id, question, progress=None):
         json_mode=True,
         temperature=0.1,
         num_ctx=4096,
-        num_predict=400
+        num_predict=400,
+        history=history
     )
 
     data = parse_json(raw)
@@ -871,7 +883,7 @@ def _attach_visuals(manual_id, steps):
         )
 
 
-def _answer_full(manual_id, question, cb):
+def _answer_full(manual_id, question, cb, history=None):
     """Build a multi-step guide from relevant manual chunks."""
 
     cb("Searching the whole manual...")
@@ -1062,7 +1074,8 @@ def answer_question(
     manual_id,
     question,
     progress=None,
-    mode="auto"
+    mode="auto",
+    history=None
 ):
     """
     Answer a manual question.
@@ -1081,13 +1094,15 @@ def answer_question(
         return _answer_full(
             manual_id,
             question,
-            cb
+            cb,
+            history=history
         )
 
     return _answer_quick(
         manual_id,
         question,
-        cb
+        cb,
+        history=history
     )
 
 

@@ -1,3 +1,4 @@
+import json
 """SQLite storage. A fresh connection is opened per call, so it is safe to use from worker threads."""
 import os
 import re
@@ -46,6 +47,22 @@ CREATE VIRTUAL TABLE IF NOT EXISTS manual_chunks_fts USING fts5(
     section,
     tokenize = 'unicode61'
 );
+CREATE TABLE IF NOT EXISTS conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    manual_id INTEGER,
+    title TEXT NOT NULL,
+    created_at TEXT,
+    updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    data_json TEXT,
+    created_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_chat_conv ON chat_messages(conversation_id);
 """
 
 
@@ -245,3 +262,83 @@ def find_manuals_by_hardware(hw):
         if found:
             return found
     return []
+
+
+# ---- Chat History & Conversations -------------------------------------------
+def create_conversation(manual_id=None, title="New Chat"):
+    now = datetime.now().isoformat(timespec="seconds")
+    return execute(
+        "INSERT INTO conversations (manual_id, title, created_at, updated_at) VALUES (?,?,?,?)",
+        (manual_id, title, now, now)
+    )
+
+
+def list_conversations():
+    return query(
+        """
+        SELECT c.*, m.name as manual_name,
+               (SELECT content FROM chat_messages WHERE conversation_id=c.id AND role='user' ORDER BY id ASC LIMIT 1) as first_question,
+               (SELECT COUNT(*) FROM chat_messages WHERE conversation_id=c.id) as message_count
+        FROM conversations c
+        LEFT JOIN manuals m ON c.manual_id = m.id
+        ORDER BY c.updated_at DESC, c.id DESC
+        """
+    )
+
+
+def get_conversation(conv_id):
+    rows = query(
+        """
+        SELECT c.*, m.name as manual_name, m.file_path as manual_file_path
+        FROM conversations c
+        LEFT JOIN manuals m ON c.manual_id = m.id
+        WHERE c.id=?
+        """,
+        (conv_id,)
+    )
+    return rows[0] if rows else None
+
+
+def update_conversation_title(conv_id, title):
+    execute("UPDATE conversations SET title=? WHERE id=?", (title, conv_id))
+
+
+def update_conversation_manual(conv_id, manual_id):
+    now = datetime.now().isoformat(timespec="seconds")
+    execute("UPDATE conversations SET manual_id=?, updated_at=? WHERE id=?", (manual_id, now, conv_id))
+
+
+def delete_conversation(conv_id):
+    execute("DELETE FROM chat_messages WHERE conversation_id=?", (conv_id,))
+    execute("DELETE FROM conversations WHERE id=?", (conv_id,))
+
+
+def add_chat_message(conv_id, role, content, data=None):
+    now = datetime.now().isoformat(timespec="seconds")
+    data_str = json.dumps(data) if data is not None else None
+    msg_id = execute(
+        "INSERT INTO chat_messages (conversation_id, role, content, data_json, created_at) VALUES (?,?,?,?,?)",
+        (conv_id, role, content, data_str, now)
+    )
+    execute("UPDATE conversations SET updated_at=? WHERE id=?", (now, conv_id))
+    return msg_id
+
+
+def get_chat_messages(conv_id):
+    rows = query("SELECT * FROM chat_messages WHERE conversation_id=? ORDER BY id ASC", (conv_id,))
+    results = []
+    for r in rows:
+        item = dict(r)
+        if item.get("data_json"):
+            try:
+                item["data"] = json.loads(item["data_json"])
+            except Exception:
+                item["data"] = None
+        else:
+            item["data"] = None
+        results.append(item)
+    return results
+
+
+def delete_chat_message(msg_id):
+    execute("DELETE FROM chat_messages WHERE id=?", (msg_id,))
