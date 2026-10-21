@@ -1,4 +1,4 @@
-"""UI Controller layer: Business logic, worker orchestration, Q&A handling, and event coordination."""
+"""UI Controller layer: Business logic, streaming LLM orchestration, Q&A handling, and event coordination."""
 import os
 import json
 import traceback
@@ -18,11 +18,12 @@ import services.rag as rag
 import services.voice as voice
 import services.export as export_mod
 import services.components as comp_service
+import services.llm as llm_service
 from config import AppError
 from ui.view import (
-    MainView, QuestionCard, MetaDialog, CameraDialog, ImagePreviewDialog,
-    VoiceInputDialog, UserManualDialog, ChatMessageWidget, ComponentCardWidget,
-    DARK_STYLE, LIGHT_STYLE, show_image, label, button
+    MainView, QuestionCard, MetaDialog, SettingsDialog, CameraDialog,
+    ImagePreviewDialog, VoiceInputDialog, UserManualDialog, ChatMessageWidget,
+    ComponentCardWidget, DARK_STYLE, LIGHT_STYLE, show_image, label, button
 )
 try:
     import pymupdf as fitz
@@ -31,10 +32,11 @@ except ImportError:
 
 
 class Worker(QThread):
-    """Runs fn(progress_callback) in a background thread so the GUI never freezes."""
+    """Runs fn(progress_cb, stream_cb) in a background thread with live token streaming."""
     done = pyqtSignal(object)
     failed = pyqtSignal(str)
     progress = pyqtSignal(str)
+    stream_token = pyqtSignal(str)
 
     def __init__(self, fn):
         super().__init__()
@@ -42,7 +44,13 @@ class Worker(QThread):
 
     def run(self):
         try:
-            result = self.fn(self.progress.emit)
+            # Pass progress and stream callbacks
+            import inspect
+            sig = inspect.signature(self.fn)
+            if len(sig.parameters) >= 2:
+                result = self.fn(self.progress.emit, self.stream_token.emit)
+            else:
+                result = self.fn(self.progress.emit)
             self.done.emit(result)
         except AppError as e:
             self.failed.emit(str(e))
@@ -79,6 +87,9 @@ class MainWindow(QWidget):
         # Build View
         self.view = MainView(self)
         self.view.setup_ui()
+
+        # Keep space background resized
+        self.view.space_bg.setGeometry(self.rect())
 
         # Expose view attributes for direct access and backward compatibility
         self.top_bar = self.view.top_bar
@@ -163,7 +174,7 @@ class MainWindow(QWidget):
         self.v_step = self.v_step_badge
         self.v_summary = label()
 
-        # Initialize Default Data & Active Manual
+        # Initialize Data & Active Manual
         manuals = db.list_manuals()
         if manuals:
             self.manual_id = manuals[0]["id"]
@@ -174,15 +185,21 @@ class MainWindow(QWidget):
         self.refresh_library()
         self.navigate_to(0)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "view") and hasattr(self.view, "space_bg"):
+            self.view.space_bg.setGeometry(self.rect())
+
     # ---- Theme Management ----------------------------------------------------
     def toggle_theme(self):
-        """Toggle between modern Dark and Light themes across the entire app."""
+        """Toggle between Matrix Black & Green and Clean Emerald Light themes."""
         self.is_dark_theme = not self.is_dark_theme
         theme = DARK_STYLE if self.is_dark_theme else LIGHT_STYLE
         app = QApplication.instance()
         if app:
             app.setStyleSheet(theme)
-        self.top_bar.theme_btn.setText("🌓 Dark Mode" if self.is_dark_theme else "☀️ Light Mode")
+        self.view.update_background_theme(self.is_dark_theme)
+        self.top_bar.theme_btn.setText("🌓 Dark Theme" if self.is_dark_theme else "☀️ Light Theme")
 
     # ---- Navigation & Worker execution ----------------------------------------
     def navigate_to(self, page_index):
@@ -262,12 +279,10 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Invalid File", "The selected file is empty or cannot be accessed.")
             return
 
-        # Check maximum file size (50MB)
         if os.path.getsize(path) > 50 * 1024 * 1024:
             QMessageBox.warning(self, "File Too Large", "The selected image exceeds 50MB. Please select a smaller photo.")
             return
 
-        # Verify image integrity with OpenCV
         test_img = cv2.imread(path)
         if test_img is None:
             QMessageBox.warning(self, "Corrupted Image", "The selected file is not a valid or readable image format.")
@@ -308,7 +323,6 @@ class MainWindow(QWidget):
         source = match_info.get("source")
         matched_img = match_info.get("matched_image_path")
 
-        # Side-by-side comparison if visual match found
         if source in ("visual_image", "visual_image_similar") and matched_img and os.path.isfile(matched_img):
             pno = match_info.get("page", "")
             pct = match_info.get("score_pct", 0)
@@ -323,11 +337,9 @@ class MainWindow(QWidget):
             if not show_image(self.hw_image, res["preview"], 760, 220):
                 self.hw_image.setText("(image preview unavailable)")
 
-        # Populate specs fields
         for k, lbl in self.hw_values.items():
             lbl.setText(hw.get(k) or "Unknown")
 
-        # Check for matching electronic component reference in components library
         comp_match = comp_service.find_component_match(
             f"{hw.get('product_name', '')} {hw.get('model', '')} {hw.get('part_number', '')} {hw.get('hardware_type', '')}"
         )
@@ -347,7 +359,6 @@ class MainWindow(QWidget):
         self.view.dash_desc_lbl.setText(desc_text)
         self.dash_ask_comp_btn.setEnabled(True)
 
-        # Save to persistent component scans table
         try:
             details_json = json.dumps({
                 "specs": hw,
@@ -359,7 +370,6 @@ class MainWindow(QWidget):
         except Exception as e:
             print(f"[SCAN_DB] Failed to record scan: {e}")
 
-        # Update manual combobox & status
         exact, similar = res.get("exact") or [], res.get("similar") or []
         exact_ids = [m["id"] for m in exact]
         similar_ids = [m["id"] for m in similar if m["id"] not in exact_ids]
@@ -485,7 +495,6 @@ class MainWindow(QWidget):
         search_q = self.lib_search.text().strip()
         comps = comp_service.filter_components(self.active_category, search_q)
 
-        # Clear existing cards
         while self.cards_lay.count() > 1:
             child = self.cards_lay.takeAt(0)
             if child.widget():
@@ -551,7 +560,7 @@ class MainWindow(QWidget):
             self.ev_load_manual(mid)
             self.navigate_to(3)
 
-    # ---- Chat & Conversation System -------------------------------------------
+    # ---- Chat & Conversation System (Streaming Hybrid LLM) -------------------
     def toggle_sidebar(self):
         vis = not self.chat_sidebar.isVisible()
         self.chat_sidebar.setVisible(vis)
@@ -584,8 +593,9 @@ class MainWindow(QWidget):
                 self.manual_id = manuals[0]["id"]
 
         m = db.get_manual(self.manual_id) if self.manual_id else None
-        mname = m["name"] if m else "General Electronics Assistant"
-        self.chat_manual_badge.setText(f"📖 Reference: {mname}")
+        mname = m["name"] if m else "General Electronics Knowledge"
+        provider = llm_service.get_active_provider().upper()
+        self.chat_manual_badge.setText(f"💬 Assistant ({provider}) · {mname}")
 
         self.refresh_history_sidebar()
 
@@ -622,17 +632,19 @@ class MainWindow(QWidget):
         w_lay.setContentsMargins(24, 20, 24, 20)
         w_lay.setSpacing(12)
 
-        m = db.get_manual(self.manual_id) if self.manual_id else None
-        mtitle = m["name"] if m else "Electronics Assistant"
-        w_lay.addWidget(label(f"👋 Welcome to {mtitle}", "h1"))
-        w_lay.addWidget(label("Ask any question below or click a suggested topic to get verified pinouts, calculations, and circuit guidance.", "muted"))
+        provider = llm_service.get_active_provider().upper()
+        w_lay.addWidget(label(f"👋 ElectroLearn AI Assistant ({provider})", "h1"))
+        w_lay.addWidget(label(
+            "Ask general electronics questions or inquire about imported hardware manuals. "
+            "Get instant explanations, schematic symbols, calculations, and circuit troubleshooting.", "muted"
+        ))
 
         qs = [
+            "What is an Integrated Circuit (IC) and how does it work?",
             "How do I determine resistor values from color bands?",
             "What is the difference between NPN and PNP transistors?",
-            "How do I wire an NE555 timer in Astable mode?",
+            "How do I wire an NE555 timer in Astable oscillator mode?",
             "What voltage regulator should I use to step down 12V to 5V?",
-            "How does an ultrasonic distance sensor measure flight time?",
             "What safety precautions prevent electrostatic discharge (ESD)?"
         ]
         w_lay.addWidget(label("✨ SUGGESTED QUESTIONS:", "caption", wrap=False))
@@ -658,12 +670,13 @@ class MainWindow(QWidget):
         if not self.active_conv_id:
             self.active_conv_id = db.create_conversation(self.manual_id, question[:35])
 
-        # Remove welcome card once real chat starts
+        # Remove welcome card once real conversation starts
         if self.chat_thread_lay.count() == 2:
             item = self.chat_thread_lay.itemAt(0)
             if item and item.widget() and item.widget().objectName() == "asstCard":
                 item.widget().deleteLater()
 
+        # 1. Add User Message to UI & DB
         db.add_chat_message(self.active_conv_id, "user", question)
         user_w = ChatMessageWidget("user", question, parent_win=self)
         self.chat_thread_lay.insertWidget(self.chat_thread_lay.count() - 1, user_w)
@@ -672,30 +685,47 @@ class MainWindow(QWidget):
         if conv and conv.get("title") == "New Chat":
             db.update_conversation_title(self.active_conv_id, question[:35])
 
+        # 2. Add Assistant Message Widget ready for streaming tokens
+        asst_w = ChatMessageWidget("assistant", "", parent_win=self)
+        self.chat_thread_lay.insertWidget(self.chat_thread_lay.count() - 1, asst_w)
+
         QTimer.singleShot(50, lambda: self.chat_scroll.verticalScrollBar().setValue(
             self.chat_scroll.verticalScrollBar().maximum()))
 
-        self.typing_lbl.setText("Reasoning answer & searching manuals...")
+        provider = llm_service.get_active_provider().upper()
+        self.typing_lbl.setText(f"Thinking with {provider}...")
         self.typing_card.setVisible(True)
         self.chat_send_btn.setEnabled(False)
         self.chat_speak_btn.setEnabled(False)
 
-        history = db.get_chat_messages(self.active_conv_id)[-6:]
-        mode = "full" if self.chat_full_check.isChecked() else "auto"
+        history = db.get_chat_messages(self.active_conv_id)[-8:]
 
-        def task_fn(progress_cb):
-            return rag.answer_question(self.manual_id, question, progress=progress_cb, mode=mode, history=history)
+        # Streaming task worker
+        def task_fn(progress_cb, stream_cb):
+            return llm_service.answer_hybrid(
+                self.manual_id,
+                question,
+                history=history,
+                progress_cb=progress_cb,
+                stream_cb=stream_cb
+            )
+
+        def on_stream_token(token):
+            self.typing_card.setVisible(False)
+            asst_w.append_stream_token(token)
+            # Smooth auto-scroll during generation
+            self.chat_scroll.verticalScrollBar().setValue(
+                self.chat_scroll.verticalScrollBar().maximum()
+            )
 
         def on_done(ans):
             self.typing_card.setVisible(False)
             self.chat_send_btn.setEnabled(True)
             self.chat_speak_btn.setEnabled(True)
 
-            summary = ans.get("summary") or ans.get("answer") or "Here is the guidance for your question."
+            summary = ans.get("summary") or ans.get("answer") or "Here is the guidance."
+            asst_w.finalize_stream(ans)
             db.add_chat_message(self.active_conv_id, "assistant", summary, data=ans)
-
-            asst_w = ChatMessageWidget("assistant", summary, data=ans, parent_win=self)
-            self.chat_thread_lay.insertWidget(self.chat_thread_lay.count() - 1, asst_w)
 
             self.refresh_history_sidebar()
             QTimer.singleShot(60, lambda: self.chat_scroll.verticalScrollBar().setValue(
@@ -704,11 +734,13 @@ class MainWindow(QWidget):
         worker = Worker(task_fn)
         self._workers.append(worker)
         worker.progress.connect(self.typing_lbl.setText)
+        worker.stream_token.connect(on_stream_token)
         worker.done.connect(on_done)
         worker.failed.connect(lambda err: (
             self.typing_card.setVisible(False),
             self.chat_send_btn.setEnabled(True),
             self.chat_speak_btn.setEnabled(True),
+            asst_w.append_stream_token(f"\n⚠️ Error: {err}"),
             QMessageBox.warning(self, "Assistant Problem", err)
         ))
         worker.start()
@@ -719,7 +751,8 @@ class MainWindow(QWidget):
         if conv and conv.get("manual_id"):
             self.manual_id = conv["manual_id"]
             mname = conv.get("manual_name") or "Manual"
-            self.chat_manual_badge.setText(f"📖 Reference: {mname}")
+            provider = llm_service.get_active_provider().upper()
+            self.chat_manual_badge.setText(f"💬 Assistant ({provider}) · {mname}")
 
         while self.chat_thread_lay.count() > 1:
             child = self.chat_thread_lay.takeAt(0)
@@ -1049,11 +1082,11 @@ class MainWindow(QWidget):
         self.open_chat()
 
     def return_to_ask_page(self):
-        self.top_bar.set_active_tab(1)
-        self.stack.setCurrentIndex(1)
+        self.navigate_to(1)
 
     def default_questions(self, mid=None):
         return [
+            "What is an Integrated Circuit (IC) and how does it work?",
             "How do I determine resistor values from color bands?",
             "What is the difference between NPN and PNP transistors?",
             "How do I wire an NE555 timer in Astable mode?",

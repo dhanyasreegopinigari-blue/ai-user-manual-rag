@@ -1,10 +1,14 @@
-"""UI View layer: Modern Styles, Responsive Widgets, Dialogs, and 4-Page Architecture."""
+"""UI View layer: Modern Black & Green Cyber/Interstellar Theme, Glass Cards, and 4-Page System."""
 import os
 import time
+import random
 import cv2
 
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt6.QtGui import QAction, QImage, QPainter, QPixmap, QFont
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QPointF
+from PyQt6.QtGui import (
+    QAction, QImage, QPainter, QPixmap, QFont, QColor, QRadialGradient,
+    QLinearGradient, QBrush, QPen
+)
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QFrame,
     QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
@@ -24,170 +28,622 @@ import config
 
 
 DARK_STYLE = """
-QWidget { background:#0d121a; color:#e6edf6; font-family:'Segoe UI','Inter',system-ui,sans-serif; font-size:14px; }
-QLabel { background:transparent; }
-QPushButton { background:#1b2332; border:1px solid #2a374c; border-radius:10px; padding:9px 16px; color:#e6edf6; font-weight:500; }
-QPushButton:hover { background:#253043; border-color:#3d4e68; }
-QPushButton:pressed { background:#161c28; }
-QPushButton:disabled { color:#5f6b80; background:#141a24; border-color:#1e2634; }
+/* =========================================================================
+   BLACK & GREEN (MATRIX / INTERSTELLAR) DARK THEME
+   Deep obsidian space background, cyber green accents, glassmorphic panels
+   ========================================================================= */
+QWidget {
+    background: transparent;
+    color: #e6f4ea;
+    font-family: 'Segoe UI', 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 14px;
+}
+QLabel { background: transparent; }
 
-QPushButton[kind="primary"] { background:#3b82f6; border:none; color:#ffffff; font-weight:600; }
-QPushButton[kind="primary"]:hover { background:#60a5fa; }
-QPushButton[kind="primary"]:pressed { background:#2563eb; }
-QPushButton[kind="primary"]:disabled { background:#1e293b; color:#64748b; }
+/* Buttons */
+QPushButton {
+    background: rgba(12, 22, 16, 0.88);
+    border: 1px solid #1c3d28;
+    border-radius: 10px;
+    padding: 9px 18px;
+    color: #bbf7d0;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background: rgba(18, 36, 25, 0.95);
+    border-color: #22c55e;
+    color: #ffffff;
+}
+QPushButton:pressed {
+    background: #06180d;
+}
+QPushButton:disabled {
+    color: #4b6353;
+    background: rgba(8, 14, 10, 0.6);
+    border-color: #122116;
+}
 
-QPushButton[kind="secondary"] { background:#161f2c; border:1px solid #2d3b52; color:#cbd5e1; font-weight:500; }
-QPushButton[kind="secondary"]:hover { background:#222f42; color:#ffffff; border-color:#475975; }
+/* Primary Green Button (Cyber / Terminal Green) */
+QPushButton[kind="primary"] {
+    background: #00e65c;
+    border: 1px solid #00ff66;
+    color: #031407;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+QPushButton[kind="primary"]:hover {
+    background: #00ff66;
+    border-color: #66ff99;
+}
+QPushButton[kind="primary"]:pressed {
+    background: #00b347;
+}
+QPushButton[kind="primary"]:disabled {
+    background: #0d2616;
+    border-color: #133a22;
+    color: #3b6b4e;
+}
 
-QPushButton[kind="danger"] { background:#351b20; border:1px solid #632832; color:#fca5a5; }
-QPushButton[kind="danger"]:hover { background:#47232a; border-color:#843442; color:#fecaca; }
+QPushButton[kind="secondary"] {
+    background: rgba(9, 18, 13, 0.85);
+    border: 1px solid #1a3824;
+    color: #86efac;
+    font-weight: 500;
+}
+QPushButton[kind="secondary"]:hover {
+    background: #142a1c;
+    color: #ffffff;
+    border-color: #22c55e;
+}
 
-QPushButton[kind="nav"] { background:transparent; border:none; border-radius:8px; padding:8px 14px; color:#94a3b8; font-weight:600; font-size:14px; }
-QPushButton[kind="nav"]:hover { background:#182232; color:#e2e8f0; }
-QPushButton[kind="navActive"] { background:#2563eb; border:none; border-radius:8px; padding:8px 14px; color:#ffffff; font-weight:700; font-size:14px; }
+QPushButton[kind="danger"] {
+    background: rgba(38, 16, 18, 0.85);
+    border: 1px solid #572025;
+    color: #fca5a5;
+}
+QPushButton[kind="danger"]:hover {
+    background: #451b20;
+    border-color: #ef4444;
+    color: #fecaca;
+}
 
-QPushButton[kind="chip"] { background:#16202e; border:1px solid #27374e; border-radius:16px; padding:6px 14px; color:#94a3b8; font-size:13px; font-weight:500; }
-QPushButton[kind="chip"]:hover { background:#223046; color:#ffffff; border-color:#3d5272; }
-QPushButton[kind="chipActive"] { background:#1d4ed8; border:1px solid #3b82f6; border-radius:16px; padding:6px 14px; color:#ffffff; font-size:13px; font-weight:600; }
+/* Top Navigation Bar Buttons */
+QPushButton[kind="nav"] {
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    color: #86efac;
+    font-weight: 600;
+    font-size: 14px;
+}
+QPushButton[kind="nav"]:hover {
+    background: rgba(18, 42, 27, 0.6);
+    color: #ffffff;
+}
+QPushButton[kind="navActive"] {
+    background: #092916;
+    border: 1px solid #22c55e;
+    border-radius: 8px;
+    padding: 8px 16px;
+    color: #4ade80;
+    font-weight: 700;
+    font-size: 14px;
+}
 
-QPushButton[kind="cardAction"] { text-align:left; border-radius:14px; background:#141b26; border:1px solid #253347; padding:16px; }
-QPushButton[kind="cardAction"]:hover { border-color:#3b82f6; background:#1b2434; }
+/* Category Filter Chips */
+QPushButton[kind="chip"] {
+    background: rgba(10, 20, 14, 0.8);
+    border: 1px solid #193823;
+    border-radius: 16px;
+    padding: 6px 14px;
+    color: #86efac;
+    font-size: 13px;
+    font-weight: 500;
+}
+QPushButton[kind="chip"]:hover {
+    background: #152d1d;
+    color: #ffffff;
+    border-color: #22c55e;
+}
+QPushButton[kind="chipActive"] {
+    background: #064e26;
+    border: 1px solid #00ff66;
+    border-radius: 16px;
+    padding: 6px 14px;
+    color: #86efac;
+    font-size: 13px;
+    font-weight: 700;
+}
 
-QLineEdit, QComboBox, QSpinBox { background:#131a24; border:1px solid #27364b; border-radius:10px; padding:9px 12px; color:#ffffff; selection-background-color:#2563eb; }
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border-color:#3b82f6; background:#16202e; }
-QComboBox QAbstractItemView { background:#131a24; border:1px solid #27364b; selection-background-color:#2563eb; selection-color:white; }
+/* Dashboard Action Cards */
+QPushButton[kind="cardAction"] {
+    text-align: left;
+    border-radius: 14px;
+    background: rgba(9, 16, 12, 0.82);
+    border: 1px solid #173321;
+    padding: 16px;
+    color: #e6f4ea;
+}
+QPushButton[kind="cardAction"]:hover {
+    border-color: #00ff66;
+    background: rgba(14, 28, 19, 0.92);
+}
 
-QListWidget { background:#111722; border:1px solid #222f42; border-radius:12px; padding:6px; outline:0; }
-QListWidget::item { padding:10px 12px; border-radius:8px; margin-bottom:4px; }
-QListWidget::item:hover { background:#1b2536; }
-QListWidget::item:selected { background:#243654; color:#ffffff; }
+/* Inputs & Form Elements */
+QLineEdit, QComboBox, QSpinBox {
+    background: rgba(7, 13, 9, 0.9);
+    border: 1px solid #1a3a24;
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: #f0fdf4;
+    selection-background-color: #16a34a;
+}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
+    border-color: #00ff66;
+    background: #09160e;
+}
+QComboBox QAbstractItemView {
+    background: #07120a;
+    border: 1px solid #1b3d26;
+    selection-background-color: #15803d;
+    selection-color: #ffffff;
+}
 
-QFrame#card { background:#131b26; border:1px solid #222f42; border-radius:14px; }
-QFrame#accentCard { background:#122038; border:1px solid #214373; border-radius:14px; }
-QFrame#tipCard { background:#131a24; border:1px solid #24344a; border-radius:14px; padding:12px; }
-QFrame#tipCard:hover { border-color:#3b82f6; background:#172230; }
-QFrame#sidebarFrame { background:#0f1520; border-right:1px solid #202b3c; }
+/* Lists */
+QListWidget {
+    background: rgba(7, 13, 9, 0.88);
+    border: 1px solid #193822;
+    border-radius: 12px;
+    padding: 6px;
+    outline: 0;
+}
+QListWidget::item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    color: #e6f4ea;
+}
+QListWidget::item:hover {
+    background: #112618;
+}
+QListWidget::item:selected {
+    background: #0f3d20;
+    color: #ffffff;
+    border: 1px solid #22c55e;
+}
 
-QFrame#userBubble { background:#1b3558; border:1px solid #2b4f7e; border-radius:14px; }
-QFrame#asstCard { background:#131c28; border:1px solid #233145; border-radius:16px; }
-QFrame#typingCard { background:#101722; border:1px dashed #2f4362; border-radius:12px; }
+/* Glassmorphic Cards & Containers */
+QFrame#card {
+    background: rgba(9, 16, 12, 0.85);
+    border: 1px solid #183623;
+    border-radius: 14px;
+}
+QFrame#accentCard {
+    background: rgba(6, 26, 14, 0.88);
+    border: 1px solid #15803d;
+    border-radius: 14px;
+}
+QFrame#tipCard {
+    background: rgba(8, 15, 11, 0.85);
+    border: 1px solid #163321;
+    border-radius: 14px;
+    padding: 12px;
+}
+QFrame#tipCard:hover {
+    border-color: #00ff66;
+    background: rgba(13, 26, 18, 0.92);
+}
+QFrame#sidebarFrame {
+    background: rgba(6, 11, 8, 0.92);
+    border-right: 1px solid #173321;
+}
 
-QLabel#brand { font-size:18px; font-weight:800; color:#ffffff; letter-spacing:0.5px; }
-QLabel#title { font-size:28px; font-weight:800; color:#f8fafc; letter-spacing:0.5px; }
-QLabel#h1 { font-size:20px; font-weight:700; color:#f1f5f9; }
-QLabel#h2 { font-size:16px; font-weight:600; color:#e2e8f0; }
-QLabel#subtitle { font-size:14.5px; color:#94a3b8; }
-QLabel#muted { color:#8292a8; font-size:13px; }
-QLabel#caption { color:#75849a; font-size:12px; }
-QLabel#badge { background:#1a273b; border:1px solid #293d5c; border-radius:8px; padding:3px 8px; color:#93c5fd; font-size:11.5px; font-weight:600; }
-QLabel#badgeOk { background:#12281e; border:1px solid #1f4f39; border-radius:8px; padding:3px 8px; color:#6ee7b7; font-size:11.5px; font-weight:600; }
-QLabel#badgeWarn { background:#302110; border:1px solid #633f17; border-radius:8px; padding:3px 8px; color:#fcd34d; font-size:11.5px; font-weight:600; }
-QLabel#codeBlock { background:#090d14; border:1px solid #1e2838; border-radius:8px; padding:10px 12px; font-family:'Cascadia Code','Consolas','Courier New',monospace; font-size:12.5px; color:#67e8f9; }
+/* Chat Message Bubbles */
+QFrame#userBubble {
+    background: rgba(9, 36, 19, 0.92);
+    border: 1px solid #166534;
+    border-radius: 14px;
+}
+QFrame#asstCard {
+    background: rgba(7, 14, 10, 0.94);
+    border: 1px solid #1a3d25;
+    border-radius: 16px;
+}
+QFrame#typingCard {
+    background: rgba(6, 13, 9, 0.85);
+    border: 1px dashed #22c55e;
+    border-radius: 12px;
+}
 
-QScrollBar:vertical { background:#0d121a; width:10px; margin:0; }
-QScrollBar::handle:vertical { background:#27364b; min-height:24px; border-radius:5px; margin:2px; }
-QScrollBar::handle:vertical:hover { background:#3b82f6; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
-QScrollBar:horizontal { background:#0d121a; height:10px; margin:0; }
-QScrollBar::handle:horizontal { background:#27364b; min-width:24px; border-radius:5px; margin:2px; }
-QScrollBar::handle:horizontal:hover { background:#3b82f6; }
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width:0; }
+/* Typography & Labels */
+QLabel#brand {
+    font-size: 19px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+}
+QLabel#title {
+    font-size: 26px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.3px;
+}
+QLabel#h1 { font-size: 19px; font-weight: 700; color: #ffffff; }
+QLabel#h2 { font-size: 15.5px; font-weight: 600; color: #bbf7d0; }
+QLabel#subtitle { font-size: 14px; color: #86efac; }
+QLabel#muted { color: #86a792; font-size: 13px; }
+QLabel#caption { color: #6b8c77; font-size: 12px; }
 
-QProgressBar { background:#111823; border:1px solid #233044; border-radius:6px; text-align:center; }
-QProgressBar::chunk { background:#3b82f6; border-radius:5px; }
-QTreeWidget { background:#101722; border:1px solid #222f42; border-radius:10px; outline:0; color:#cbd5e1; }
-QTreeWidget::item { padding:6px; border-radius:4px; }
-QTreeWidget::item:hover { background:#1b2536; }
-QTreeWidget::item:selected { background:#2563eb; color:#ffffff; }
-QTabWidget::pane { border:1px solid #222f42; border-radius:12px; background:#111722; }
-QTabBar::tab { background:#141b26; border:1px solid #222f42; border-bottom:none; border-top-left-radius:8px; border-top-right-radius:8px; padding:8px 18px; margin-right:4px; color:#94a3b8; font-weight:600; }
-QTabBar::tab:selected { background:#1d4ed8; color:#ffffff; border-color:#3b82f6; }
-QTabBar::tab:hover:!selected { background:#1b2434; color:#e2e8f0; }
+/* Badges */
+QLabel#badge {
+    background: #092615;
+    border: 1px solid #1b4d2b;
+    border-radius: 8px;
+    padding: 3px 8px;
+    color: #86efac;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+QLabel#badgeOk {
+    background: #052e16;
+    border: 1px solid #00ff66;
+    border-radius: 8px;
+    padding: 3px 8px;
+    color: #00ff66;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+QLabel#badgeWarn {
+    background: #2b1f07;
+    border: 1px solid #854d0e;
+    border-radius: 8px;
+    padding: 3px 8px;
+    color: #fde047;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+/* Code Blocks & Schematic Symbols (Phosphor Green Monospace) */
+QLabel#codeBlock {
+    background: #020503;
+    border: 1px solid rgba(0, 255, 102, 0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+    font-size: 12.5px;
+    color: #00ff66;
+    line-height: 1.4;
+}
+
+/* Sleek Scrollbars */
+QScrollBar:vertical { background: #050a07; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: #183824; min-height: 24px; border-radius: 5px; margin: 2px; }
+QScrollBar::handle:vertical:hover { background: #00ff66; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar:horizontal { background: #050a07; height: 10px; margin: 0; }
+QScrollBar::handle:horizontal { background: #183824; min-width: 24px; border-radius: 5px; margin: 2px; }
+QScrollBar::handle:horizontal:hover { background: #00ff66; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+
+QProgressBar {
+    background: #07130b;
+    border: 1px solid #1a3824;
+    border-radius: 6px;
+    text-align: center;
+}
+QProgressBar::chunk {
+    background: #00e65c;
+    border-radius: 5px;
+}
+
+QTreeWidget {
+    background: rgba(7, 13, 9, 0.9);
+    border: 1px solid #1a3a24;
+    border-radius: 10px;
+    outline: 0;
+    color: #e6f4ea;
+}
+QTreeWidget::item { padding: 6px; border-radius: 4px; }
+QTreeWidget::item:hover { background: #112618; }
+QTreeWidget::item:selected { background: #0f3d20; color: #ffffff; border: 1px solid #22c55e; }
+
+QTabWidget::pane { border: 1px solid #1a3823; border-radius: 12px; background: rgba(7, 13, 9, 0.85); }
+QTabBar::tab {
+    background: rgba(8, 15, 11, 0.8);
+    border: 1px solid #1a3823;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding: 8px 18px;
+    margin-right: 4px;
+    color: #86efac;
+    font-weight: 600;
+}
+QTabBar::tab:selected { background: #092c18; color: #ffffff; border-color: #22c55e; }
+QTabBar::tab:hover:!selected { background: #12281a; color: #e6f4ea; }
 """
 
 LIGHT_STYLE = """
-QWidget { background:#f8fafc; color:#0f172a; font-family:'Segoe UI','Inter',system-ui,sans-serif; font-size:14px; }
-QLabel { background:transparent; }
-QPushButton { background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; padding:9px 16px; color:#0f172a; font-weight:500; }
-QPushButton:hover { background:#f1f5f9; border-color:#94a3b8; }
-QPushButton:pressed { background:#e2e8f0; }
-QPushButton:disabled { color:#94a3b8; background:#f1f5f9; border-color:#e2e8f0; }
+/* =========================================================================
+   CLEAN WHITE & EMERALD GREEN LIGHT THEME
+   Bright soft tech surfaces, matching signature green brand accents
+   ========================================================================= */
+QWidget {
+    background: #f7faf8;
+    color: #0f172a;
+    font-family: 'Segoe UI', 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 14px;
+}
+QLabel { background: transparent; }
 
-QPushButton[kind="primary"] { background:#2563eb; border:none; color:#ffffff; font-weight:600; }
-QPushButton[kind="primary"]:hover { background:#1d4ed8; }
-QPushButton[kind="primary"]:pressed { background:#1e40af; }
-QPushButton[kind="primary"]:disabled { background:#e2e8f0; color:#94a3b8; }
+QPushButton {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 9px 18px;
+    color: #0f172a;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background: #f0fdf4;
+    border-color: #22c55e;
+    color: #15803d;
+}
+QPushButton:pressed { background: #dcfce7; }
+QPushButton:disabled { color: #94a3b8; background: #f1f5f9; border-color: #e2e8f0; }
 
-QPushButton[kind="secondary"] { background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:500; }
-QPushButton[kind="secondary"]:hover { background:#f1f5f9; color:#0f172a; border-color:#94a3b8; }
+QPushButton[kind="primary"] {
+    background: #16a34a;
+    border: 1px solid #15803d;
+    color: #ffffff;
+    font-weight: 700;
+}
+QPushButton[kind="primary"]:hover {
+    background: #15803d;
+    border-color: #166534;
+}
+QPushButton[kind="primary"]:pressed { background: #14532d; }
+QPushButton[kind="primary"]:disabled { background: #cbd5e1; color: #64748b; }
 
-QPushButton[kind="danger"] { background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; }
-QPushButton[kind="danger"]:hover { background:#fecaca; border-color:#f87171; color:#991b1b; }
+QPushButton[kind="secondary"] {
+    background: #ffffff;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
+    font-weight: 600;
+}
+QPushButton[kind="secondary"]:hover {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #22c55e;
+}
 
-QPushButton[kind="nav"] { background:transparent; border:none; border-radius:8px; padding:8px 14px; color:#64748b; font-weight:600; font-size:14px; }
-QPushButton[kind="nav"]:hover { background:#e2e8f0; color:#0f172a; }
-QPushButton[kind="navActive"] { background:#2563eb; border:none; border-radius:8px; padding:8px 14px; color:#ffffff; font-weight:700; font-size:14px; }
+QPushButton[kind="danger"] {
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+}
+QPushButton[kind="danger"]:hover {
+    background: #fecaca;
+    border-color: #ef4444;
+}
 
-QPushButton[kind="chip"] { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; padding:6px 14px; color:#475569; font-size:13px; font-weight:500; }
-QPushButton[kind="chip"]:hover { background:#f1f5f9; color:#0f172a; border-color:#94a3b8; }
-QPushButton[kind="chipActive"] { background:#2563eb; border:1px solid #1d4ed8; border-radius:16px; padding:6px 14px; color:#ffffff; font-size:13px; font-weight:600; }
+QPushButton[kind="nav"] {
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    color: #475569;
+    font-weight: 600;
+    font-size: 14px;
+}
+QPushButton[kind="nav"]:hover {
+    background: #f0fdf4;
+    color: #15803d;
+}
+QPushButton[kind="navActive"] {
+    background: #dcfce7;
+    border: 1px solid #22c55e;
+    border-radius: 8px;
+    padding: 8px 16px;
+    color: #14532d;
+    font-weight: 700;
+    font-size: 14px;
+}
 
-QPushButton[kind="cardAction"] { text-align:left; border-radius:14px; background:#ffffff; border:1px solid #e2e8f0; padding:16px; }
-QPushButton[kind="cardAction"]:hover { border-color:#2563eb; background:#f8fafc; }
+QPushButton[kind="chip"] {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 6px 14px;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 500;
+}
+QPushButton[kind="chip"]:hover {
+    background: #f0fdf4;
+    color: #16a34a;
+    border-color: #86efac;
+}
+QPushButton[kind="chipActive"] {
+    background: #16a34a;
+    border: 1px solid #15803d;
+    border-radius: 16px;
+    padding: 6px 14px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+}
 
-QLineEdit, QComboBox, QSpinBox { background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; padding:9px 12px; color:#0f172a; selection-background-color:#2563eb; }
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border-color:#2563eb; background:#ffffff; }
-QComboBox QAbstractItemView { background:#ffffff; border:1px solid #cbd5e1; selection-background-color:#2563eb; selection-color:white; }
+QPushButton[kind="cardAction"] {
+    text-align: left;
+    border-radius: 14px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 16px;
+    color: #0f172a;
+}
+QPushButton[kind="cardAction"]:hover {
+    border-color: #22c55e;
+    background: #f0fdf4;
+}
 
-QListWidget { background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:6px; outline:0; }
-QListWidget::item { padding:10px 12px; border-radius:8px; margin-bottom:4px; }
-QListWidget::item:hover { background:#f1f5f9; }
-QListWidget::item:selected { background:#e0f2fe; color:#0369a1; }
+QLineEdit, QComboBox, QSpinBox {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: #0f172a;
+    selection-background-color: #22c55e;
+}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
+    border-color: #16a34a;
+    background: #ffffff;
+}
+QComboBox QAbstractItemView {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    selection-background-color: #dcfce7;
+    selection-color: #14532d;
+}
 
-QFrame#card { background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; }
-QFrame#accentCard { background:#eff6ff; border:1px solid #bfdbfe; border-radius:14px; }
-QFrame#tipCard { background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:12px; }
-QFrame#tipCard:hover { border-color:#2563eb; background:#f8fafc; }
-QFrame#sidebarFrame { background:#f1f5f9; border-right:1px solid #e2e8f0; }
+QListWidget {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 6px;
+    outline: 0;
+}
+QListWidget::item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    color: #0f172a;
+}
+QListWidget::item:hover { background: #f0fdf4; }
+QListWidget::item:selected { background: #dcfce7; color: #14532d; border: 1px solid #22c55e; }
 
-QFrame#userBubble { background:#dbeafe; border:1px solid #bfdbfe; border-radius:14px; }
-QFrame#asstCard { background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; }
-QFrame#typingCard { background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; }
+QFrame#card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+}
+QFrame#accentCard {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 14px;
+}
+QFrame#tipCard {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 12px;
+}
+QFrame#tipCard:hover {
+    border-color: #22c55e;
+    background: #f0fdf4;
+}
+QFrame#sidebarFrame {
+    background: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+}
 
-QLabel#brand { font-size:18px; font-weight:800; color:#0f172a; letter-spacing:0.5px; }
-QLabel#title { font-size:28px; font-weight:800; color:#0f172a; letter-spacing:0.5px; }
-QLabel#h1 { font-size:20px; font-weight:700; color:#0f172a; }
-QLabel#h2 { font-size:16px; font-weight:600; color:#1e293b; }
-QLabel#subtitle { font-size:14.5px; color:#475569; }
-QLabel#muted { color:#64748b; font-size:13px; }
-QLabel#caption { color:#64748b; font-size:12px; }
-QLabel#badge { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:3px 8px; color:#1d4ed8; font-size:11.5px; font-weight:600; }
-QLabel#badgeOk { background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:3px 8px; color:#047857; font-size:11.5px; font-weight:600; }
-QLabel#badgeWarn { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:3px 8px; color:#b45309; font-size:11.5px; font-weight:600; }
-QLabel#codeBlock { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; font-family:'Cascadia Code','Consolas','Courier New',monospace; font-size:12.5px; color:#0369a1; }
+QFrame#userBubble {
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    border-radius: 14px;
+}
+QFrame#asstCard {
+    background: #ffffff;
+    border: 1px solid #bbf7d0;
+    border-radius: 16px;
+}
+QFrame#typingCard {
+    background: #f0fdf4;
+    border: 1px dashed #22c55e;
+    border-radius: 12px;
+}
 
-QScrollBar:vertical { background:#f8fafc; width:10px; margin:0; }
-QScrollBar::handle:vertical { background:#cbd5e1; min-height:24px; border-radius:5px; margin:2px; }
-QScrollBar::handle:vertical:hover { background:#2563eb; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
-QScrollBar:horizontal { background:#f8fafc; height:10px; margin:0; }
-QScrollBar::handle:horizontal { background:#cbd5e1; min-width:24px; border-radius:5px; margin:2px; }
-QScrollBar::handle:horizontal:hover { background:#2563eb; }
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width:0; }
+QLabel#brand { font-size: 19px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px; }
+QLabel#title { font-size: 26px; font-weight: 800; color: #0f172a; }
+QLabel#h1 { font-size: 19px; font-weight: 700; color: #0f172a; }
+QLabel#h2 { font-size: 15.5px; font-weight: 600; color: #166534; }
+QLabel#subtitle { font-size: 14px; color: #475569; }
+QLabel#muted { color: #64748b; font-size: 13px; }
+QLabel#caption { color: #64748b; font-size: 12px; }
 
-QProgressBar { background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; text-align:center; }
-QProgressBar::chunk { background:#2563eb; border-radius:5px; }
-QTreeWidget { background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; outline:0; color:#334155; }
-QTreeWidget::item { padding:6px; border-radius:4px; }
-QTreeWidget::item:hover { background:#f1f5f9; }
-QTreeWidget::item:selected { background:#2563eb; color:#ffffff; }
-QTabWidget::pane { border:1px solid #e2e8f0; border-radius:12px; background:#ffffff; }
-QTabBar::tab { background:#f8fafc; border:1px solid #e2e8f0; border-bottom:none; border-top-left-radius:8px; border-top-right-radius:8px; padding:8px 18px; margin-right:4px; color:#64748b; font-weight:600; }
-QTabBar::tab:selected { background:#2563eb; color:#ffffff; border-color:#1d4ed8; }
-QTabBar::tab:hover:!selected { background:#e2e8f0; color:#0f172a; }
+QLabel#badge {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 3px 8px;
+    color: #15803d;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+QLabel#badgeOk {
+    background: #dcfce7;
+    border: 1px solid #22c55e;
+    border-radius: 8px;
+    padding: 3px 8px;
+    color: #14532d;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+QLabel#badgeWarn {
+    background: #fefce8;
+    border: 1px solid #fef08a;
+    border-radius: 8px;
+    padding: 3px 8px;
+    color: #854d0e;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+QLabel#codeBlock {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+    font-size: 12.5px;
+    color: #15803d;
+    line-height: 1.4;
+}
+
+QScrollBar:vertical { background: #f8fafc; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: #cbd5e1; min-height: 24px; border-radius: 5px; margin: 2px; }
+QScrollBar::handle:vertical:hover { background: #16a34a; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar:horizontal { background: #f8fafc; height: 10px; margin: 0; }
+QScrollBar::handle:horizontal { background: #cbd5e1; min-width: 24px; border-radius: 5px; margin: 2px; }
+QScrollBar::handle:horizontal:hover { background: #16a34a; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+
+QProgressBar { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; }
+QProgressBar::chunk { background: #16a34a; border-radius: 5px; }
+
+QTreeWidget { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; outline: 0; color: #334155; }
+QTreeWidget::item { padding: 6px; border-radius: 4px; }
+QTreeWidget::item:hover { background: #f0fdf4; }
+QTreeWidget::item:selected { background: #dcfce7; color: #14532d; border: 1px solid #22c55e; }
+
+QTabWidget::pane { border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; }
+QTabBar::tab {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding: 8px 18px;
+    margin-right: 4px;
+    color: #475569;
+    font-weight: 600;
+}
+QTabBar::tab:selected { background: #16a34a; color: #ffffff; border-color: #15803d; }
+QTabBar::tab:hover:!selected { background: #f0fdf4; color: #15803d; }
 """
 
-# Default backward compatibility alias
 STYLE = DARK_STYLE
 
 
@@ -221,8 +677,83 @@ def show_image(lbl, path, w, h):
     return True
 
 
+class SpaceBackgroundWidget(QWidget):
+    """Subtle interstellar space background with soft nebulae and starfield for dark mode."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.is_dark = True
+        self._cached_pixmap = None
+        self._stars = self._generate_stars(130)
+
+    def _generate_stars(self, count):
+        rnd = random.Random(42)  # Stable deterministic seed
+        stars = []
+        for _ in range(count):
+            x = rnd.random()
+            y = rnd.random()
+            sz = rnd.choice([1.0, 1.2, 1.5, 2.0, 2.5])
+            bright = rnd.randint(70, 220)
+            stars.append((x, y, sz, bright))
+        return stars
+
+    def set_theme(self, is_dark):
+        self.is_dark = is_dark
+        self._cached_pixmap = None
+        self.update()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._cached_pixmap = None
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        if not self.is_dark:
+            painter.fillRect(self.rect(), QColor("#f7faf8"))
+            return
+
+        w, h = self.width(), self.height()
+        if self._cached_pixmap is None or self._cached_pixmap.size() != self.size():
+            pm = QPixmap(self.size())
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+            # 1. Base obsidian void
+            p.fillRect(0, 0, w, h, QColor("#040705"))
+
+            # 2. Soft Emerald Nebula 1 (Top Left)
+            rad1 = max(w, h) * 0.65
+            grad1 = QRadialGradient(w * 0.18, h * 0.18, rad1)
+            grad1.setColorAt(0.0, QColor(0, 255, 102, 22))
+            grad1.setColorAt(0.4, QColor(16, 185, 129, 12))
+            grad1.setColorAt(1.0, QColor(4, 7, 5, 0))
+            p.fillRect(0, 0, w, h, grad1)
+
+            # 3. Soft Galaxy Nebula 2 (Bottom Right)
+            rad2 = max(w, h) * 0.55
+            grad2 = QRadialGradient(w * 0.82, h * 0.82, rad2)
+            grad2.setColorAt(0.0, QColor(34, 197, 94, 18))
+            grad2.setColorAt(0.5, QColor(6, 40, 20, 10))
+            grad2.setColorAt(1.0, QColor(4, 7, 5, 0))
+            p.fillRect(0, 0, w, h, grad2)
+
+            # 4. Starfield
+            for rx, ry, sz, br in self._stars:
+                sx = int(rx * w)
+                sy = int(ry * h)
+                col = QColor(190, 255, 210, br) if br > 150 else QColor(220, 235, 225, br)
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(col)
+                p.drawEllipse(sx, sy, int(sz), int(sz))
+
+            p.end()
+            self._cached_pixmap = pm
+
+        painter.drawPixmap(0, 0, self._cached_pixmap)
+
+
 class QuestionCard(QPushButton):
-    """A clickable card with word-wrapped text."""
+    """Clickable suggested question card."""
     def __init__(self, text):
         super().__init__()
         self.setProperty("kind", "secondary")
@@ -237,56 +768,71 @@ class QuestionCard(QPushButton):
 
 
 class MetaDialog(QDialog):
-    """Asks for manual name / manufacturer / model when adding a PDF."""
+    """Asks for manual metadata when importing a PDF."""
     def __init__(self, parent, default_name):
         super().__init__(parent)
-        self.setWindowTitle("Add Manual")
+        self.setWindowTitle("Import PDF Manual")
         self.setMinimumWidth(440)
         form = QFormLayout(self)
         self.name = QLineEdit(default_name)
         self.maker = QLineEdit()
         self.model = QLineEdit()
-        self.model.setPlaceholderText("e.g. P-3000 (used to match hardware photos)")
+        self.model.setPlaceholderText("e.g. ESP32-WROOM / NE555 / MIO-2364")
         form.addRow("Manual name:", self.name)
         form.addRow("Manufacturer:", self.maker)
         form.addRow("Model:", self.model)
         row = QHBoxLayout()
         row.addStretch()
         row.addWidget(button("Cancel", slot=self.reject))
-        row.addWidget(button("Add", "primary", self.accept))
+        row.addWidget(button("Import", "primary", self.accept))
         form.addRow(row)
 
 
 class SettingsDialog(QDialog):
-    """Configure Ollama URL and model choices."""
+    """Settings dialog for Ollama, LLM provider, and model configurations."""
     def __init__(self, parent):
         super().__init__(parent)
-        self.setWindowTitle("Settings")
-        self.setMinimumWidth(460)
+        self.setWindowTitle("AI & Hardware Settings")
+        self.setMinimumWidth(480)
         form = QFormLayout(self)
+        form.setSpacing(12)
+
+        self.provider_combo = QComboBox()
+        self.provider_combo.addItems(["auto (Auto-detect from .env)", "gemini", "openai", "claude", "ollama"])
+        idx = self.provider_combo.findText(config.LLM_PROVIDER, Qt.MatchFlag.MatchContains)
+        if idx >= 0:
+            self.provider_combo.setCurrentIndex(idx)
+
         self.url = QLineEdit(config.OLLAMA_URL)
         self.vision = QLineEdit(config.VISION_MODEL)
         self.llm = QLineEdit(config.LLM_MODEL)
         self.embed = QLineEdit(config.EMBED_MODEL)
-        form.addRow("Ollama URL:", self.url)
+
+        form.addRow("LLM Provider:", self.provider_combo)
+        form.addRow("Local Ollama URL:", self.url)
         form.addRow("Vision Model:", self.vision)
-        form.addRow("LLM Model:", self.llm)
+        form.addRow("Local LLM Model:", self.llm)
         form.addRow("Embedding Model:", self.embed)
-        form.addRow(button("Test Ollama Connection", slot=self.test))
+        form.addRow(button("⚡ Test Local Ollama Connection", slot=self.test))
+
+        env_hint = label("💡 <i>To configure online Gemini, OpenAI, or Claude API keys, edit <b>.env</b> in the app folder.</i>", "caption")
+        form.addRow(env_hint)
+
         row = QHBoxLayout()
         row.addStretch()
         row.addWidget(button("Cancel", slot=self.reject))
-        row.addWidget(button("Save", "primary", self.save))
+        row.addWidget(button("Save Settings", "primary", self.save))
         form.addRow(row)
 
     def _apply(self):
-        config.save_settings(self.url.text(), self.vision.text(), self.llm.text(), self.embed.text())
+        sel_text = self.provider_combo.currentText().split()[0].lower()
+        config.save_settings(self.url.text(), self.vision.text(), self.llm.text(), self.embed.text(), provider=sel_text)
 
     def test(self):
         self._apply()
         import services.rag as rag
         ok, msg = rag.test_connection()
-        (QMessageBox.information if ok else QMessageBox.warning)(self, "Ollama", msg)
+        (QMessageBox.information if ok else QMessageBox.warning)(self, "Ollama Test", msg)
 
     def save(self):
         self._apply()
@@ -294,7 +840,7 @@ class SettingsDialog(QDialog):
 
 
 class CameraDialog(QDialog):
-    """Live camera viewfinder with robust device fallback and disk picker option."""
+    """Live camera viewfinder with device probe and fallback disk selector."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Live Camera Scanner")
@@ -306,16 +852,15 @@ class CameraDialog(QDialog):
         lay.setContentsMargins(20, 20, 20, 20)
         lay.setSpacing(14)
 
-        # Header
         top_row = QHBoxLayout()
         top_row.addWidget(label("📷 Component Camera Scan", "h1"))
         top_row.addStretch()
-        top_row.addWidget(label("Align component clearly in frame", "caption"))
+        top_row.addWidget(label("Align IC or circuit board in frame", "caption"))
         lay.addLayout(top_row)
 
         self.view = QLabel("Initializing camera...", self)
         self.view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.view.setStyleSheet("background:#080c12; border:1px solid #1f2a3a; border-radius:12px; color:#94a3b8;")
+        self.view.setStyleSheet("background:#040705; border:1px solid #173822; border-radius:12px; color:#86efac;")
         self.view.setMinimumSize(660, 420)
         lay.addWidget(self.view, 1)
 
@@ -331,13 +876,9 @@ class CameraDialog(QDialog):
         btn_row.addWidget(self.snap_btn)
         lay.addLayout(btn_row)
 
-        # Try opening camera 0, then 1 with DirectShow on Windows
         self.cap = None
         for idx in (0, 1):
-            if os.name == 'nt':
-                c = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
-            else:
-                c = cv2.VideoCapture(idx)
+            c = cv2.VideoCapture(idx, cv2.CAP_DSHOW) if os.name == 'nt' else cv2.VideoCapture(idx)
             if c.isOpened():
                 ret, test_f = c.read()
                 if ret and test_f is not None:
@@ -347,9 +888,8 @@ class CameraDialog(QDialog):
 
         if self.cap is None or not self.cap.isOpened():
             self.view.setText(
-                "⚠️ No live camera detected or camera permission was denied.\n\n"
-                "Please verify your camera is plugged in and permissions are enabled in Windows Settings,\n"
-                "or click 'Choose Photo from Disk' below to scan a component image."
+                "⚠️ No live camera detected or permission was denied.\n\n"
+                "You can click 'Choose Photo from Disk' below to scan a component image directly."
             )
             self.snap_btn.setEnabled(False)
             return
@@ -472,7 +1012,7 @@ class VoiceInputDialog(QDialog):
     """Voice input dialog with live volume meter and Whisper transcription."""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Voice Question Input")
+        self.setWindowTitle("Voice Assistant Input")
         self.setFixedSize(500, 270)
         self.transcribed_text = ""
 
@@ -505,8 +1045,8 @@ class VoiceInputDialog(QDialog):
 
         self.status_box = QLabel("Ready... Speak now. Transcription will automatically start when you pause.")
         self.status_box.setStyleSheet(
-            "background:#121824; border:1px solid #233145; border-radius:10px; "
-            "padding:10px 14px; font-size:13.5px; color:#cbd5e1;"
+            "background:rgba(9, 20, 13, 0.9); border:1px solid #1a4227; border-radius:10px; "
+            "padding:10px 14px; font-size:13.5px; color:#bbf7d0;"
         )
         self.status_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(self.status_box)
@@ -533,8 +1073,8 @@ class VoiceInputDialog(QDialog):
     def _on_speech_started(self):
         self.status_box.setText("🎙 Hearing speech... (auto-finishing on pause)")
         self.status_box.setStyleSheet(
-            "background:#10261b; border:1px solid #1e5a3c; border-radius:10px; "
-            "padding:10px 14px; font-size:13.5px; color:#6ee7b7; font-weight:600;"
+            "background:#052e16; border:1px solid #00ff66; border-radius:10px; "
+            "padding:10px 14px; font-size:13.5px; color:#00ff66; font-weight:700;"
         )
 
     def _on_status(self, text):
@@ -543,8 +1083,8 @@ class VoiceInputDialog(QDialog):
             self.meter.setValue(0)
             self.status_box.setText("⏳ Transcribing speech with Whisper AI...")
             self.status_box.setStyleSheet(
-                "background:#17253d; border:1px solid #2d5599; border-radius:10px; "
-                "padding:10px 14px; font-size:13.5px; color:#93c5fd; font-weight:600;"
+                "background:#082414; border:1px solid #22c55e; border-radius:10px; "
+                "padding:10px 14px; font-size:13.5px; color:#86efac; font-weight:600;"
             )
             self.done_btn.setEnabled(False)
             self.done_btn.setText("Transcribing...")
@@ -588,7 +1128,7 @@ class ImagePreviewDialog(QDialog):
 
         lbl = QLabel()
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl.setStyleSheet("background:#080c12; border-radius:12px;")
+        lbl.setStyleSheet("background:#040705; border-radius:12px;")
         pm = QPixmap(image_path) if image_path else QPixmap()
         if not pm.isNull():
             lbl.setPixmap(pm.scaled(920, 640, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
@@ -650,7 +1190,6 @@ class UserManualDialog(QDialog):
         main_lay.setContentsMargins(14, 12, 14, 14)
         main_lay.setSpacing(10)
 
-        # Controls bar
         ctrl_bar = QHBoxLayout()
         ctrl_bar.setSpacing(10)
 
@@ -689,14 +1228,11 @@ class UserManualDialog(QDialog):
 
         main_lay.addLayout(ctrl_bar)
 
-        # Splitter: Left Outline/Search | Right Document Page View
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left panel: Tabs (TOC Outline vs Search)
         left_tabs = QTabWidget()
         left_tabs.setFixedWidth(300)
 
-        # TOC Tab
         toc_widget = QWidget()
         toc_lay = QVBoxLayout(toc_widget)
         toc_lay.setContentsMargins(6, 6, 6, 6)
@@ -706,7 +1242,6 @@ class UserManualDialog(QDialog):
         toc_lay.addWidget(self.toc_tree)
         left_tabs.addTab(toc_widget, "📖 Outline")
 
-        # Search Tab
         search_widget = QWidget()
         s_lay = QVBoxLayout(search_widget)
         s_lay.setContentsMargins(6, 6, 6, 6)
@@ -732,7 +1267,6 @@ class UserManualDialog(QDialog):
         left_tabs.addTab(search_widget, "🔍 Search")
         splitter.addWidget(left_tabs)
 
-        # Right panel: Page view inside ScrollArea
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -896,7 +1430,7 @@ class UserManualDialog(QDialog):
 
 
 class ChatMessageWidget(QWidget):
-    """Visually distinct chat message card (User or Assistant)."""
+    """Visually distinct chat message card (User or Assistant) with live streaming support."""
     def __init__(self, role, content, data=None, created_at=None, parent_win=None):
         super().__init__()
         self.role = role
@@ -905,8 +1439,8 @@ class ChatMessageWidget(QWidget):
         self.created_at = created_at or time.strftime("%H:%M")
         self.win = parent_win
 
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 4, 0, 4)
+        self.main_lay = QVBoxLayout(self)
+        self.main_lay.setContentsMargins(0, 4, 0, 4)
 
         if self.role == "user":
             row = QHBoxLayout()
@@ -924,80 +1458,58 @@ class ChatMessageWidget(QWidget):
             head.addWidget(label(self.created_at, "caption"))
             b_lay.addLayout(head)
 
-            txt_lbl = QLabel(self.content)
-            txt_lbl.setWordWrap(True)
-            txt_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            txt_lbl.setStyleSheet("font-size:14.5px; line-height:1.4;")
-            b_lay.addWidget(txt_lbl)
+            self.txt_lbl = QLabel(self.content)
+            self.txt_lbl.setWordWrap(True)
+            self.txt_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            self.txt_lbl.setStyleSheet("font-size:14.5px; line-height:1.45;")
+            b_lay.addWidget(self.txt_lbl)
 
             bubble.setMaximumWidth(720)
             row.addWidget(bubble)
-            lay.addLayout(row)
+            self.main_lay.addLayout(row)
         else:
             row = QHBoxLayout()
-            card = QFrame()
-            card.setObjectName("asstCard")
-            c_lay = QVBoxLayout(card)
-            c_lay.setContentsMargins(20, 16, 20, 16)
-            c_lay.setSpacing(12)
+            self.card = QFrame()
+            self.card.setObjectName("asstCard")
+            self.c_lay = QVBoxLayout(self.card)
+            self.c_lay.setContentsMargins(20, 16, 20, 16)
+            self.c_lay.setSpacing(12)
 
             head = QHBoxLayout()
-            head.addWidget(label("🤖 Assistant", "badgeOk", wrap=False))
+            self.asst_badge = label("🤖 ElectroLearn AI", "badgeOk", wrap=False)
+            head.addWidget(self.asst_badge)
             head.addStretch()
             head.addWidget(label(self.created_at, "caption"))
-            c_lay.addLayout(head)
+            self.c_lay.addLayout(head)
 
             title = (self.data or {}).get("title") if isinstance(self.data, dict) else ""
             if title:
-                c_lay.addWidget(label(title.upper(), "h1"))
+                self.c_lay.addWidget(label(title.upper(), "h1"))
 
             summary = (self.data or {}).get("summary") if isinstance(self.data, dict) else ""
             if not summary and self.content:
                 summary = self.content
-            if summary:
-                s_lbl = QLabel(summary)
-                s_lbl.setWordWrap(True)
-                s_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-                s_lbl.setStyleSheet("font-size:14.5px; line-height:1.5;")
-                c_lay.addWidget(s_lbl)
 
-            warning = (self.data or {}).get("warning") if isinstance(self.data, dict) else ""
-            if warning:
-                c_lay.addWidget(label(f"⚠️ WARNING: {warning}", "badgeWarn"))
+            self.summary_lbl = QLabel(summary)
+            self.summary_lbl.setWordWrap(True)
+            self.summary_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            self.summary_lbl.setStyleSheet("font-size:14.5px; line-height:1.55;")
+            self.c_lay.addWidget(self.summary_lbl)
+
+            self.steps_box = QWidget()
+            self.steps_box.setStyleSheet("background:transparent;")
+            self.sb_lay = QVBoxLayout(self.steps_box)
+            self.sb_lay.setContentsMargins(0, 4, 0, 4)
+            self.sb_lay.setSpacing(8)
+            self.c_lay.addWidget(self.steps_box)
 
             steps = (self.data or {}).get("steps") or [] if isinstance(self.data, dict) else []
-            if steps:
-                steps_box = QWidget()
-                steps_box.setStyleSheet("background:transparent;")
-                sb_lay = QVBoxLayout(steps_box)
-                sb_lay.setContentsMargins(0, 6, 0, 6)
-                sb_lay.setSpacing(10)
-
-                for s in steps:
-                    s_row = QHBoxLayout()
-                    s_row.setSpacing(10)
-                    s_num = label(f" {s.get('number', '')} ", "badge", wrap=False)
-                    s_row.addWidget(s_num, alignment=Qt.AlignmentFlag.AlignTop)
-
-                    s_text = QLabel(s.get("text", ""))
-                    s_text.setWordWrap(True)
-                    s_text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-                    s_text.setStyleSheet("font-size:14px; line-height:1.4;")
-                    s_row.addWidget(s_text, 1)
-
-                    pno = s.get("page")
-                    if pno and self.win:
-                        jump_b = button(f"p. {pno} ↗", "chip", slot=lambda _=False, p=pno: self.win.open_user_manual(p))
-                        jump_b.setFixedHeight(26)
-                        s_row.addWidget(jump_b, alignment=Qt.AlignmentFlag.AlignTop)
-
-                    sb_lay.addLayout(s_row)
-                c_lay.addWidget(steps_box)
+            self._render_steps(steps)
 
             # Footer actions: Copy, Export
-            f_row = QHBoxLayout()
+            self.f_row = QHBoxLayout()
             copy_btn = button("📋 Copy", "secondary", slot=self.copy_text)
-            f_row.addWidget(copy_btn)
+            self.f_row.addWidget(copy_btn)
 
             exp_btn = button("📥 Export Answer ▼", "secondary")
             menu = QMenu(exp_btn)
@@ -1008,15 +1520,59 @@ class ChatMessageWidget(QWidget):
             act_txt = menu.addAction("Export as Plain Text (.txt)")
             act_txt.triggered.connect(lambda: self.export_answer("txt"))
             exp_btn.setMenu(menu)
-            f_row.addWidget(exp_btn)
+            self.f_row.addWidget(exp_btn)
 
-            f_row.addStretch()
-            c_lay.addLayout(f_row)
+            self.f_row.addStretch()
+            self.c_lay.addLayout(self.f_row)
 
-            card.setMaximumWidth(840)
-            row.addWidget(card)
+            self.card.setMaximumWidth(860)
+            row.addWidget(self.card)
             row.addStretch()
-            lay.addLayout(row)
+            self.main_lay.addLayout(row)
+
+    def append_stream_token(self, token):
+        """Append streamed token in real-time."""
+        self.content += token
+        self.summary_lbl.setText(self.content)
+
+    def finalize_stream(self, data):
+        """Called when streaming finishes to attach steps and metadata."""
+        self.data = data
+        self.content = data.get("summary") or data.get("answer") or self.content
+        self.summary_lbl.setText(self.content)
+        steps = data.get("steps") or []
+        self._render_steps(steps)
+
+    def _render_steps(self, steps):
+        while self.sb_lay.count():
+            item = self.sb_lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not steps:
+            self.steps_box.setVisible(False)
+            return
+
+        self.steps_box.setVisible(True)
+        for s in steps:
+            s_row = QHBoxLayout()
+            s_row.setSpacing(10)
+            s_num = label(f" {s.get('number', '')} ", "badge", wrap=False)
+            s_row.addWidget(s_num, alignment=Qt.AlignmentFlag.AlignTop)
+
+            s_text = QLabel(s.get("text", ""))
+            s_text.setWordWrap(True)
+            s_text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            s_text.setStyleSheet("font-size:14px; line-height:1.4;")
+            s_row.addWidget(s_text, 1)
+
+            pno = s.get("page")
+            if pno and self.win:
+                jump_b = button(f"p. {pno} ↗", "chip", slot=lambda _=False, p=pno: self.win.open_user_manual(p))
+                jump_b.setFixedHeight(26)
+                s_row.addWidget(jump_b, alignment=Qt.AlignmentFlag.AlignTop)
+
+            self.sb_lay.addLayout(s_row)
 
     def copy_text(self):
         text_to_copy = export_mod.format_answer_txt(self.data or {"answer": self.content})
@@ -1036,12 +1592,12 @@ class ComponentCardWidget(QFrame):
         self.setObjectName("card")
         self.comp = comp_dict
         self.on_ask_cb = on_ask_cb
+        self.details_expanded = False
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 16, 18, 16)
         lay.setSpacing(10)
 
-        # Header: Name, Package & Category Badge
         head = QHBoxLayout()
         name_lbl = label(comp_dict.get("name", "Component"), "h1", wrap=False)
         head.addWidget(name_lbl)
@@ -1054,20 +1610,17 @@ class ComponentCardWidget(QFrame):
         pkg_lbl = label(f"Package: {comp_dict.get('package', 'Standard')}", "caption")
         lay.addWidget(pkg_lbl)
 
-        # Function & Beginner Explanation
         func_lbl = label(f"<b>Function:</b> {comp_dict.get('function', '')}")
         lay.addWidget(func_lbl)
 
         simple_lbl = label(f"💡 <i>{comp_dict.get('simple_explanation', '')}</i>")
         lay.addWidget(simple_lbl)
 
-        # Monospace Schematic Symbol
         sym = comp_dict.get("symbol", "").strip()
         if sym:
             sym_box = label(sym, "codeBlock")
             lay.addWidget(sym_box)
 
-        # Expandable Details Box
         self.details_box = QWidget()
         d_lay = QVBoxLayout(self.details_box)
         d_lay.setContentsMargins(0, 6, 0, 6)
@@ -1088,11 +1641,9 @@ class ComponentCardWidget(QFrame):
         if comp_dict.get("detailed_explanation"):
             d_lay.addWidget(label(f"🔬 <b>Technical Deep Dive:</b> {comp_dict['detailed_explanation']}"))
 
-        self.details_expanded = False
         self.details_box.setVisible(False)
         lay.addWidget(self.details_box)
 
-        # Action Buttons Row
         btn_row = QHBoxLayout()
         self.toggle_btn = button("▼ View Pinout & Details", "secondary", slot=self.toggle_details)
         btn_row.addWidget(self.toggle_btn)
@@ -1114,7 +1665,7 @@ class ComponentCardWidget(QFrame):
 
 
 class TopNavBar(QFrame):
-    """Top navigation bar for unified 4-page access and theme toggling."""
+    """Top navigation bar with Cyber Green branding, page routing, and theme toggle."""
     def __init__(self, win):
         super().__init__()
         self.win = win
@@ -1125,15 +1676,13 @@ class TopNavBar(QFrame):
         lay.setContentsMargins(18, 8, 18, 8)
         lay.setSpacing(8)
 
-        # Brand / Logo
         brand_icon = label("⚡", wrap=False)
-        brand_icon.setStyleSheet("font-size:22px; color:#3b82f6;")
+        brand_icon.setStyleSheet("font-size:22px; color:#00ff66;")
         brand_lbl = label("ElectroLearn AI", "brand", wrap=False)
         lay.addWidget(brand_icon)
         lay.addWidget(brand_lbl)
-        lay.addSpacing(24)
+        lay.addSpacing(20)
 
-        # The 4 Main Navigation Buttons
         self.btn_dash = button("🏠 Dashboard", "navActive", slot=lambda: self.win.navigate_to(0))
         self.btn_chat = button("💬 AI Assistant", "nav", slot=lambda: self.win.navigate_to(1))
         self.btn_lib = button("📚 Component Library", "nav", slot=lambda: self.win.navigate_to(2))
@@ -1144,9 +1693,8 @@ class TopNavBar(QFrame):
 
         lay.addStretch()
 
-        # Theme toggle & Settings
-        self.theme_btn = button("🌓 Dark Mode", "secondary", slot=self.win.toggle_theme)
-        self.theme_btn.setToolTip("Toggle Dark / Light Theme")
+        self.theme_btn = button("🌓 Theme", "secondary", slot=self.win.toggle_theme)
+        self.theme_btn.setToolTip("Toggle Matrix Dark / Clean Light Theme")
         lay.addWidget(self.theme_btn)
 
         self.settings_btn = button("⚙ Settings", "secondary", slot=lambda: SettingsDialog(self.win).exec())
@@ -1161,31 +1709,35 @@ class TopNavBar(QFrame):
 
 
 class MainView:
-    """Builder for the modern 4-page electronic components learning interface."""
+    """Builder for the modern 4-page electronic components learning interface with space background."""
     def __init__(self, window):
         self.win = window
         self.stack = QStackedWidget()
 
     def setup_ui(self):
-        outer = QVBoxLayout(self.win)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
+        # Window base layout
+        root_lay = QVBoxLayout(self.win)
+        root_lay.setContentsMargins(0, 0, 0, 0)
+        root_lay.setSpacing(0)
+
+        # Space background canvas behind everything
+        self.space_bg = SpaceBackgroundWidget(self.win)
+        self.space_bg.lower()
 
         # Persistent Top Navigation Bar
         self.top_bar = TopNavBar(self.win)
-        outer.addWidget(self.top_bar)
-        outer.addWidget(self.stack, 1)
+        root_lay.addWidget(self.top_bar)
+        root_lay.addWidget(self.stack, 1)
 
-        # Build the exact 4 pages requested
+        # Build the 4 primary pages
         self.dashboard_page = self._build_dashboard()   # Page 0
         self.chat_page = self._build_chat()             # Page 1
         self.library_page = self._build_library()       # Page 2
         self.manual_page = self._build_manual_help()    # Page 3
 
-        # Auxiliary background transition page (for long processing operations)
+        # Auxiliary background transition page
         self.busy_page = self._build_busy()
 
-        # Add to stack in order
         self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.chat_page)
         self.stack.addWidget(self.library_page)
@@ -1198,11 +1750,17 @@ class MainView:
         self.viewer_page = self.manual_page
         self.ask_page = self.chat_page
 
+    def update_background_theme(self, is_dark):
+        if hasattr(self, "space_bg"):
+            self.space_bg.set_theme(is_dark)
+
     def _page_scroll(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("background:transparent;")
         content = QWidget()
+        content.setStyleSheet("background:transparent;")
         lay = QVBoxLayout(content)
         lay.setContentsMargins(32, 24, 32, 28)
         lay.setSpacing(20)
@@ -1226,11 +1784,14 @@ class MainView:
         b_title = label("Electronic Components Learning & Identification Hub", "title")
         b_head.addWidget(b_title)
         b_head.addStretch()
-        b_badge = label("⚡ AI-Powered Vision & Manuals", "badge", wrap=False)
+        b_badge = label("⚡ AI Vision & General Assistant", "badgeOk", wrap=False)
         b_head.addWidget(b_badge)
         b_lay.addLayout(b_head)
 
-        b_sub = label("Scan live circuits, identify mystery ICs and passive components, review pinout schematics, and ask instant questions with conversational AI assistance.", "subtitle")
+        b_sub = label(
+            "Scan circuit boards, identify mystery ICs, review pinout schematics, "
+            "and ask general electronics knowledge questions powered by hybrid AI.", "subtitle"
+        )
         b_lay.addWidget(b_sub)
         lay.addWidget(banner_box)
 
@@ -1239,25 +1800,25 @@ class MainView:
         actions_grid = QGridLayout()
         actions_grid.setSpacing(14)
 
-        act1 = QPushButton("📷  Upload Image\nSelect photo from disk")
+        act1 = QPushButton("📷  Upload Image\nSelect circuit photo from disk")
         act1.setProperty("kind", "cardAction")
         act1.setCursor(Qt.CursorShape.PointingHandCursor)
         act1.clicked.connect(self.win.upload_photo)
         actions_grid.addWidget(act1, 0, 0)
 
-        act2 = QPushButton("🎥  Live Camera Scan\nPoint camera at board")
+        act2 = QPushButton("🎥  Live Camera Scan\nPoint webcam at component")
         act2.setProperty("kind", "cardAction")
         act2.setCursor(Qt.CursorShape.PointingHandCursor)
         act2.clicked.connect(self.win.open_camera)
         actions_grid.addWidget(act2, 0, 1)
 
-        act3 = QPushButton("🎬  Upload Video\nAnalyze video frames")
+        act3 = QPushButton("🎬  Upload Video\nAnalyze hardware recording")
         act3.setProperty("kind", "cardAction")
         act3.setCursor(Qt.CursorShape.PointingHandCursor)
         act3.clicked.connect(self.win.upload_video)
         actions_grid.addWidget(act3, 0, 2)
 
-        act4 = QPushButton("💬  Ask AI Question\nChat about components")
+        act4 = QPushButton("💬  Ask AI Assistant\nGeneral electronics or manuals")
         act4.setProperty("kind", "cardAction")
         act4.setCursor(Qt.CursorShape.PointingHandCursor)
         act4.clicked.connect(lambda: self.win.open_chat())
@@ -1265,7 +1826,7 @@ class MainView:
 
         lay.addLayout(actions_grid)
 
-        # Component Identification Result Card (Shown when a scan completes or is selected)
+        # Component Identification Result Card
         self.dash_result_card = QFrame()
         self.dash_result_card.setObjectName("card")
         res_lay = QVBoxLayout(self.dash_result_card)
@@ -1279,7 +1840,6 @@ class MainView:
         r_head.addWidget(self.dash_match_badge)
         res_lay.addLayout(r_head)
 
-        # Side-by-side images (Uploaded Photo vs Matched Reference)
         self.img_row = QHBoxLayout()
         self.img_row.setSpacing(16)
 
@@ -1290,7 +1850,7 @@ class MainView:
         self.uploaded_caption = label("Uploaded Photo / Frame", "caption", align=Qt.AlignmentFlag.AlignCenter)
         up_lay.addWidget(self.uploaded_caption)
         self.hw_image = label("", align=Qt.AlignmentFlag.AlignCenter)
-        self.hw_image.setStyleSheet("background:#080c12; border:1px solid #1f2a3a; border-radius:12px;")
+        self.hw_image.setStyleSheet("background:#040705; border:1px solid #173822; border-radius:12px;")
         self.hw_image.setFixedHeight(220)
         up_lay.addWidget(self.hw_image)
         self.img_row.addWidget(self.uploaded_box, 1)
@@ -1302,7 +1862,7 @@ class MainView:
         self.matched_caption = label("Matched Manual / Component Reference", "caption", align=Qt.AlignmentFlag.AlignCenter)
         mat_lay.addWidget(self.matched_caption)
         self.matched_hw_image = label("", align=Qt.AlignmentFlag.AlignCenter)
-        self.matched_hw_image.setStyleSheet("background:#080c12; border:1px solid #1f2a3a; border-radius:12px;")
+        self.matched_hw_image.setStyleSheet("background:#040705; border:1px solid #173822; border-radius:12px;")
         self.matched_hw_image.setFixedHeight(220)
         mat_lay.addWidget(self.matched_hw_image)
         self.img_row.addWidget(self.matched_box, 1)
@@ -1310,7 +1870,6 @@ class MainView:
 
         res_lay.addLayout(self.img_row)
 
-        # Specs grid
         specs_box = QWidget()
         specs_grid = QGridLayout(specs_box)
         specs_grid.setContentsMargins(0, 4, 0, 4)
@@ -1329,11 +1888,9 @@ class MainView:
             specs_grid.addWidget(val, r, 1)
         res_lay.addWidget(specs_box)
 
-        # Description / Learning Note
         self.dash_desc_lbl = label("Upload an image or use the live camera to identify your electronic component.", "muted")
         res_lay.addWidget(self.dash_desc_lbl)
 
-        # Manual selector / Match status
         self.match_status = label("", "badgeOk")
         self.match_detail = label("", "muted")
         res_lay.addWidget(self.match_status)
@@ -1343,7 +1900,6 @@ class MainView:
         self.manual_combo.currentIndexChanged.connect(self.win._update_continue)
         res_lay.addWidget(self.manual_combo)
 
-        # Result Action buttons
         res_btn_row = QHBoxLayout()
         self.dash_ask_comp_btn = button("💬 Ask Assistant About This Component", "primary", slot=self.win.ask_about_scanned_component)
         self.dash_ask_comp_btn.setEnabled(False)
@@ -1356,7 +1912,7 @@ class MainView:
         res_lay.addLayout(res_btn_row)
         lay.addWidget(self.dash_result_card)
 
-        # Recent Scans & Activity Section
+        # Recent Scans & Activity
         lay.addWidget(label("RECENT SCANS & IDENTIFICATIONS", "h2", wrap=False))
         self.dash_scans_list = QListWidget()
         self.dash_scans_list.setFixedHeight(160)
@@ -1369,7 +1925,7 @@ class MainView:
         scans_btn_row.addWidget(self.dash_clear_scans_btn)
         lay.addLayout(scans_btn_row)
 
-        # Quick-Start Learning Tips for Beginners (4 Cards)
+        # Beginner Electronics Tips
         lay.addWidget(label("BEGINNER ELECTRONICS QUICK TIPS", "h2", wrap=False))
         tips_grid = QGridLayout()
         tips_grid.setSpacing(14)
@@ -1399,6 +1955,7 @@ class MainView:
     # =========================================================================
     def _build_chat(self):
         p = QWidget()
+        p.setStyleSheet("background:transparent;")
         main_h_lay = QHBoxLayout(p)
         main_h_lay.setContentsMargins(0, 0, 0, 0)
         main_h_lay.setSpacing(0)
@@ -1411,7 +1968,6 @@ class MainView:
         s_lay.setContentsMargins(14, 16, 14, 16)
         s_lay.setSpacing(10)
 
-        # Top sidebar buttons
         s_top = QHBoxLayout()
         self.new_chat_btn = button("＋ New Chat", "primary", slot=self.win.new_chat)
         self.new_chat_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -1423,7 +1979,6 @@ class MainView:
         s_top.addWidget(self.collapse_sidebar_btn)
         s_lay.addLayout(s_top)
 
-        # Export Recent Chats Dropdown
         self.export_recent_btn = button("📥 Export Recent Chats ▼", "secondary")
         recent_menu = QMenu(self.export_recent_btn)
         act_p = recent_menu.addAction("Export Recent as PDF (.pdf)")
@@ -1437,7 +1992,6 @@ class MainView:
 
         s_lay.addWidget(label("SAVED CONVERSATIONS", "caption", wrap=False))
 
-        # Conversations List
         self.chat_history_list = QListWidget()
         self.chat_history_list.itemClicked.connect(self.win._on_history_item_clicked)
         s_lay.addWidget(self.chat_history_list, 1)
@@ -1449,11 +2003,11 @@ class MainView:
 
         # Main Chat Area
         chat_area = QWidget()
+        chat_area.setStyleSheet("background:transparent;")
         c_lay = QVBoxLayout(chat_area)
         c_lay.setContentsMargins(24, 16, 24, 16)
         c_lay.setSpacing(10)
 
-        # Header bar
         top_bar = QHBoxLayout()
         top_bar.setSpacing(10)
 
@@ -1461,7 +2015,7 @@ class MainView:
         self.expand_sidebar_btn.setVisible(False)
         top_bar.addWidget(self.expand_sidebar_btn)
 
-        self.chat_manual_badge = label("📖 Active Reference: Electronics Assistant", "h1", wrap=False)
+        self.chat_manual_badge = label("💬 Electronics & Manuals Assistant", "h1", wrap=False)
         top_bar.addWidget(self.chat_manual_badge)
         top_bar.addStretch()
 
@@ -1478,12 +2032,12 @@ class MainView:
 
         c_lay.addLayout(top_bar)
 
-        # Scrollable Thread
         self.chat_scroll = QScrollArea()
         self.chat_scroll.setWidgetResizable(True)
         self.chat_scroll.setStyleSheet("background:transparent; border:none;")
 
         self.chat_thread_widget = QWidget()
+        self.chat_thread_widget.setStyleSheet("background:transparent;")
         self.chat_thread_lay = QVBoxLayout(self.chat_thread_widget)
         self.chat_thread_lay.setContentsMargins(10, 10, 10, 10)
         self.chat_thread_lay.setSpacing(14)
@@ -1492,14 +2046,13 @@ class MainView:
         self.chat_scroll.setWidget(self.chat_thread_widget)
         c_lay.addWidget(self.chat_scroll, 1)
 
-        # Typing Indicator Card
         self.typing_card = QFrame()
         self.typing_card.setObjectName("typingCard")
         t_lay = QHBoxLayout(self.typing_card)
         t_lay.setContentsMargins(16, 10, 16, 10)
         t_lay.setSpacing(10)
         t_icon = label("⏳", wrap=False)
-        self.typing_lbl = label("Searching manual & reasoning answer...", "badgeOk", wrap=False)
+        self.typing_lbl = label("Reasoning answer...", "badgeOk", wrap=False)
         t_lay.addWidget(t_icon)
         t_lay.addWidget(self.typing_lbl)
         t_lay.addStretch()
@@ -1516,7 +2069,7 @@ class MainView:
         input_row = QHBoxLayout()
         input_row.setSpacing(8)
         self.chat_input = QLineEdit()
-        self.chat_input.setPlaceholderText("💬 Ask about an IC, pinout, circuit problem, or follow-up question...")
+        self.chat_input.setPlaceholderText("💬 Ask anything! (e.g. 'What is an IC?', 'How do 555 timers oscillate?', or questions about manuals)...")
         self.chat_input.returnPressed.connect(self.win.send_chat_message)
         input_row.addWidget(self.chat_input, 1)
 
@@ -1529,10 +2082,10 @@ class MainView:
         b_lay.addLayout(input_row)
 
         sub_row = QHBoxLayout()
-        self.chat_full_check = QCheckBox("Full in-depth analysis (checks all manual pages)")
+        self.chat_full_check = QCheckBox("Deep-dive mode (searches all manual pages + engineering theory)")
         sub_row.addWidget(self.chat_full_check)
         sub_row.addStretch()
-        sub_hint = label("Press Enter to send • Conversation history preserved for follow-ups", "caption")
+        sub_hint = label("Press Enter to send • Supports live streaming & general electronics questions", "caption")
         sub_row.addWidget(sub_hint)
         b_lay.addLayout(sub_row)
 
@@ -1546,25 +2099,23 @@ class MainView:
     # =========================================================================
     def _build_library(self):
         page = QWidget()
+        page.setStyleSheet("background:transparent;")
         lay = QVBoxLayout(page)
         lay.setContentsMargins(28, 20, 28, 24)
         lay.setSpacing(14)
 
-        # Header & Subtabs
         head_row = QHBoxLayout()
-        head_row.addWidget(label("ELECTRONIC COMPONENT LIBRARY & MANUALS", "h1"))
+        head_row.addWidget(label("ELECTRONIC COMPONENT LIBRARY & PINOUTS", "h1"))
         head_row.addStretch()
         self.lib_add_btn = button("+ Add Manual PDF", "primary", slot=self.win.add_manual)
         head_row.addWidget(self.lib_add_btn)
         lay.addLayout(head_row)
 
-        # Search Bar
         self.lib_search = QLineEdit()
         self.lib_search.setPlaceholderText("🔍 Search components by name, pin, package, or function (e.g. 555, timer, esp32, ultrasonic, diode)...")
         self.lib_search.textChanged.connect(self.win.filter_library_cards)
         lay.addWidget(self.lib_search)
 
-        # Category Filter Chips
         self.chip_bar = QHBoxLayout()
         self.chip_bar.setSpacing(8)
         self.chip_buttons = []
@@ -1577,14 +2128,15 @@ class MainView:
         self.chip_bar.addStretch()
         lay.addLayout(self.chip_bar)
 
-        # Tab view: Components Cards View vs PDF Manuals List View
         self.lib_stack = QStackedWidget()
+        self.lib_stack.setStyleSheet("background:transparent;")
 
-        # View 0: Scrollable Cards Grid
         self.cards_scroll = QScrollArea()
         self.cards_scroll.setWidgetResizable(True)
         self.cards_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.cards_scroll.setStyleSheet("background:transparent;")
         self.cards_container = QWidget()
+        self.cards_container.setStyleSheet("background:transparent;")
         self.cards_lay = QVBoxLayout(self.cards_container)
         self.cards_lay.setContentsMargins(0, 0, 0, 0)
         self.cards_lay.setSpacing(14)
@@ -1592,8 +2144,8 @@ class MainView:
         self.cards_scroll.setWidget(self.cards_container)
         self.lib_stack.addWidget(self.cards_scroll)
 
-        # View 1: Manuals List View (for imported PDF hardware manuals)
         manuals_view = QWidget()
+        manuals_view.setStyleSheet("background:transparent;")
         m_lay = QVBoxLayout(manuals_view)
         m_lay.setContentsMargins(0, 0, 0, 0)
         m_lay.setSpacing(10)
@@ -1622,24 +2174,27 @@ class MainView:
     # =========================================================================
     def _build_manual_help(self):
         page = QWidget()
+        page.setStyleSheet("background:transparent;")
         lay = QVBoxLayout(page)
         lay.setContentsMargins(28, 20, 28, 24)
         lay.setSpacing(14)
 
         tabs = QTabWidget()
 
-        # TAB 1: App User Guide & Tutorials
         guide_widget = QWidget()
+        guide_widget.setStyleSheet("background:transparent;")
         g_scroll = QScrollArea()
         g_scroll.setWidgetResizable(True)
         g_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        g_scroll.setStyleSheet("background:transparent;")
         g_content = QWidget()
+        g_content.setStyleSheet("background:transparent;")
         g_lay = QVBoxLayout(g_content)
         g_lay.setContentsMargins(20, 16, 20, 20)
         g_lay.setSpacing(16)
 
         g_lay.addWidget(label("📖 How to Use ElectroLearn AI & Hardware Assistant", "title"))
-        g_lay.addWidget(label("A complete beginner-to-advanced visual guide on how to capture, identify, learn, and troubleshoot electronics.", "subtitle"))
+        g_lay.addWidget(label("A complete beginner-to-advanced guide on how to capture, identify, learn, and troubleshoot electronics with hybrid AI.", "subtitle"))
 
         guides = [
             ("1. Live Camera & Photo Scanning",
@@ -1647,24 +2202,23 @@ class MainView:
              "• Align the chip or circuit board in good lighting. Click 'Capture Photo' to run vision identification.\n"
              "• Alternatively, click 'Upload Image' to choose a photo from disk. Common formats (.png, .jpg, .webp) are supported up to 50MB."),
 
-            ("2. Component Identification & Matching",
-             "• The AI extracts visual markings, text, part numbers, and package types.\n"
-             "• The result card presents the detected component with pinouts, schematic symbols, and typical uses.\n"
-             "• If matched with a manufacturer PDF manual, it displays the exact illustration and page reference side-by-side."),
+            ("2. Hybrid AI & General Knowledge Chat",
+             "• Ask general electronics questions like 'What is an IC?' or 'How does a diode work?'.\n"
+             "• The assistant uses online LLM APIs (Gemini, OpenAI, Claude) or local Ollama to answer comprehensively.\n"
+             "• When a question relates to an active manual, the assistant automatically retrieves manual context and cites page numbers."),
 
-            ("3. AI Chat Assistant & Voice Recognition",
-             "• Click 'AI Assistant' in the top bar to open the continuous chat thread.\n"
-             "• Click the '🎤 Speak' button to dictate questions using Whisper speech recognition with automatic pause detection.\n"
-             "• The assistant maintains conversation memory so follow-up questions work seamlessly."),
+            ("3. Voice Recognition",
+             "• Click the '🎤 Speak' button in the chat input bar or on any screen.\n"
+             "• Dictate your question. Transcription starts automatically when you pause speaking."),
 
-            ("4. Exporting Answers & Guides",
-             "• Export individual answers or full chat threads to PDF, Markdown (.md), or Plain Text (.txt).\n"
-             "• Use 'Export Recent Chats' from the sidebar to archive your learning sessions."),
+            ("4. Component Library & Pinouts",
+             "• Browse standard components like the 555 timer, ATmega328P, ESP32, transistors, and diodes.\n"
+             "• Click '▼ View Pinout & Details' on any card to see ASCII schematics and pin connection tables.\n"
+             "• Click '💬 Ask Assistant About This' to jump directly into a detailed Q&A session."),
 
-            ("5. Reading Electronic Symbols & Safety",
-             "• Notch & Dot: Pin 1 is always top-left when the notch points upwards.\n"
-             "• Polarity: Diodes have a cathode stripe; electrolytic capacitors have a negative (-) stripe.\n"
-             "• Safety: Always turn off power before probing resistance or continuity with a multimeter.")
+            ("5. Exporting Answers & Manual Viewing",
+             "• Export answers or chat logs to PDF, Markdown (.md), or Plain Text (.txt).\n"
+             "• Read full indexed PDF manuals in the embedded viewer tab with Table of Contents and search.")
         ]
 
         for g_title, g_body in guides:
@@ -1675,7 +2229,7 @@ class MainView:
             c_lay.setSpacing(6)
             c_lay.addWidget(label(g_title, "h2"))
             body_lbl = label(g_body)
-            body_lbl.setStyleSheet("line-height:1.5;")
+            body_lbl.setStyleSheet("line-height:1.55;")
             c_lay.addWidget(body_lbl)
             g_lay.addWidget(card)
 
@@ -1687,13 +2241,13 @@ class MainView:
         g_main_lay.addWidget(g_scroll)
         tabs.addTab(guide_widget, "📘 App User Guide & Tutorials")
 
-        # TAB 2: Embedded Interactive PDF Manual Reader
+        # Embedded Interactive PDF Manual Reader
         self.embedded_viewer_widget = QWidget()
+        self.embedded_viewer_widget.setStyleSheet("background:transparent;")
         ev_lay = QVBoxLayout(self.embedded_viewer_widget)
         ev_lay.setContentsMargins(10, 10, 10, 10)
         ev_lay.setSpacing(10)
 
-        # Embedded viewer controls
         ev_ctrl = QHBoxLayout()
         ev_ctrl.addWidget(label("Active Manual:", "caption"))
         self.ev_manual_lbl = label("No manual selected", "h2")
@@ -1725,14 +2279,11 @@ class MainView:
 
         ev_lay.addLayout(ev_ctrl)
 
-        # Splitter: Left Outline/Search | Right Document Page View
         ev_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left: TOC and Search tabs
         ev_left_tabs = QTabWidget()
         ev_left_tabs.setFixedWidth(280)
 
-        # Outline tab
         ev_toc_w = QWidget()
         ev_toc_l = QVBoxLayout(ev_toc_w)
         ev_toc_l.setContentsMargins(4, 4, 4, 4)
@@ -1742,7 +2293,6 @@ class MainView:
         ev_toc_l.addWidget(self.ev_toc_tree)
         ev_left_tabs.addTab(ev_toc_w, "Outline")
 
-        # Search tab
         ev_search_w = QWidget()
         ev_s_l = QVBoxLayout(ev_search_w)
         ev_s_l.setContentsMargins(4, 4, 4, 4)
@@ -1762,7 +2312,6 @@ class MainView:
 
         ev_splitter.addWidget(ev_left_tabs)
 
-        # Right: Page Scroll Area
         self.ev_scroll = QScrollArea()
         self.ev_scroll.setWidgetResizable(True)
         self.ev_scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1779,10 +2328,11 @@ class MainView:
         return page
 
     # =========================================================================
-    # AUXILIARY / TRANSITION PAGE: BUSY PROGRESS
+    # AUXILIARY / PROGRESS TRANSITION
     # =========================================================================
     def _build_busy(self):
         p = QWidget()
+        p.setStyleSheet("background:transparent;")
         lay = QVBoxLayout(p)
         lay.setContentsMargins(40, 40, 40, 40)
         lay.addStretch()
