@@ -119,6 +119,7 @@ class MainWindow(QWidget):
         self.match_detail = self.view.match_detail
         self.manual_combo = self.view.manual_combo
         self.continue_btn = self.view.continue_btn
+        self.uploaded_box = self.view.uploaded_box
         self.uploaded_caption = self.view.uploaded_caption
         self.matched_box = self.view.matched_box
         self.matched_caption = self.view.matched_caption
@@ -134,6 +135,11 @@ class MainWindow(QWidget):
         self.chat_send_btn = self.view.chat_send_btn
         self.chat_speak_btn = self.view.chat_speak_btn
         self.chat_full_check = self.view.chat_full_check
+        self.chat_manual_selector_btn = self.view.chat_manual_selector_btn
+        self.chat_view_manual_btn = self.view.chat_view_manual_btn
+        self.chat_clear_manual_btn = self.view.chat_clear_manual_btn
+        self.chat_attach_photo_btn = self.view.chat_attach_photo_btn
+        self.pending_chat_photo = None
         self.typing_card = self.view.typing_card
         self.typing_lbl = self.view.typing_lbl
         self.chat_manual_badge = self.view.chat_manual_badge
@@ -183,6 +189,7 @@ class MainWindow(QWidget):
         self.refresh_recent_scans()
         self.filter_library_cards()
         self.refresh_library()
+        self.update_manual_selector_ui()
         self.navigate_to(0)
 
     def resizeEvent(self, event):
@@ -294,10 +301,13 @@ class MainWindow(QWidget):
 
     def open_camera(self):
         """Open live camera viewfinder for circuit & component capture."""
-        dlg = CameraDialog(self)
-        if dlg.exec() == QDialog.DialogCode.Accepted and dlg.captured_path:
-            self.run_task(lambda cb: manual_mod.analyze_photo(dlg.captured_path, cb), self.show_hardware,
-                          "Identifying electronic component...")
+        try:
+            dlg = CameraDialog(self)
+            if dlg.exec() == QDialog.DialogCode.Accepted and dlg.captured_path:
+                self.run_task(lambda cb: manual_mod.analyze_photo(dlg.captured_path, cb), self.show_hardware,
+                              "Identifying electronic component...")
+        except Exception as e:
+            QMessageBox.warning(self, "Camera Scanner", f"Could not launch camera scanner:\n{e}")
 
     def upload_video(self):
         """Analyze a video clip of hardware or component markings."""
@@ -323,6 +333,11 @@ class MainWindow(QWidget):
         match_info = res.get("match_info") or {}
         source = match_info.get("source")
         matched_img = match_info.get("matched_image_path")
+
+        if hasattr(self.view, "scanner_placeholder"):
+            self.view.scanner_placeholder.setVisible(False)
+        self.uploaded_box.setVisible(True)
+        self.dash_match_badge.setText("Component Identified")
 
         if source in ("visual_image", "visual_image_similar") and matched_img and os.path.isfile(matched_img):
             pno = match_info.get("page", "")
@@ -415,13 +430,16 @@ class MainWindow(QWidget):
             self.open_chat()
 
     def ask_about_scanned_component(self):
-        """Jump from Dashboard result directly into AI Assistant with prompt preloaded."""
+        """Jump from Dashboard result directly into AI Assistant with prompt and image preloaded."""
         if not self.hw_result:
             self.navigate_to(1)
             return
         hw = self.hw_result.get("hardware") or {}
         name = hw.get("product_name") or hw.get("model") or "this component"
         prompt = f"Can you explain the function, pinout connections, and typical circuit applications for {name}?"
+        preview_img = self.hw_result.get("preview")
+        if preview_img and os.path.isfile(preview_img):
+            self.pending_chat_photo = preview_img
         self.open_chat()
         self.send_chat_message(prompt)
 
@@ -619,6 +637,7 @@ class MainWindow(QWidget):
     def new_chat(self):
         cid = db.create_conversation(self.manual_id, "New Chat")
         self.active_conv_id = cid
+        self.update_manual_selector_ui()
         self.render_empty_chat_welcome()
         self.refresh_history_sidebar()
         self.chat_input.setFocus()
@@ -662,6 +681,96 @@ class MainWindow(QWidget):
 
         self.chat_thread_lay.insertWidget(0, welcome_card)
 
+    def show_chat_manual_menu(self):
+        """Display popup menu to select an active manual or return to general knowledge."""
+        menu = QMenu(self.chat_manual_selector_btn)
+
+        act_all = menu.addAction("🌐 All / General Knowledge (No manual filter)")
+        act_all.triggered.connect(lambda: self.set_chat_manual(None))
+        menu.addSeparator()
+
+        manuals = db.list_manuals()
+        if manuals:
+            for m in manuals:
+                mid = m["id"]
+                mname = m["name"]
+                m_model = f" ({m['model']})" if m.get("model") else ""
+                check = " ✓" if self.manual_id == mid else ""
+                act = menu.addAction(f"📘 {mname}{m_model}{check}")
+                act.triggered.connect(lambda _=False, mid_val=mid: self.set_chat_manual(mid_val))
+            menu.addSeparator()
+
+        act_import = menu.addAction("➕ Upload New Manual PDF...")
+        act_import.triggered.connect(self.add_manual)
+
+        if self.manual_id:
+            menu.addSeparator()
+            act_view = menu.addAction("📖 View Currently Selected Manual...")
+            act_view.triggered.connect(self.view_current_manual)
+            act_clear = menu.addAction("❌ Clear Manual Filter (Back to General Knowledge)")
+            act_clear.triggered.connect(lambda: self.set_chat_manual(None))
+
+        menu.exec(self.chat_manual_selector_btn.mapToGlobal(QPointF(0, self.chat_manual_selector_btn.height()).toPoint()))
+
+    def set_chat_manual(self, manual_id):
+        """Set the active manual for the current conversation and persist to DB."""
+        self.manual_id = manual_id
+        if self.active_conv_id:
+            db.update_conversation_manual(self.active_conv_id, manual_id)
+        self.update_manual_selector_ui()
+
+    def update_manual_selector_ui(self):
+        """Sync manual selector button, badges, and view/clear buttons with active manual."""
+        if not hasattr(self, "chat_manual_selector_btn"):
+            return
+        provider = llm_service.get_active_provider().upper()
+        if self.manual_id:
+            m = db.get_manual(self.manual_id)
+            mname = m["name"] if m else f"Manual #{self.manual_id}"
+            short_name = mname if len(mname) <= 24 else mname[:21] + "..."
+            self.chat_manual_selector_btn.setText(f"📘 Manual: {short_name} ▼")
+            self.chat_view_manual_btn.setVisible(True)
+            self.chat_clear_manual_btn.setVisible(True)
+            self.chat_manual_badge.setText(f"💬 Assistant ({provider}) · {mname}")
+        else:
+            self.chat_manual_selector_btn.setText("📚 Manual: All / General Knowledge ▼")
+            self.chat_view_manual_btn.setVisible(False)
+            self.chat_clear_manual_btn.setVisible(False)
+            self.chat_manual_badge.setText(f"💬 Electronics & Manuals Assistant ({provider})")
+
+    def view_current_manual(self):
+        """Open PDF viewer for the currently selected manual."""
+        if self.manual_id:
+            self.open_user_manual(1)
+        else:
+            QMessageBox.information(self, "Manual Viewer", "Please select a manual first using the '📚 Manual' button.")
+
+    def clear_chat_manual(self):
+        """Reset conversation scoping back to general knowledge."""
+        self.set_chat_manual(None)
+
+    def attach_chat_photo(self):
+        """Attach a photo from disk to accompany the next chat question."""
+        if getattr(self, "pending_chat_photo", None):
+            self.pending_chat_photo = None
+            self.chat_attach_photo_btn.setText("📷 Attach Photo")
+            self.chat_attach_photo_btn.setProperty("kind", "secondary")
+            self.chat_attach_photo_btn.style().unpolish(self.chat_attach_photo_btn)
+            self.chat_attach_photo_btn.style().polish(self.chat_attach_photo_btn)
+            return
+
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Attach Component Photo to Chat", "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)"
+        )
+        if path and os.path.isfile(path):
+            self.pending_chat_photo = path
+            fname = os.path.basename(path)
+            self.chat_attach_photo_btn.setText(f"📷 {fname[:12]} ✕")
+            self.chat_attach_photo_btn.setProperty("kind", "primary")
+            self.chat_attach_photo_btn.style().unpolish(self.chat_attach_photo_btn)
+            self.chat_attach_photo_btn.style().polish(self.chat_attach_photo_btn)
+
     def send_chat_message(self, explicit_question=None):
         question = (explicit_question or self.chat_input.text()).strip()
         if not question:
@@ -669,6 +778,14 @@ class MainWindow(QWidget):
 
         if not explicit_question:
             self.chat_input.clear()
+
+        attached_photo = getattr(self, "pending_chat_photo", None)
+        self.pending_chat_photo = None
+        if hasattr(self, "chat_attach_photo_btn"):
+            self.chat_attach_photo_btn.setText("📷 Attach Photo")
+            self.chat_attach_photo_btn.setProperty("kind", "secondary")
+            self.chat_attach_photo_btn.style().unpolish(self.chat_attach_photo_btn)
+            self.chat_attach_photo_btn.style().polish(self.chat_attach_photo_btn)
 
         if not self.active_conv_id:
             self.active_conv_id = db.create_conversation(self.manual_id, question[:35])
@@ -679,9 +796,13 @@ class MainWindow(QWidget):
             if item and item.widget() and item.widget().objectName() == "asstCard":
                 item.widget().deleteLater()
 
+        display_user_text = question
+        if attached_photo:
+            display_user_text += f"\n[📷 Attached Image: {os.path.basename(attached_photo)}]"
+
         # 1. Add User Message to UI & DB
-        db.add_chat_message(self.active_conv_id, "user", question)
-        user_w = ChatMessageWidget("user", question, parent_win=self)
+        db.add_chat_message(self.active_conv_id, "user", display_user_text)
+        user_w = ChatMessageWidget("user", display_user_text, parent_win=self)
         self.chat_thread_lay.insertWidget(self.chat_thread_lay.count() - 1, user_w)
 
         conv = db.get_conversation(self.active_conv_id)
@@ -710,7 +831,8 @@ class MainWindow(QWidget):
                 question,
                 history=history,
                 progress_cb=progress_cb,
-                stream_cb=stream_cb
+                stream_cb=stream_cb,
+                photo_path=attached_photo
             )
 
         def on_stream_token(token):
@@ -753,9 +875,9 @@ class MainWindow(QWidget):
         conv = db.get_conversation(conv_id)
         if conv and conv.get("manual_id"):
             self.manual_id = conv["manual_id"]
-            mname = conv.get("manual_name") or "Manual"
-            provider = llm_service.get_active_provider().upper()
-            self.chat_manual_badge.setText(f"💬 Assistant ({provider}) · {mname}")
+        else:
+            self.manual_id = None
+        self.update_manual_selector_ui()
 
         while self.chat_thread_lay.count() > 1:
             child = self.chat_thread_lay.takeAt(0)

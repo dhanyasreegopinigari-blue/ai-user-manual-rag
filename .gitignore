@@ -55,3 +55,4 @@ data/manuals/*
 !data/faiss/.gitkeep
 !data/images/.gitkeep
 !data/manuals/.gitkeep
+screenshots/

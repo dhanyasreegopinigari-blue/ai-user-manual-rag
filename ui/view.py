@@ -46,11 +46,11 @@ QLabel {
     color: #F3FBF5;
 }
 
-/* Primary Pill CTA Button (agent-one signature) */
+/* Primary CTA Button (Soft curved 12px) */
 QPushButton#primaryBtn, QPushButton[kind="primary"] {
     background-color: #00FF85;
     border: 1px solid #00FF66;
-    border-radius: 9999px;
+    border-radius: 12px;
     padding: 8px 18px;
     color: #05140A;
     font-weight: 800;
@@ -62,6 +62,10 @@ QPushButton#primaryBtn:hover, QPushButton[kind="primary"]:hover {
     border-color: #39FF14;
     color: #05140A;
 }
+QPushButton#primaryBtn:focus, QPushButton[kind="primary"]:focus {
+    outline: none;
+    border-color: #39FF14;
+}
 QPushButton#primaryBtn:pressed, QPushButton[kind="primary"]:pressed {
     background: #00CC6A;
 }
@@ -71,11 +75,11 @@ QPushButton#primaryBtn:disabled, QPushButton[kind="primary"]:disabled {
     color: #4B6353;
 }
 
-/* Secondary Button (Glassmorphic dark pill) */
+/* Secondary Button (Glassmorphic dark curved 12px) */
 QPushButton#secondaryBtn, QPushButton[kind="secondary"], QPushButton {
     background: rgba(16, 23, 18, 0.90);
     border: 1px solid rgba(0, 255, 133, 0.22);
-    border-radius: 9999px;
+    border-radius: 12px;
     padding: 8px 18px;
     color: #F3FBF5;
     font-weight: 600;
@@ -86,6 +90,10 @@ QPushButton#secondaryBtn:hover, QPushButton[kind="secondary"]:hover, QPushButton
     border-color: #00FF85;
     color: #00FF85;
 }
+QPushButton#secondaryBtn:focus, QPushButton[kind="secondary"]:focus, QPushButton:focus {
+    outline: none;
+    border-color: #00FF85;
+}
 QPushButton#secondaryBtn:pressed, QPushButton[kind="secondary"]:pressed, QPushButton:pressed {
     background: #0c3822;
 }
@@ -95,11 +103,11 @@ QPushButton#secondaryBtn:disabled, QPushButton[kind="secondary"]:disabled, QPush
     color: #556B5D;
 }
 
-/* Danger Pill Button */
+/* Danger Soft Curved Button */
 QPushButton#dangerBtn, QPushButton[kind="danger"] {
     background: rgba(45, 18, 20, 0.85);
     border: 1px solid #7F1D1D;
-    border-radius: 9999px;
+    border-radius: 12px;
     padding: 8px 18px;
     color: #FCA5A5;
     font-weight: 600;
@@ -109,12 +117,16 @@ QPushButton#dangerBtn:hover, QPushButton[kind="danger"]:hover {
     border-color: #EF4444;
     color: #FFFFFF;
 }
+QPushButton#dangerBtn:focus, QPushButton[kind="danger"]:focus {
+    outline: none;
+    border-color: #EF4444;
+}
 
 /* Top Navigation Bar Buttons */
 QPushButton#navBtn, QPushButton[kind="nav"] {
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 9999px;
+    border-radius: 12px;
     padding: 8px 18px;
     color: #A7BDAE;
     font-weight: 600;
@@ -125,10 +137,14 @@ QPushButton#navBtn:hover, QPushButton[kind="nav"]:hover {
     border-color: rgba(0, 255, 133, 0.16);
     color: #F3FBF5;
 }
+QPushButton#navBtn:focus, QPushButton[kind="nav"]:focus {
+    outline: none;
+    border-color: rgba(0, 255, 133, 0.35);
+}
 QPushButton#navActiveBtn, QPushButton[kind="navActive"] {
     background: rgba(0, 255, 133, 0.14);
     border: 1px solid #00FF85;
-    border-radius: 9999px;
+    border-radius: 12px;
     padding: 8px 18px;
     color: #00FF85;
     font-weight: 700;
@@ -139,7 +155,7 @@ QPushButton#navActiveBtn, QPushButton[kind="navActive"] {
 QPushButton#chipBtn, QPushButton[kind="chip"] {
     background: rgba(16, 23, 18, 0.85);
     border: 1px solid rgba(0, 255, 133, 0.18);
-    border-radius: 9999px;
+    border-radius: 10px;
     padding: 7px 16px;
     color: #A7BDAE;
     font-size: 13px;
@@ -150,10 +166,14 @@ QPushButton#chipBtn:hover, QPushButton[kind="chip"]:hover {
     color: #F3FBF5;
     border-color: #00FF85;
 }
+QPushButton#chipBtn:focus, QPushButton[kind="chip"]:focus {
+    outline: none;
+    border-color: #00FF85;
+}
 QPushButton#chipActiveBtn, QPushButton[kind="chipActive"] {
     background: rgba(0, 255, 133, 0.16);
     border: 1px solid #00FF85;
-    border-radius: 9999px;
+    border-radius: 10px;
     padding: 7px 16px;
     color: #00FF85;
     font-size: 13px;
@@ -262,7 +282,7 @@ QFrame#sidebarFrame QLabel#caption {
 QFrame#sidebarFrame QPushButton#primaryBtn, QFrame#sidebarFrame QPushButton[kind="primary"] {
     background-color: #0c3822;
     border: 1px solid rgba(0, 255, 133, 0.45);
-    border-radius: 9999px;
+    border-radius: 12px;
     color: #FFFFFF;
     font-weight: 700;
     padding: 10px 16px;
@@ -272,10 +292,14 @@ QFrame#sidebarFrame QPushButton#primaryBtn:hover, QFrame#sidebarFrame QPushButto
     border-color: #00FF85;
     color: #FFFFFF;
 }
+QFrame#sidebarFrame QPushButton#primaryBtn:focus, QFrame#sidebarFrame QPushButton[kind="primary"]:focus {
+    outline: none;
+    border-color: #00FF85;
+}
 QFrame#sidebarFrame QPushButton#secondaryBtn, QFrame#sidebarFrame QPushButton[kind="secondary"], QFrame#sidebarFrame QPushButton {
     background-color: #162019;
     border: 1px solid rgba(0, 255, 133, 0.16);
-    border-radius: 9999px;
+    border-radius: 12px;
     color: #A7BDAE;
 }
 QFrame#sidebarFrame QPushButton#secondaryBtn:hover, QFrame#sidebarFrame QPushButton[kind="secondary"]:hover, QFrame#sidebarFrame QPushButton:hover {
@@ -283,16 +307,24 @@ QFrame#sidebarFrame QPushButton#secondaryBtn:hover, QFrame#sidebarFrame QPushBut
     border-color: #00FF85;
     color: #00FF85;
 }
+QFrame#sidebarFrame QPushButton#secondaryBtn:focus, QFrame#sidebarFrame QPushButton[kind="secondary"]:focus, QFrame#sidebarFrame QPushButton:focus {
+    outline: none;
+    border-color: #00FF85;
+}
 QFrame#sidebarFrame QPushButton#dangerBtn, QFrame#sidebarFrame QPushButton[kind="danger"] {
     background-color: rgba(45, 18, 20, 0.9);
     border: 1px solid #7F1D1D;
     color: #FCA5A5;
-    border-radius: 9999px;
+    border-radius: 12px;
 }
 QFrame#sidebarFrame QPushButton#dangerBtn:hover, QFrame#sidebarFrame QPushButton[kind="danger"]:hover {
     background-color: #5A1E24;
     border-color: #EF4444;
     color: #FFFFFF;
+}
+QFrame#sidebarFrame QPushButton#dangerBtn:focus, QFrame#sidebarFrame QPushButton[kind="danger"]:focus {
+    outline: none;
+    border-color: #EF4444;
 }
 
 /* Chat Message Bubbles */
@@ -466,11 +498,11 @@ QLabel {
     color: #0F172A;
 }
 
-/* Primary Pill CTA Button */
+/* Primary CTA Button (Soft curved 12px) */
 QPushButton#primaryBtn, QPushButton[kind="primary"] {
     background-color: #10B981;
     border: 1px solid #059669;
-    border-radius: 9999px;
+    border-radius: 12px;
     padding: 8px 18px;
     color: #FFFFFF;
     font-weight: 700;
@@ -482,6 +514,10 @@ QPushButton#primaryBtn:hover, QPushButton[kind="primary"]:hover {
     border-color: #047857;
     color: #FFFFFF;
 }
+QPushButton#primaryBtn:focus, QPushButton[kind="primary"]:focus {
+    outline: none;
+    border-color: #047857;
+}
 QPushButton#primaryBtn:pressed, QPushButton[kind="primary"]:pressed {
     background: #047857;
 }
@@ -491,11 +527,11 @@ QPushButton#primaryBtn:disabled, QPushButton[kind="primary"]:disabled {
     border-color: #E2E8F0;
 }
 
-/* Secondary Button (Clean white pill) */
+/* Secondary Button (Clean white curved 12px) */
 QPushButton#secondaryBtn, QPushButton[kind="secondary"], QPushButton {
     background: #FFFFFF;
     border: 1px solid #CBD5E1;
-    border-radius: 9999px;
+    border-radius: 12px;
     padding: 8px 18px;
     color: #0F172A;
     font-weight: 600;
@@ -506,6 +542,10 @@ QPushButton#secondaryBtn:hover, QPushButton[kind="secondary"]:hover, QPushButton
     border-color: #10B981;
     color: #065F46;
 }
+QPushButton#secondaryBtn:focus, QPushButton[kind="secondary"]:focus, QPushButton:focus {
+    outline: none;
+    border-color: #10B981;
+}
 QPushButton#secondaryBtn:pressed, QPushButton[kind="secondary"]:pressed, QPushButton:pressed {
     background: #DCFCE7;
 }
@@ -515,11 +555,11 @@ QPushButton#secondaryBtn:disabled, QPushButton[kind="secondary"]:disabled, QPush
     border-color: #E2E8F0;
 }
 
-/* Danger Pill Button */
+/* Danger Soft Curved Button */
 QPushButton#dangerBtn, QPushButton[kind="danger"] {
     background: #FEE2E2;
     border: 1px solid #FCA5A5;
-    border-radius: 9999px;
+    border-radius: 12px;
     padding: 8px 18px;
     color: #B91C1C;
     font-weight: 600;
@@ -528,12 +568,16 @@ QPushButton#dangerBtn:hover, QPushButton[kind="danger"]:hover {
     background: #FECACA;
     border-color: #EF4444;
 }
+QPushButton#dangerBtn:focus, QPushButton[kind="danger"]:focus {
+    outline: none;
+    border-color: #EF4444;
+}
 
 /* Top Navigation Bar Buttons */
 QPushButton#navBtn, QPushButton[kind="nav"] {
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 9999px;
+    border-radius: 12px;
     padding: 8px 18px;
     color: #475569;
     font-weight: 600;
@@ -544,10 +588,14 @@ QPushButton#navBtn:hover, QPushButton[kind="nav"]:hover {
     color: #065F46;
     border-color: #DCEBD4;
 }
+QPushButton#navBtn:focus, QPushButton[kind="nav"]:focus {
+    outline: none;
+    border-color: #10B981;
+}
 QPushButton#navActiveBtn, QPushButton[kind="navActive"] {
     background: #DCFCE7;
     border: 1px solid #10B981;
-    border-radius: 9999px;
+    border-radius: 12px;
     padding: 8px 18px;
     color: #065F46;
     font-weight: 700;
@@ -558,7 +606,7 @@ QPushButton#navActiveBtn, QPushButton[kind="navActive"] {
 QPushButton#chipBtn, QPushButton[kind="chip"] {
     background: #FFFFFF;
     border: 1px solid #CBD5E1;
-    border-radius: 9999px;
+    border-radius: 10px;
     padding: 7px 16px;
     color: #475569;
     font-size: 13px;
@@ -569,10 +617,14 @@ QPushButton#chipBtn:hover, QPushButton[kind="chip"]:hover {
     color: #10B981;
     border-color: #BBF7D0;
 }
+QPushButton#chipBtn:focus, QPushButton[kind="chip"]:focus {
+    outline: none;
+    border-color: #10B981;
+}
 QPushButton#chipActiveBtn, QPushButton[kind="chipActive"] {
     background: #10B981;
     border: 1px solid #059669;
-    border-radius: 9999px;
+    border-radius: 10px;
     padding: 7px 16px;
     color: #FFFFFF;
     font-size: 13px;
@@ -703,7 +755,7 @@ QFrame#sidebarFrame QListWidget::item:selected {
 QFrame#sidebarFrame QPushButton#primaryBtn, QFrame#sidebarFrame QPushButton[kind="primary"] {
     background-color: #0c3822;
     border: 1px solid rgba(0, 255, 102, 0.45);
-    border-radius: 9999px;
+    border-radius: 12px;
     color: #FFFFFF;
     font-weight: 700;
     padding: 10px 16px;
@@ -713,10 +765,14 @@ QFrame#sidebarFrame QPushButton#primaryBtn:hover, QFrame#sidebarFrame QPushButto
     border-color: #00FF66;
     color: #FFFFFF;
 }
+QFrame#sidebarFrame QPushButton#primaryBtn:focus, QFrame#sidebarFrame QPushButton[kind="primary"]:focus {
+    outline: none;
+    border-color: #00FF66;
+}
 QFrame#sidebarFrame QPushButton#secondaryBtn, QFrame#sidebarFrame QPushButton[kind="secondary"], QFrame#sidebarFrame QPushButton {
     background-color: #162019;
     border: 1px solid #1C3A27;
-    border-radius: 9999px;
+    border-radius: 12px;
     color: #8E9690;
 }
 QFrame#sidebarFrame QPushButton#secondaryBtn:hover, QFrame#sidebarFrame QPushButton[kind="secondary"]:hover, QFrame#sidebarFrame QPushButton:hover {
@@ -724,16 +780,24 @@ QFrame#sidebarFrame QPushButton#secondaryBtn:hover, QFrame#sidebarFrame QPushBut
     border-color: #00FF66;
     color: #FFFFFF;
 }
+QFrame#sidebarFrame QPushButton#secondaryBtn:focus, QFrame#sidebarFrame QPushButton[kind="secondary"]:focus, QFrame#sidebarFrame QPushButton:focus {
+    outline: none;
+    border-color: #00FF66;
+}
 QFrame#sidebarFrame QPushButton#dangerBtn, QFrame#sidebarFrame QPushButton[kind="danger"] {
     background-color: rgba(45, 18, 20, 0.9);
     border: 1px solid #6E2328;
     color: #FCA5A5;
-    border-radius: 9999px;
+    border-radius: 12px;
 }
 QFrame#sidebarFrame QPushButton#dangerBtn:hover, QFrame#sidebarFrame QPushButton[kind="danger"]:hover {
     background-color: #50191E;
     border-color: #EF4444;
     color: #FFFFFF;
+}
+QFrame#sidebarFrame QPushButton#dangerBtn:focus, QFrame#sidebarFrame QPushButton[kind="danger"]:focus {
+    outline: none;
+    border-color: #EF4444;
 }
 
 /* Chat Message Bubbles */
@@ -1696,8 +1760,35 @@ class UserManualDialog(QDialog):
                     QMessageBox.warning(self, "PDF Viewer", f"Could not launch external viewer:\n{e}")
 
 
+class ClickableThumbnail(QLabel):
+    """Clickable thumbnail that previews full resolution in ImagePreviewDialog."""
+    def __init__(self, image_path, caption="", parent_win=None):
+        super().__init__()
+        self.image_path = image_path
+        self.caption = caption
+        self.win = parent_win
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip("Click to inspect full size")
+        self.setStyleSheet(
+            "border: 1px solid rgba(0, 255, 133, 0.35); "
+            "border-radius: 12px; background: #040705; padding: 4px;"
+        )
+        pm = QPixmap(image_path) if image_path and os.path.isfile(image_path) else QPixmap()
+        if not pm.isNull():
+            self.setPixmap(pm.scaled(280, 180, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        else:
+            self.setText("Illustration")
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.image_path and os.path.isfile(self.image_path):
+            dlg = ImagePreviewDialog(self.win, self.image_path, title=self.caption or "Component Visual")
+            dlg.exec()
+        super().mousePressEvent(event)
+
+
 class ChatMessageWidget(QWidget):
-    """Visually distinct chat message card (User or Assistant) with live streaming support."""
+    """Visually distinct chat message card (User or Assistant) with live streaming,
+    inline manual diagrams, repair steps, and tool badges."""
     def __init__(self, role, content, data=None, created_at=None, parent_win=None):
         super().__init__()
         self.role = role
@@ -1781,6 +1872,36 @@ class ChatMessageWidget(QWidget):
             if title:
                 self.c_lay.addWidget(label(title.upper(), "h1"))
 
+            # Safety Warning Box (for Repair / Diagnostics)
+            self.safety_card = QFrame()
+            self.safety_card.setStyleSheet(
+                "background: rgba(245, 158, 11, 0.12); "
+                "border: 1px solid rgba(245, 158, 11, 0.40); "
+                "border-radius: 12px; padding: 10px 14px;"
+            )
+            saf_lay = QHBoxLayout(self.safety_card)
+            saf_lay.setContentsMargins(6, 6, 6, 6)
+            saf_lay.setSpacing(10)
+            saf_icon = label("⚡", wrap=False)
+            saf_icon.setStyleSheet("font-size: 20px; color: #FBBF24;")
+            saf_lay.addWidget(saf_icon, alignment=Qt.AlignmentFlag.AlignTop)
+            self.safety_lbl = QLabel()
+            self.safety_lbl.setWordWrap(True)
+            self.safety_lbl.setStyleSheet("font-size: 13.5px; color: #FBBF24; font-weight: 600;")
+            saf_lay.addWidget(self.safety_lbl, 1)
+            self.safety_card.setVisible(False)
+            self.c_lay.addWidget(self.safety_card)
+
+            # Tools & Equipment Required Row
+            self.tools_box = QWidget()
+            self.tools_box.setStyleSheet("background:transparent;")
+            self.tools_lay = QHBoxLayout(self.tools_box)
+            self.tools_lay.setContentsMargins(0, 2, 0, 2)
+            self.tools_lay.setSpacing(8)
+            self.tools_box.setVisible(False)
+            self.c_lay.addWidget(self.tools_box)
+
+            # Main Summary / Explanation Label
             summary = (self.data or {}).get("summary") if isinstance(self.data, dict) else ""
             if not summary and self.content:
                 summary = self.content
@@ -1791,6 +1912,16 @@ class ChatMessageWidget(QWidget):
             self.summary_lbl.setStyleSheet("font-size: 14.5px; line-height: 1.55;")
             self.c_lay.addWidget(self.summary_lbl)
 
+            # Inline Visuals / Diagrams / Schematics Box
+            self.images_box = QWidget()
+            self.images_box.setStyleSheet("background:transparent;")
+            self.img_h_lay = QHBoxLayout(self.images_box)
+            self.img_h_lay.setContentsMargins(0, 4, 0, 4)
+            self.img_h_lay.setSpacing(12)
+            self.images_box.setVisible(False)
+            self.c_lay.addWidget(self.images_box)
+
+            # Numbered Steps Box
             self.steps_box = QWidget()
             self.steps_box.setStyleSheet("background:transparent;")
             self.sb_lay = QVBoxLayout(self.steps_box)
@@ -1798,8 +1929,14 @@ class ChatMessageWidget(QWidget):
             self.sb_lay.setSpacing(8)
             self.c_lay.addWidget(self.steps_box)
 
-            steps = (self.data or {}).get("steps") or [] if isinstance(self.data, dict) else []
-            self._render_steps(steps)
+            # Render initial data if provided
+            if isinstance(self.data, dict):
+                self._render_safety(self.data.get("safety"))
+                self._render_tools(self.data.get("tools") or [])
+                self._render_images(self.data.get("images") or [])
+                self._render_steps(self.data.get("steps") or [])
+            else:
+                self.steps_box.setVisible(False)
 
             # Footer actions: Copy, Export
             self.f_row = QHBoxLayout()
@@ -1831,12 +1968,67 @@ class ChatMessageWidget(QWidget):
         self.summary_lbl.setText(self.content)
 
     def finalize_stream(self, data):
-        """Called when streaming finishes to attach steps and metadata."""
+        """Called when streaming finishes to attach steps, visuals, safety, and metadata."""
         self.data = data
         self.content = data.get("summary") or data.get("answer") or self.content
         self.summary_lbl.setText(self.content)
-        steps = data.get("steps") or []
-        self._render_steps(steps)
+        self._render_safety(data.get("safety"))
+        self._render_tools(data.get("tools") or [])
+        self._render_images(data.get("images") or [])
+        self._render_steps(data.get("steps") or [])
+
+    def _render_safety(self, safety_text):
+        if safety_text and safety_text.strip():
+            self.safety_lbl.setText(f"<b>SAFETY PRECAUTION:</b> {safety_text.strip()}")
+            self.safety_card.setVisible(True)
+        else:
+            self.safety_card.setVisible(False)
+
+    def _render_tools(self, tools):
+        while self.tools_lay.count():
+            item = self.tools_lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not tools:
+            self.tools_box.setVisible(False)
+            return
+
+        self.tools_box.setVisible(True)
+        self.tools_lay.addWidget(label("🛠 <b>Required:</b>", "caption", wrap=False))
+        for t in tools:
+            b = label(t, "badge", wrap=False)
+            self.tools_lay.addWidget(b)
+        self.tools_lay.addStretch()
+
+    def _render_images(self, images):
+        while self.img_h_lay.count():
+            item = self.img_h_lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        valid_images = [img for img in images if img.get("path") and os.path.isfile(img["path"])]
+        if not valid_images:
+            self.images_box.setVisible(False)
+            return
+
+        self.images_box.setVisible(True)
+        for img in valid_images[:3]:
+            path = img.get("path")
+            cap = img.get("caption") or "Component Visual"
+            card = QFrame()
+            card.setObjectName("tipCard")
+            c_lay = QVBoxLayout(card)
+            c_lay.setContentsMargins(8, 8, 8, 8)
+            c_lay.setSpacing(6)
+
+            thumb = ClickableThumbnail(path, caption=cap, parent_win=self.win)
+            c_lay.addWidget(thumb, alignment=Qt.AlignmentFlag.AlignCenter)
+            cap_lbl = label(f"🔍 {cap} (click to expand)", "caption", align=Qt.AlignmentFlag.AlignCenter)
+            c_lay.addWidget(cap_lbl)
+            self.img_h_lay.addWidget(card)
+
+        self.img_h_lay.addStretch()
 
     def _render_steps(self, steps):
         while self.sb_lay.count():
@@ -1852,18 +2044,18 @@ class ChatMessageWidget(QWidget):
         for s in steps:
             s_row = QHBoxLayout()
             s_row.setSpacing(10)
-            s_num = label(f" {s.get('number', '')} ", "badge", wrap=False)
+            s_num = label(f" {s.get('number', '')} ", "badgeOk" if s.get("number") == 1 else "badge", wrap=False)
             s_row.addWidget(s_num, alignment=Qt.AlignmentFlag.AlignTop)
 
             s_text = QLabel(s.get("text", ""))
             s_text.setWordWrap(True)
             s_text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            s_text.setStyleSheet("font-size:14px; line-height:1.4;")
+            s_text.setStyleSheet("font-size:14px; line-height:1.45;")
             s_row.addWidget(s_text, 1)
 
             pno = s.get("page")
             if pno and self.win:
-                jump_b = button(f"p. {pno} ↗", "chip", slot=lambda _=False, p=pno: self.win.open_user_manual(p))
+                jump_b = button(f"Page {pno} ↗", "chip", slot=lambda _=False, p=pno: self.win.open_user_manual(p))
                 jump_b.setFixedHeight(26)
                 s_row.addWidget(jump_b, alignment=Qt.AlignmentFlag.AlignTop)
 
@@ -2142,6 +2334,42 @@ class MainView:
         r_head.addWidget(self.dash_match_badge)
         res_lay.addLayout(r_head)
 
+        # Interactive Scanner Preview Placeholder Card (Requirement 5)
+        self.scanner_placeholder = QFrame()
+        self.scanner_placeholder.setObjectName("card")
+        self.scanner_placeholder.setMinimumHeight(190)
+        sp_lay = QVBoxLayout(self.scanner_placeholder)
+        sp_lay.setContentsMargins(24, 20, 24, 20)
+        sp_lay.setSpacing(10)
+        sp_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        sp_icon = label("📷", wrap=False, align=Qt.AlignmentFlag.AlignCenter)
+        sp_icon.setStyleSheet("font-size: 32px; color: #00FF85;")
+        sp_lay.addWidget(sp_icon)
+
+        sp_title = label("Visual Scanner & Hardware Preview Area", "h1", align=Qt.AlignmentFlag.AlignCenter)
+        sp_lay.addWidget(sp_title)
+
+        sp_sub = label(
+            "No component scanned yet. Point your camera at a chip or circuit board, or choose an image to analyze.",
+            "muted", align=Qt.AlignmentFlag.AlignCenter
+        )
+        sp_lay.addWidget(sp_sub)
+
+        sp_btn_row = QHBoxLayout()
+        sp_btn_row.setSpacing(12)
+        sp_btn_row.addStretch()
+        self.sp_camera_btn = button("🎥 Start Live Camera Scan", "primary", slot=self.win.open_camera)
+        self.sp_camera_btn.setFixedHeight(38)
+        self.sp_upload_btn = button("📁 Upload Photo", "secondary", slot=self.win.upload_photo)
+        self.sp_upload_btn.setFixedHeight(38)
+        sp_btn_row.addWidget(self.sp_camera_btn)
+        sp_btn_row.addWidget(self.sp_upload_btn)
+        sp_btn_row.addStretch()
+        sp_lay.addLayout(sp_btn_row)
+
+        res_lay.addWidget(self.scanner_placeholder)
+
         self.img_row = QHBoxLayout()
         self.img_row.setSpacing(16)
 
@@ -2156,6 +2384,7 @@ class MainView:
         self.hw_image.setFixedHeight(220)
         up_lay.addWidget(self.hw_image)
         self.img_row.addWidget(self.uploaded_box, 1)
+        self.uploaded_box.setVisible(False)
 
         self.matched_box = QWidget()
         mat_lay = QVBoxLayout(self.matched_box)
@@ -2387,6 +2616,33 @@ class MainView:
         self.chat_send_btn.setMinimumWidth(94)
         input_row.addWidget(self.chat_send_btn)
         b_lay.addLayout(input_row)
+
+        # Composer Actions & Manual Selector Row (Requirement 3)
+        composer_actions_row = QHBoxLayout()
+        composer_actions_row.setSpacing(8)
+
+        self.chat_manual_selector_btn = button("📚 Manual: All / General Knowledge ▼", "secondary", slot=self.win.show_chat_manual_menu)
+        self.chat_manual_selector_btn.setFixedHeight(34)
+        composer_actions_row.addWidget(self.chat_manual_selector_btn)
+
+        self.chat_view_manual_btn = button("📖 View Manual", "secondary", slot=self.win.view_current_manual)
+        self.chat_view_manual_btn.setFixedHeight(34)
+        self.chat_view_manual_btn.setVisible(False)
+        composer_actions_row.addWidget(self.chat_view_manual_btn)
+
+        self.chat_clear_manual_btn = button("✕ Clear", "secondary", slot=self.win.clear_chat_manual)
+        self.chat_clear_manual_btn.setFixedHeight(34)
+        self.chat_clear_manual_btn.setVisible(False)
+        self.chat_clear_manual_btn.setToolTip("Switch back to All / General Knowledge")
+        composer_actions_row.addWidget(self.chat_clear_manual_btn)
+
+        composer_actions_row.addStretch()
+
+        self.chat_attach_photo_btn = button("📷 Attach Photo", "secondary", slot=self.win.attach_chat_photo)
+        self.chat_attach_photo_btn.setFixedHeight(34)
+        composer_actions_row.addWidget(self.chat_attach_photo_btn)
+
+        b_lay.addLayout(composer_actions_row)
 
         sub_row = QHBoxLayout()
         self.chat_full_check = QCheckBox("Deep-dive mode (searches all manual pages + engineering theory)")

@@ -14,6 +14,8 @@ import requests
 import config
 import database as db
 import services.rag as rag
+import services.visual_ref as visual_ref
+import services.components as comp_service
 
 
 SYSTEM_PROMPT = """You are ElectroLearn AI, an expert, enthusiastic, and sophisticated electronics engineering assistant.
@@ -27,7 +29,14 @@ Guidelines:
    - Mention key specs, precautions, and pinout logic when relevant.
 3. If manual reference context is provided, prioritize verified facts and page citations from the manual.
 4. If NO manual context is provided or the question is general electronics knowledge (e.g. "What is an IC?", "Explain Ohm's Law", "How do I solder?"), answer directly with your vast engineering knowledge! Never say "this is not in the manual" for general questions.
-5. Use clean markdown formatting with clear headings, bullet points, and code blocks for schematics or calculations.
+5. If the user asks for REPAIR, TROUBLESHOOTING, or COMPONENT REPLACEMENT:
+   - Provide a structured guide including:
+     * ⚠️ SAFETY FIRST: Discharge high-voltage capacitors, disconnect power, ESD precautions.
+     * 🛠 REQUIRED TOOLS & PARTS: Multimeter, soldering iron, desoldering pump, components.
+     * 📋 STEP-BY-STEP DIAGNOSTIC PROCEDURE: Numbered steps with expected multimeter/scope readings.
+     * 🔀 TROUBLESHOOTING BRANCHES: "If reading is X, then do Y; if reading is Z, do W."
+6. For standard/general questions (not troubleshooting), keep explanations normal, engaging, and concise.
+7. Use clean markdown formatting with clear headings, bullet points, and code blocks for schematics or calculations.
 """
 
 
@@ -285,13 +294,25 @@ def call_llm_stream(messages, stream_cb=None):
         raise e
 
 
+REPAIR_KEYWORDS = {
+    "repair", "fix", "troubleshoot", "troubleshooting", "diagnose", "diagnosis",
+    "replacement", "replace", "not working", "broken", "blown", "test", "fault",
+    "short", "shorted", "burn", "burned", "multimeter", "defective", "fail",
+    "failed", "dead", "smoke", "overheating", "overheat", "damage"
+}
+
+
 # ---- Hybrid RAG + General Knowledge ----------------------------------------
-def answer_hybrid(manual_id, question, history=None, progress_cb=None, stream_cb=None):
+def answer_hybrid(manual_id, question, history=None, progress_cb=None, stream_cb=None, photo_path=None):
     """Intelligently combine manual context with general LLM knowledge.
 
     - If the question relates to an indexed manual, extracts relevant chunks as context.
     - If no manual context is found or it's a general electronics question, answers
       from the LLM's comprehensive general knowledge.
+    - If troubleshooting/repair is requested, provides structured safety, tools,
+      diagnostic steps with expected multimeter readings, and repair branches.
+    - Automatically collects relevant inline images (manual figures, pinout diagrams,
+      or user-scanned photos).
     - Supports real-time streaming tokens.
     """
     cb = progress_cb or (lambda _: None)
@@ -300,20 +321,23 @@ def answer_hybrid(manual_id, question, history=None, progress_cb=None, stream_cb
 
     manual_context = ""
     has_manual_match = False
+    matched_pages = []
+    chunks = []
 
     # 1. Search manual chunks if a manual is active
     if manual_id:
         try:
             cb("Checking manual for relevant topics...")
             chunks = rag.search(manual_id, question, top_k=3)
-            # Check if any chunk has meaningful keyword match
             q_words = set(re.findall(r"[a-z0-9]{3,}", question.lower()))
             for ch in chunks:
                 ch_words = set(re.findall(r"[a-z0-9]{3,}", ch.get("chunk_text", "").lower()))
                 overlap = len(q_words & ch_words)
                 if overlap >= 2:
                     has_manual_match = True
-                    break
+                pno = ch.get("page_number")
+                if pno and pno not in matched_pages:
+                    matched_pages.append(pno)
 
             if has_manual_match and chunks:
                 manual_context = "\n\n==== VERIFIED MANUAL CONTEXT ====\n" + "\n\n".join(
@@ -323,14 +347,29 @@ def answer_hybrid(manual_id, question, history=None, progress_cb=None, stream_cb
         except Exception as e:
             print(f"[HYBRID] Manual search note: {e}")
 
+    # Check for repair / troubleshooting query
+    q_lower = question.lower()
+    is_repair = any(kw in q_lower for kw in REPAIR_KEYWORDS)
+
     # 2. Construct the prompt
+    repair_instruction = ""
+    if is_repair:
+        repair_instruction = (
+            "\n\nCRITICAL - STRUCTURE AS A STEP-BY-STEP REPAIR & TROUBLESHOOTING GUIDE:\n"
+            "1. ⚠️ SAFETY FIRST: Discharge bulk filter capacitors, disconnect power/mains, ESD safety wristband/mat.\n"
+            "2. 🛠 REQUIRED TOOLS & PARTS: Digital Multimeter, Soldering Station, Desoldering pump/wick, and specific replacement components.\n"
+            "3. 📋 STEP-BY-STEP DIAGNOSTIC PROCEDURE: Numbered steps with specific test points and EXPECTED MULTIMETER/SCOPE READINGS (e.g. 'Measure DC voltage at pin 8: should read +5.0V ± 0.25V. If 0V, inspect diode D1').\n"
+            "4. 🔀 TROUBLESHOOTING BRANCHES: 'If reading is X, do Y; if reading is Z, do W.'\n"
+        )
+
     if manual_context:
         user_prompt = (
             f"The user is asking about a specific hardware manual.\n"
             f"{manual_context}\n\n"
             f"USER QUESTION: {question}\n\n"
-            f"Instructions: Use the verified manual context above to provide step-by-step guidance. "
+            f"Instructions: Use the verified manual context above to provide guidance. "
             f"Include relevant page citations. If the manual lacks some details, supplement with your engineering knowledge."
+            f"{repair_instruction}"
         )
     else:
         user_prompt = (
@@ -338,6 +377,7 @@ def answer_hybrid(manual_id, question, history=None, progress_cb=None, stream_cb
             f"Instructions: Answer thoroughly using your comprehensive electronics engineering and hardware knowledge. "
             f"Provide a clear, engaging, and beginner-friendly explanation with formatting, bullet points, pinout details, "
             f"and practical circuit examples where applicable."
+            f"{repair_instruction}"
         )
 
     cb(f"Generating answer with {provider.upper()}...")
@@ -371,17 +411,72 @@ def answer_hybrid(manual_id, question, history=None, progress_cb=None, stream_cb
         if stream_cb:
             stream_cb(full_text)
 
-    # Extract any numbered steps from response for UI step cards
+    # 3. Retrieve relevant inline images
+    images = []
+    # If user provided or captured a photo
+    if photo_path and os.path.isfile(photo_path):
+        images.append({
+            "path": photo_path,
+            "caption": "Scanned Hardware Photo",
+            "kind": "user_photo"
+        })
+
+    # If manual context has matched pages, retrieve manual diagrams
+    if manual_id and matched_pages:
+        manual_figs = visual_ref.get_manual_images_for_pages(manual_id, matched_pages, max_images=2)
+        for mf in manual_figs:
+            if not any(img["path"] == mf["path"] for img in images):
+                images.append(mf)
+
+    # If no manual images attached, check for general component reference visual
+    if not any(img.get("kind") in ("illustration", "page") for img in images):
+        comp_ref = visual_ref.get_component_reference_image(question)
+        if comp_ref and not any(img["path"] == comp_ref["path"] for img in images):
+            images.append(comp_ref)
+
+    # 4. Check if user asked about a specific manual without selecting one
+    manual_suggestion = ""
+    if not manual_id:
+        # Check if question seems to ask for manual/datasheet info
+        manual_mentions = ["manual", "datasheet", "schematic", "page", "user guide"]
+        all_manuals = db.list_manuals()
+        has_manual_kw = any(mkw in q_lower for mkw in manual_mentions)
+        matching_manual_name = next((m["name"] for m in all_manuals if m["name"].lower() in q_lower), None)
+
+        if matching_manual_name:
+            manual_suggestion = f"\n\n💡 *Note: I noticed you mentioned '{matching_manual_name}'. You can select it directly from the **📚 Manual** selector below for exact page-referenced schematics!*"
+        elif has_manual_kw and all_manuals:
+            manual_suggestion = "\n\n💡 *Tip: If you're referencing an uploaded device manual, select it using the **📚 Manual** button below to query its specific pages and circuit diagrams.*"
+
+    if manual_suggestion:
+        full_text += manual_suggestion
+
+    # 5. Extract structured repair data: safety, tools, and steps
+    safety_text = ""
+    tools_list = []
+    safety_match = re.search(r"(?:SAFETY FIRST|SAFETY PRECAUTIONS?|SAFETY WARNINGS?)[:\*\s]*\n*([^\n#]+(?:\n[^\n#]+)?)", full_text, re.IGNORECASE)
+    if safety_match:
+        safety_text = safety_match.group(1).strip()
+
+    tools_match = re.search(r"(?:REQUIRED TOOLS|TOOLS & PARTS|REQUIRED PARTS)[:\*\s]*\n*([^\n#]+(?:\n[^\n#]+)?)", full_text, re.IGNORECASE)
+    if tools_match:
+        t_raw = tools_match.group(1).strip()
+        tools_list = [t.strip(" *-\t") for t in re.split(r"[,;•\n]", t_raw) if len(t.strip(" *-\t")) > 2][:6]
+
     steps = []
     lines = full_text.splitlines()
     step_num = 1
     for line in lines:
         match = re.match(r"^\s*(?:Step\s*)?(\d+)[:\.)]\s*(.+)", line)
         if match:
+            s_text = match.group(2).strip()
+            # Try to associate page number if mentioned in line or from matched_pages
+            p_match = re.search(r"[Pp]age\s*(\d+)", s_text)
+            pno = int(p_match.group(1)) if p_match else (matched_pages[0] if matched_pages else None)
             steps.append({
                 "number": step_num,
-                "text": match.group(2).strip(),
-                "page": None
+                "text": s_text,
+                "page": pno
             })
             step_num += 1
 
@@ -390,6 +485,10 @@ def answer_hybrid(manual_id, question, history=None, progress_cb=None, stream_cb
         "summary": full_text,
         "answer": full_text,
         "steps": steps[:8] if len(steps) >= 2 else [],
+        "images": images,
+        "safety": safety_text,
+        "tools": tools_list,
+        "is_repair": is_repair,
         "found": True,
         "provider": provider
     }
