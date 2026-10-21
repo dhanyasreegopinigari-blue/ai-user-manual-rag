@@ -13,80 +13,62 @@ import services.component_images as comp_img_service
 def capture():
     app = QApplication.instance() or QApplication(sys.argv)
     win = MainWindow()
-    win.resize(1280, 850)
+    win.resize(1360, 880)
     win.show()
 
     os.makedirs("screenshots", exist_ok=True)
 
-    # 1. Dashboard with hardware result and large images
-    photo_path = comp_img_service.get_component_gallery_images("ne555")[0]["path"]
-    schem_path = comp_img_service.get_component_gallery_images("ne555")[2]["path"]
-    win.show_hardware({
-        "preview": photo_path,
-        "hardware": {
-            "product_name": "NE555 Precision Timer",
-            "model": "NE555P",
-            "part_number": "NE555",
-            "hardware_type": "Integrated Circuit (Timer)"
-        },
-        "match_info": {
-            "source": "visual_image",
-            "matched_image_path": schem_path,
-            "page": 4,
-            "score_pct": 98
-        }
-    })
+    # 1. Component Library with Realistic Images & Attributions
+    win.navigate_to(2)
+    # Expand first card details so gallery is visible
+    if win.cards_lay.count() > 1:
+        first_card = win.cards_lay.itemAt(0).widget()
+        if hasattr(first_card, "toggle_details"):
+            first_card.toggle_details()
     app.processEvents()
-    time.sleep(0.3)
+    time.sleep(0.4)
     app.processEvents()
-    win.grab().save("screenshots/1_dashboard_large_images.png")
-    print("Saved 1_dashboard_large_images.png")
+    win.grab().save("screenshots/10_realistic_component_library.png")
+    print("Saved 10_realistic_component_library.png")
 
-    # 1b. Dashboard stacked vertical layout
-    win.toggle_dash_images_layout()
-    app.processEvents()
-    time.sleep(0.2)
-    app.processEvents()
-    win.grab().save("screenshots/1b_dashboard_stacked_layout.png")
-    print("Saved 1b_dashboard_stacked_layout.png")
-    win.toggle_dash_images_layout() # toggle back
-
-    # 2. Chat with Manual Button
+    # 2. Chat with clearly visible sidebar toggle button (Expanded)
     win.navigate_to(1)
     app.processEvents()
-    time.sleep(0.2)
+    time.sleep(0.3)
     app.processEvents()
-    win.grab().save("screenshots/2_chat_with_manual_button.png")
-    print("Saved 2_chat_with_manual_button.png")
+    win.grab().save("screenshots/11_sidebar_expanded.png")
+    print("Saved 11_sidebar_expanded.png")
 
-    # 2b. Manual Picker Dialog
-    dlg = ManualPickerDialog(win, active_manual_id=None)
-    dlg.resize(640, 520)
-    dlg.show()
-    app.processEvents()
-    time.sleep(0.2)
-    app.processEvents()
-    dlg.grab().save("screenshots/2b_manual_picker_dialog.png")
-    print("Saved 2b_manual_picker_dialog.png")
-    dlg.close()
-
-    # 3. Component Library with Visual Gallery
-    win.navigate_to(2)
+    # 2b. Chat with collapsed sidebar
+    win.toggle_sidebar()
     app.processEvents()
     time.sleep(0.3)
     app.processEvents()
-    win.grab().save("screenshots/3_component_library_gallery.png")
-    print("Saved 3_component_library_gallery.png")
+    win.grab().save("screenshots/12_sidebar_collapsed.png")
+    print("Saved 12_sidebar_collapsed.png")
+    win.toggle_sidebar() # expand back
+
+    # 3. Light Theme Component Library
+    win.toggle_theme() # switch to light
+    win.navigate_to(2)
+    app.processEvents()
+    time.sleep(0.4)
+    app.processEvents()
+    win.grab().save("screenshots/13_light_theme_library.png")
+    print("Saved 13_light_theme_library.png")
+    win.toggle_theme() # switch back to dark
 
     # 4. Lightbox Side-by-Side Comparison
+    photo_path = comp_img_service.get_component_gallery_images("ne555")[0]["path"]
+    schem_path = comp_img_service.get_component_gallery_images("ne555")[2]["path"]
     lightbox = ZoomableLightboxDialog(win, photo_path, title="NE555 Timer Photo", compare_path=schem_path, compare_title="NE555 Schematic Symbol")
     lightbox.resize(1100, 720)
     lightbox.show()
     app.processEvents()
     time.sleep(0.3)
     app.processEvents()
-    lightbox.grab().save("screenshots/4_lightbox_comparison.png")
-    print("Saved 4_lightbox_comparison.png")
+    lightbox.grab().save("screenshots/14_lightbox_comparison.png")
+    print("Saved 14_lightbox_comparison.png")
     lightbox.close()
 
     win.close()

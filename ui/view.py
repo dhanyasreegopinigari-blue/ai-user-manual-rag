@@ -156,10 +156,10 @@ QPushButton#navActiveBtn, QPushButton[kind="navActive"] {
 QPushButton#chipBtn, QPushButton[kind="chip"] {
     background: rgba(16, 23, 18, 0.85);
     border: 1px solid rgba(0, 255, 133, 0.18);
-    border-radius: 10px;
-    padding: 7px 16px;
+    border-radius: 8px;
+    padding: 4px 12px;
     color: #A7BDAE;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
 }
 QPushButton#chipBtn:hover, QPushButton[kind="chip"]:hover {
@@ -174,11 +174,59 @@ QPushButton#chipBtn:focus, QPushButton[kind="chip"]:focus {
 QPushButton#chipActiveBtn, QPushButton[kind="chipActive"] {
     background: rgba(0, 255, 133, 0.16);
     border: 1px solid #00FF85;
+    border-radius: 8px;
+    padding: 4px 12px;
+    color: #00FF85;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* Sidebar Toggle and Expand Icon Buttons */
+QPushButton#sidebarToggleBtn {
+    background: rgba(16, 23, 18, 0.90);
+    border: 1px solid rgba(0, 255, 133, 0.28);
+    color: #00FF85;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 0;
     border-radius: 10px;
-    padding: 7px 16px;
+}
+QPushButton#sidebarToggleBtn:hover {
+    background: rgba(0, 255, 133, 0.18);
+    border-color: #00FF85;
+    color: #FFFFFF;
+}
+QPushButton#sidebarToggleBtn:focus {
+    border-color: #00FF85;
+    outline: none;
+}
+QPushButton#sidebarExpandBtn {
+    background: rgba(16, 23, 18, 0.90);
+    border: 1px solid rgba(0, 255, 133, 0.28);
     color: #00FF85;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
+    padding: 0 14px;
+    border-radius: 10px;
+}
+QPushButton#sidebarExpandBtn:hover {
+    background: rgba(0, 255, 133, 0.18);
+    border-color: #00FF85;
+    color: #FFFFFF;
+}
+QPushButton#sidebarExpandBtn:focus {
+    border-color: #00FF85;
+    outline: none;
+}
+
+/* Component Visual Gallery Cards */
+QFrame#galleryCard {
+    background-color: rgba(10, 15, 12, 0.92);
+    border: 1px solid rgba(0, 255, 133, 0.20);
+    border-radius: 14px;
+}
+QFrame#galleryCard:hover {
+    border-color: rgba(0, 255, 133, 0.40);
 }
 
 /* Dashboard Action Cards */
@@ -607,10 +655,10 @@ QPushButton#navActiveBtn, QPushButton[kind="navActive"] {
 QPushButton#chipBtn, QPushButton[kind="chip"] {
     background: #FFFFFF;
     border: 1px solid #CBD5E1;
-    border-radius: 10px;
-    padding: 7px 16px;
+    border-radius: 8px;
+    padding: 4px 12px;
     color: #475569;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
 }
 QPushButton#chipBtn:hover, QPushButton[kind="chip"]:hover {
@@ -625,11 +673,59 @@ QPushButton#chipBtn:focus, QPushButton[kind="chip"]:focus {
 QPushButton#chipActiveBtn, QPushButton[kind="chipActive"] {
     background: #10B981;
     border: 1px solid #059669;
-    border-radius: 10px;
-    padding: 7px 16px;
+    border-radius: 8px;
+    padding: 4px 12px;
     color: #FFFFFF;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
+}
+
+/* Sidebar Toggle and Expand Icon Buttons */
+QPushButton#sidebarToggleBtn {
+    background: #FFFFFF;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #10B981;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 0;
+    border-radius: 10px;
+}
+QPushButton#sidebarToggleBtn:hover {
+    background: #E8F5E9;
+    border-color: #10B981;
+    color: #064E3B;
+}
+QPushButton#sidebarToggleBtn:focus {
+    border-color: #10B981;
+    outline: none;
+}
+QPushButton#sidebarExpandBtn {
+    background: #FFFFFF;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #10B981;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0 14px;
+    border-radius: 10px;
+}
+QPushButton#sidebarExpandBtn:hover {
+    background: #E8F5E9;
+    border-color: #10B981;
+    color: #064E3B;
+}
+QPushButton#sidebarExpandBtn:focus {
+    border-color: #10B981;
+    outline: none;
+}
+
+/* Component Visual Gallery Cards */
+QFrame#galleryCard {
+    background-color: #F8FAF8;
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    border-radius: 14px;
+}
+QFrame#galleryCard:hover {
+    border-color: #10B981;
 }
 
 /* Dashboard Action Cards */
@@ -2464,31 +2560,46 @@ class ComponentCardWidget(QFrame):
             gallery_items = comp_img_service.get_component_gallery_images(comp_dict)
             for idx, g_item in enumerate(gallery_items):
                 g_card = QFrame()
-                g_card.setObjectName("card")
-                g_card.setStyleSheet("background: rgba(10, 15, 12, 0.90); border: 1px solid rgba(0, 255, 133, 0.20); border-radius: 12px;")
+                g_card.setObjectName("galleryCard")
                 gc_lay = QVBoxLayout(g_card)
-                gc_lay.setContentsMargins(10, 8, 10, 10)
+                gc_lay.setContentsMargins(12, 10, 12, 12)
                 gc_lay.setSpacing(6)
+
+                img_path = g_item.get("path")
+                has_img = img_path and os.path.isfile(img_path)
 
                 gh_row = QHBoxLayout()
                 gh_row.addWidget(label(g_item["title"], "badgeOk" if idx == 0 else "badge", wrap=False))
                 gh_row.addStretch()
-                exp_b = button("🔍 Zoom", "chip")
-                exp_b.setFixedHeight(24)
-                exp_b.clicked.connect(lambda _=False, ip=g_item["path"], it=f"{comp_dict.get('name')} · {g_item['title']}": ZoomableLightboxDialog(self.window(), ip, title=it).exec())
-                gh_row.addWidget(exp_b)
+                if has_img:
+                    exp_b = button("🔍 Zoom", "chip")
+                    exp_b.setFixedHeight(24)
+                    exp_b.clicked.connect(lambda _=False, ip=img_path, it=f"{comp_dict.get('name')} · {g_item['title']}": ZoomableLightboxDialog(self.window(), ip, title=it).exec())
+                    gh_row.addWidget(exp_b)
                 gc_lay.addLayout(gh_row)
 
                 thumb = ClickableImagePreview()
-                thumb.setFixedHeight(180)
-                thumb.image_path = g_item["path"]
-                if not show_image(thumb, g_item["path"], 360, 180):
-                    thumb.setText("⚠️ Visual illustration unavailable")
-                thumb.clicked.connect(lambda ip, it=f"{comp_dict.get('name')} · {g_item['title']}": ZoomableLightboxDialog(self.window(), ip, title=it).exec())
+                thumb.setFixedHeight(190)
+                thumb.setMinimumWidth(220)
+                thumb.image_path = img_path
+                if has_img:
+                    if not show_image(thumb, img_path, 400, 190):
+                        thumb.setText("⚠️ Failed to load image")
+                    thumb.clicked.connect(lambda ip, it=f"{comp_dict.get('name')} · {g_item['title']}": ZoomableLightboxDialog(self.window(), ip, title=it).exec())
+                else:
+                    thumb.setText("📷 No image available")
+                    thumb.setStyleSheet("color: #6B8273; font-size: 13px; font-weight: 500;")
                 gc_lay.addWidget(thumb)
 
                 cap_l = label(g_item.get("caption", ""), "caption", align=Qt.AlignmentFlag.AlignCenter)
                 gc_lay.addWidget(cap_l)
+
+                if g_item.get("attribution"):
+                    attr_l = label(f"© {g_item['attribution']}", "caption", align=Qt.AlignmentFlag.AlignCenter)
+                    attr_l.setStyleSheet("font-size: 10.5px; opacity: 0.75;")
+                    if g_item.get("source"):
+                        attr_l.setToolTip(f"License Source: {g_item['source']}")
+                    gc_lay.addWidget(attr_l)
 
                 g_grid.addWidget(g_card, idx // 3, idx % 3)
 
@@ -2620,17 +2731,26 @@ class MainView:
         if hasattr(self, "space_bg"):
             self.space_bg.set_theme(is_dark)
 
-    def _page_scroll(self):
+    def _page_scroll(self, max_width=1320):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        # scroll.setStyleSheet("background:transparent;")
+        wrapper = QWidget()
+        w_lay = QHBoxLayout(wrapper)
+        w_lay.setContentsMargins(0, 0, 0, 0)
+        w_lay.setSpacing(0)
+
         content = QWidget()
-        # content.setStyleSheet("background:transparent;")
+        if max_width:
+            content.setMaximumWidth(max_width)
         lay = QVBoxLayout(content)
         lay.setContentsMargins(32, 24, 32, 28)
         lay.setSpacing(20)
-        scroll.setWidget(content)
+
+        w_lay.addStretch()
+        w_lay.addWidget(content, 1 if not max_width else 0)
+        w_lay.addStretch()
+        scroll.setWidget(wrapper)
         return scroll, lay
 
     # =========================================================================
@@ -2921,9 +3041,10 @@ class MainView:
         self.new_chat_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         s_top.addWidget(self.new_chat_btn)
 
-        self.collapse_sidebar_btn = button("◀", "secondary", slot=self.win.toggle_sidebar)
-        self.collapse_sidebar_btn.setFixedSize(40, 40)
-        self.collapse_sidebar_btn.setToolTip("Collapse Sidebar")
+        self.collapse_sidebar_btn = button("◀", "sidebarToggle", slot=self.win.toggle_sidebar)
+        self.collapse_sidebar_btn.setFixedSize(38, 38)
+        self.collapse_sidebar_btn.setObjectName("sidebarToggleBtn")
+        self.collapse_sidebar_btn.setToolTip("Collapse sidebar")
         s_top.addWidget(self.collapse_sidebar_btn)
         s_lay.addLayout(s_top)
 
@@ -2951,9 +3072,14 @@ class MainView:
 
         main_h_lay.addWidget(self.chat_sidebar)
 
-        # Main Chat Area
+        # Main Chat Area (Centered max-width container for comfortable reading)
+        chat_wrapper = QWidget()
+        cw_lay = QHBoxLayout(chat_wrapper)
+        cw_lay.setContentsMargins(0, 0, 0, 0)
+        cw_lay.setSpacing(0)
+
         chat_area = QWidget()
-        # chat_area.setStyleSheet("background:transparent;")
+        chat_area.setMaximumWidth(1200)
         c_lay = QVBoxLayout(chat_area)
         c_lay.setContentsMargins(24, 16, 24, 16)
         c_lay.setSpacing(10)
@@ -2961,7 +3087,10 @@ class MainView:
         top_bar = QHBoxLayout()
         top_bar.setSpacing(10)
 
-        self.expand_sidebar_btn = button("☰ Chats", slot=self.win.toggle_sidebar)
+        self.expand_sidebar_btn = button("◧ Chats", "sidebarExpand", slot=self.win.toggle_sidebar)
+        self.expand_sidebar_btn.setFixedHeight(38)
+        self.expand_sidebar_btn.setObjectName("sidebarExpandBtn")
+        self.expand_sidebar_btn.setToolTip("Expand sidebar")
         self.expand_sidebar_btn.setVisible(False)
         top_bar.addWidget(self.expand_sidebar_btn)
 
@@ -3071,7 +3200,10 @@ class MainView:
 
         c_lay.addWidget(bottom_box)
 
-        main_h_lay.addWidget(chat_area, 1)
+        cw_lay.addStretch()
+        cw_lay.addWidget(chat_area, 1)
+        cw_lay.addStretch()
+        main_h_lay.addWidget(chat_wrapper, 1)
         return p
 
     # =========================================================================
@@ -3079,29 +3211,48 @@ class MainView:
     # =========================================================================
     def _build_library(self):
         page = QWidget()
-        # page.setStyleSheet("background:transparent;")
-        lay = QVBoxLayout(page)
+        root_lay = QHBoxLayout(page)
+        root_lay.setContentsMargins(0, 0, 0, 0)
+        root_lay.setSpacing(0)
+
+        center_wrap = QWidget()
+        center_wrap.setMaximumWidth(1320)
+        lay = QVBoxLayout(center_wrap)
         lay.setContentsMargins(28, 20, 28, 24)
         lay.setSpacing(14)
 
+        # Header Row
         head_row = QHBoxLayout()
-        head_row.addWidget(label("ELECTRONIC COMPONENT LIBRARY & PINOUTS", "h1"))
+        head_row.setSpacing(12)
+        head_row.addWidget(label("ELECTRONIC COMPONENT LIBRARY & PINOUTS", "h1", wrap=False))
         head_row.addStretch()
-        self.lib_add_btn = button("+ Add Manual PDF", "primary", slot=self.win.add_manual)
+        self.lib_add_btn = button("＋ Add Manual PDF", "primary", slot=self.win.add_manual)
+        self.lib_add_btn.setFixedHeight(38)
         head_row.addWidget(self.lib_add_btn)
         lay.addLayout(head_row)
 
-        self.lib_search = QLineEdit()
-        self.lib_search.setPlaceholderText("🔍 Search components by name, pin, package, or function (e.g. 555, timer, esp32, ultrasonic, diode)...")
-        self.lib_search.textChanged.connect(self.win.filter_library_cards)
-        lay.addWidget(self.lib_search)
+        # Clean Toolbar: Compact Search Bar aligned with Add Manual PDF
+        tool_row = QHBoxLayout()
+        tool_row.setSpacing(12)
 
+        self.lib_search = QLineEdit()
+        self.lib_search.setPlaceholderText("🔍 Filter components by name, pin, package, or function (e.g. 555, esp32)...")
+        self.lib_search.setMinimumWidth(320)
+        self.lib_search.setMaximumWidth(520)
+        self.lib_search.setFixedHeight(38)
+        self.lib_search.textChanged.connect(self.win.filter_library_cards)
+        tool_row.addWidget(self.lib_search)
+        tool_row.addStretch()
+        lay.addLayout(tool_row)
+
+        # Category pills (compact, tidy spacing)
         self.chip_bar = QHBoxLayout()
-        self.chip_bar.setSpacing(8)
+        self.chip_bar.setSpacing(6)
         self.chip_buttons = []
         categories = comp_service.get_categories() + ["Hardware Manuals"]
         for cat in categories:
             btn = button(cat, "chipActive" if cat == "All" else "chip")
+            btn.setFixedHeight(30)
             btn.clicked.connect(lambda _=False, c=cat: self.win.on_category_chip_clicked(c))
             self.chip_bar.addWidget(btn)
             self.chip_buttons.append((cat, btn))
@@ -3109,14 +3260,12 @@ class MainView:
         lay.addLayout(self.chip_bar)
 
         self.lib_stack = QStackedWidget()
-        # self.lib_stack.setStyleSheet("background:transparent;")
 
         self.cards_scroll = QScrollArea()
         self.cards_scroll.setWidgetResizable(True)
         self.cards_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        # self.cards_scroll.setStyleSheet("background:transparent;")
+
         self.cards_container = QWidget()
-        # self.cards_container.setStyleSheet("background:transparent;")
         self.cards_lay = QVBoxLayout(self.cards_container)
         self.cards_lay.setContentsMargins(0, 0, 0, 0)
         self.cards_lay.setSpacing(14)
@@ -3125,7 +3274,6 @@ class MainView:
         self.lib_stack.addWidget(self.cards_scroll)
 
         manuals_view = QWidget()
-        # manuals_view.setStyleSheet("background:transparent;")
         m_lay = QVBoxLayout(manuals_view)
         m_lay.setContentsMargins(0, 0, 0, 0)
         m_lay.setSpacing(10)
@@ -3147,6 +3295,10 @@ class MainView:
         self.lib_stack.addWidget(manuals_view)
         lay.addWidget(self.lib_stack, 1)
 
+        root_lay.addStretch()
+        root_lay.addWidget(center_wrap, 1)
+        root_lay.addStretch()
+
         return page
 
     # =========================================================================
@@ -3154,10 +3306,19 @@ class MainView:
     # =========================================================================
     def _build_manual_help(self):
         page = QWidget()
-        # page.setStyleSheet("background:transparent;")
-        lay = QVBoxLayout(page)
+        root_lay = QHBoxLayout(page)
+        root_lay.setContentsMargins(0, 0, 0, 0)
+        root_lay.setSpacing(0)
+
+        center_wrap = QWidget()
+        center_wrap.setMaximumWidth(1320)
+        lay = QVBoxLayout(center_wrap)
         lay.setContentsMargins(28, 20, 28, 24)
         lay.setSpacing(14)
+
+        root_lay.addStretch()
+        root_lay.addWidget(center_wrap, 1)
+        root_lay.addStretch()
 
         tabs = QTabWidget()
 

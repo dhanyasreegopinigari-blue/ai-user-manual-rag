@@ -152,6 +152,7 @@ class MainWindow(QWidget):
         self.typing_lbl = self.view.typing_lbl
         self.chat_manual_badge = self.view.chat_manual_badge
         self.expand_sidebar_btn = self.view.expand_sidebar_btn
+        self.collapse_sidebar_btn = self.view.collapse_sidebar_btn
 
         # Library elements
         self.lib_search = self.view.lib_search
@@ -672,9 +673,15 @@ class MainWindow(QWidget):
 
     # ---- Chat & Conversation System (Streaming Hybrid LLM) -------------------
     def toggle_sidebar(self):
-        vis = not self.chat_sidebar.isVisible()
-        self.chat_sidebar.setVisible(vis)
-        self.expand_sidebar_btn.setVisible(not vis)
+        currently_open = not self.chat_sidebar.isHidden()
+        new_state = not currently_open
+        self.chat_sidebar.setVisible(new_state)
+        self.expand_sidebar_btn.setVisible(not new_state)
+        if hasattr(self, "collapse_sidebar_btn") and self.collapse_sidebar_btn:
+            self.collapse_sidebar_btn.setToolTip("Collapse sidebar" if new_state else "Expand sidebar")
+            self.collapse_sidebar_btn.setText("◀" if new_state else "▶")
+        if hasattr(self, "expand_sidebar_btn") and self.expand_sidebar_btn:
+            self.expand_sidebar_btn.setToolTip("Expand sidebar")
 
     def refresh_history_sidebar(self):
         self.chat_history_list.clear()

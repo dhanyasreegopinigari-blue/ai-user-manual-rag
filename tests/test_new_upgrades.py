@@ -199,6 +199,47 @@ class TestNewUpgrades(unittest.TestCase):
         self.assertIsNotNone(card.gallery_box)
         self.assertFalse(card.gallery_box.isHidden())
 
+    # 9. Clear and visible sidebar toggle button (Item 2)
+    def test_sidebar_toggle_visibility_and_states(self):
+        col_btn = self.win.collapse_sidebar_btn
+        exp_btn = self.win.expand_sidebar_btn
+        self.assertIsNotNone(col_btn)
+        self.assertIsNotNone(exp_btn)
+        self.assertEqual(col_btn.width(), 38)
+        self.assertEqual(col_btn.height(), 38)
+        self.assertEqual(col_btn.objectName(), "sidebarToggleBtn")
+        self.assertIn("Collapse", col_btn.toolTip())
+
+        # Toggle to collapse
+        self.win.toggle_sidebar()
+        self.assertTrue(self.win.chat_sidebar.isHidden())
+        self.assertFalse(exp_btn.isHidden())
+        self.assertEqual(exp_btn.objectName(), "sidebarExpandBtn")
+        self.assertIn("Expand", exp_btn.toolTip())
+
+        # Toggle back to expand
+        self.win.toggle_sidebar()
+        self.assertFalse(self.win.chat_sidebar.isHidden())
+        self.assertTrue(exp_btn.isHidden())
+
+    # 10. Compact toolbar and realistic component images (Item 1 & 3)
+    def test_compact_library_toolbar_and_credits(self):
+        import services.component_images as comp_img_service
+        # Search bar is compact (not full screen)
+        self.assertLessEqual(self.win.lib_search.maximumWidth(), 520)
+        self.assertGreaterEqual(self.win.lib_search.minimumWidth(), 300)
+
+        # Credits exist with authentic license metadata
+        credits_map = comp_img_service.load_component_credits()
+        self.assertIn("ne555", credits_map)
+        self.assertIn("atmega328p", credits_map)
+        for cid in ("ne555", "atmega328p", "esp32", "1n4007", "2n2222", "lm7805", "lm358"):
+            self.assertIn(cid, credits_map)
+            item = credits_map[cid]
+            self.assertIn("photo", item)
+            self.assertTrue(len(item["photo"].get("author", "")) > 0)
+            self.assertTrue(len(item["photo"].get("license", "")) > 0)
+
 
 if __name__ == "__main__":
     unittest.main()
