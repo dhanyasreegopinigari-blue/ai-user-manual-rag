@@ -1,21 +1,33 @@
 """UI Controller layer: Business logic, worker orchestration, Q&A handling, and event coordination."""
 import os
+import json
 import traceback
+import cv2
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtWidgets import QDialog, QFileDialog, QMessageBox, QWidget, QFrame, QGridLayout, QHBoxLayout, QVBoxLayout, QLabel, QListWidgetItem
+from PyQt6.QtWidgets import (
+    QApplication, QCheckBox, QDialog, QFileDialog, QFrame, QGridLayout,
+    QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMessageBox, QVBoxLayout,
+    QWidget
+)
 
 import config
 import database as db
 import services.manual as manual_mod
 import services.rag as rag
 import services.voice as voice
+import services.export as export_mod
+import services.components as comp_service
 from config import AppError
 from ui.view import (
     MainView, QuestionCard, MetaDialog, CameraDialog, ImagePreviewDialog,
-    VoiceInputDialog, UserManualDialog, ChatMessageWidget, show_image, label, button
+    VoiceInputDialog, UserManualDialog, ChatMessageWidget, ComponentCardWidget,
+    DARK_STYLE, LIGHT_STYLE, show_image, label, button
 )
-import services.export as export_mod
+try:
+    import pymupdf as fitz
+except ImportError:
+    import fitz
 
 
 class Worker(QThread):
@@ -29,18 +41,12 @@ class Worker(QThread):
         self.fn = fn
 
     def run(self):
-        print("[WORKER] Started")
         try:
             result = self.fn(self.progress.emit)
-            print("[WORKER] Function completed")
-            print("[WORKER] Result:", repr(result)[:1000])
             self.done.emit(result)
-            print("[WORKER] done signal emitted")
         except AppError as e:
-            print("[WORKER] AppError:", str(e))
             self.failed.emit(str(e))
         except Exception as e:
-            print("[WORKER] Unexpected exception:")
             traceback.print_exc()
             self.failed.emit(f"Unexpected error:\n{e}")
 
@@ -49,39 +55,53 @@ class MainWindow(QWidget):
     """Main window controller: connects user actions to business logic and background services."""
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("AI User Manual")
-        self.resize(1060, 780)
-        self.setMinimumSize(880, 640)
+        self.setWindowTitle("ElectroLearn AI — Electronic Components Hub")
+        self.resize(1140, 840)
+        self.setMinimumSize(920, 680)
 
         # State
         self._workers = []
         self.manual_id = None
+        self.active_conv_id = None
         self.question_cache = {}
         self.answer = None
         self.step_i = 0
         self.hw_result = None
+        self.is_dark_theme = True
+        self.active_category = "All"
+
+        # Embedded Manual Viewer state (Page 4)
+        self.ev_doc = None
+        self.ev_total_pages = 0
+        self.ev_current_page = 1
+        self.ev_zoom = 1.25
 
         # Build View
         self.view = MainView(self)
         self.view.setup_ui()
 
         # Expose view attributes for direct access and backward compatibility
+        self.top_bar = self.view.top_bar
         self.stack = self.view.stack
+        self.dashboard_page = self.view.dashboard_page
         self.home_page = self.view.home_page
-        self.busy_page = self.view.busy_page
+        self.chat_page = self.view.chat_page
         self.library_page = self.view.library_page
+        self.manual_page = self.view.manual_page
+        self.busy_page = self.view.busy_page
         self.result_page = self.view.result_page
-        self.ask_page = self.view.ask_page
         self.viewer_page = self.view.viewer_page
+        self.ask_page = self.view.ask_page
 
         self.busy_title = self.view.busy_title
         self.busy_detail = self.view.busy_detail
         self.busy_bar = self.view.busy_bar
 
-        self.lib_search = self.view.lib_search
-        self.lib_list = self.view.lib_list
-        self.lib_empty = self.view.lib_empty
-
+        # Dashboard elements
+        self.dash_result_card = self.view.dash_result_card
+        self.dash_match_badge = self.view.dash_match_badge
+        self.dash_scans_list = self.view.dash_scans_list
+        self.dash_ask_comp_btn = self.view.dash_ask_comp_btn
         self.hw_image = self.view.hw_image
         self.hw_values = self.view.hw_values
         self.match_status = self.view.match_status
@@ -93,39 +113,7 @@ class MainWindow(QWidget):
         self.matched_caption = self.view.matched_caption
         self.matched_hw_image = self.view.matched_hw_image
 
-        self.ask_manual_name = self.view.ask_manual_name
-        self.q_grid_host = self.view.q_grid_host
-        self.q_grid = self.view.q_grid
-        self.q_input = self.view.q_input
-        self.speak_btn = getattr(self.view, "speak_btn", None)
-        self.full_check = self.view.full_check
-
-        self.v_title = self.view.v_title
-        self.v_quick_input = self.view.v_quick_input
-        self.v_speak_btn = getattr(self.view, "v_speak_btn", None)
-        self.v_quick_btn = self.view.v_quick_btn
-        self.v_step_badge = self.view.v_step_badge
-        self.step_tabs_host = self.view.step_tabs_host
-        self.step_tabs_lay = self.view.step_tabs_lay
-        self.v_text = self.view.v_text
-        self.v_answer = self.view.v_answer
-        self.v_warning = self.view.v_warning
-        self.prev_btn = self.view.prev_btn
-        self.next_btn = self.view.next_btn
-        self.v_img_badge = self.view.v_img_badge
-        self.v_image = self.view.v_image
-        self.v_caption = self.view.v_caption
-        self.zoom_btn = self.view.zoom_btn
-        self.ref_card = self.view.ref_card
-        self.v_ref_badge = self.view.v_ref_badge
-        self.v_source = self.view.v_source
-        self.open_pdf_btn = self.view.open_pdf_btn
-        self.v_step = self.view.v_step
-        self.v_summary = self.view.v_summary
-
-        # Chat & User Manual View References
-        self.active_conv_id = None
-        self.chat_page = self.view.chat_page
+        # Chat elements
         self.chat_sidebar = self.view.chat_sidebar
         self.chat_history_list = self.view.chat_history_list
         self.chat_scroll = self.view.chat_scroll
@@ -140,103 +128,246 @@ class MainWindow(QWidget):
         self.chat_manual_badge = self.view.chat_manual_badge
         self.expand_sidebar_btn = self.view.expand_sidebar_btn
 
-        self.go(self.home_page)
+        # Library elements
+        self.lib_search = self.view.lib_search
+        self.lib_list = self.view.lib_list
+        self.lib_empty = self.view.lib_empty
+        self.cards_lay = self.view.cards_lay
+
+        # Backward compatibility compatibility slots for old viewer/ask tests
+        self.ask_manual_name = label("", "subtitle")
+        self.q_grid_host = QWidget()
+        self.q_grid = QGridLayout(self.q_grid_host)
+        self.q_input = QLineEdit()
+        self.speak_btn = button("🎤 Speak")
+        self.full_check = QCheckBox()
+        self.v_title = label()
+        self.v_quick_input = QLineEdit()
+        self.v_quick_btn = button("Ask")
+        self.v_step_badge = label()
+        self.step_tabs_host = QWidget()
+        self.step_tabs_lay = QHBoxLayout(self.step_tabs_host)
+        self.v_text = label()
+        self.v_answer = label()
+        self.v_warning = label()
+        self.prev_btn = button("Prev")
+        self.next_btn = button("Next")
+        self.v_img_badge = label()
+        self.v_image = label()
+        self.v_caption = label()
+        self.zoom_btn = button("Zoom")
+        self.ref_card = QFrame()
+        self.v_ref_badge = label()
+        self.v_source = label()
+        self.open_pdf_btn = button("PDF")
+        self.v_step = self.v_step_badge
+        self.v_summary = label()
+
+        # Initialize Default Data & Active Manual
+        manuals = db.list_manuals()
+        if manuals:
+            self.manual_id = manuals[0]["id"]
+            self.ev_load_manual(self.manual_id)
+
+        self.refresh_recent_scans()
+        self.filter_library_cards()
+        self.refresh_library()
+        self.navigate_to(0)
+
+    # ---- Theme Management ----------------------------------------------------
+    def toggle_theme(self):
+        """Toggle between modern Dark and Light themes across the entire app."""
+        self.is_dark_theme = not self.is_dark_theme
+        theme = DARK_STYLE if self.is_dark_theme else LIGHT_STYLE
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(theme)
+        self.top_bar.theme_btn.setText("🌓 Dark Mode" if self.is_dark_theme else "☀️ Light Mode")
 
     # ---- Navigation & Worker execution ----------------------------------------
+    def navigate_to(self, page_index):
+        """Switch to one of the 4 primary app pages."""
+        self.top_bar.set_active_tab(page_index)
+        self.stack.setCurrentIndex(page_index)
+        if page_index == 0:
+            self.refresh_recent_scans()
+        elif page_index == 1:
+            if not self.active_conv_id:
+                convs = db.list_conversations()
+                if convs:
+                    self.load_conversation(convs[0]["id"])
+                else:
+                    self.new_chat()
+            else:
+                self.refresh_history_sidebar()
+        elif page_index == 2:
+            self.filter_library_cards()
+            self.refresh_library()
+        elif page_index == 3:
+            if self.manual_id and not self.ev_doc:
+                self.ev_load_manual(self.manual_id)
+
     def go(self, page):
-        self.stack.setCurrentWidget(page)
+        """Navigate to a specific page widget (supports backward compatibility)."""
+        idx = self.stack.indexOf(page)
+        if 0 <= idx <= 3:
+            self.navigate_to(idx)
+        else:
+            self.stack.setCurrentWidget(page)
 
     def run_task(self, fn, on_done, text="Working..."):
         """Run fn(progress_cb) in a background thread without freezing the GUI."""
-        print("\n[RUN_TASK] Starting:", text)
-        prev = self.stack.currentWidget()
-
+        prev_idx = self.stack.currentIndex()
         self.busy_title.setText(text)
         self.busy_detail.setText("")
-        self.go(self.busy_page)
+        self.stack.setCurrentWidget(self.busy_page)
 
         w = Worker(fn)
         self._workers.append(w)
         w.progress.connect(self.busy_detail.setText)
 
         def ok(result):
-            print("\n[RUN_TASK] DONE CALLBACK")
-            print("[RUN_TASK] Result received:", repr(result)[:1000])
             try:
                 on_done(result)
-                print("[RUN_TASK] on_done completed")
             except Exception as e:
-                print("[RUN_TASK] on_done FAILED")
                 traceback.print_exc()
                 QMessageBox.warning(self, "Problem", f"Unexpected error:\n{e}")
             if w in self._workers:
                 self._workers.remove(w)
+            if self.stack.currentWidget() is self.busy_page:
+                self.navigate_to(prev_idx if 0 <= prev_idx <= 3 else 0)
 
         def fail(msg):
-            print("\n[RUN_TASK] FAILED:", msg)
             QMessageBox.warning(self, "Problem", msg)
             if w in self._workers:
                 self._workers.remove(w)
             if self.stack.currentWidget() is self.busy_page:
-                self.go(prev if prev is not self.busy_page else self.home_page)
+                self.navigate_to(prev_idx if 0 <= prev_idx <= 3 else 0)
 
         w.done.connect(ok)
         w.failed.connect(fail)
         w.start()
 
-    # ---- Uploads --------------------------------------------------------------
+    # ---- Uploads & Camera -----------------------------------------------------
     def upload_photo(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Choose a photo of your hardware", "",
-                                              "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)")
-        if path:
-            self.run_task(lambda cb: manual_mod.analyze_photo(path, cb), self.show_hardware,
-                          "Identifying hardware...")
+        """Validate and analyze an uploaded electronic component image."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose an image of your electronic component", "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)"
+        )
+        if not path:
+            return
+
+        if not os.path.isfile(path) or os.path.getsize(path) == 0:
+            QMessageBox.warning(self, "Invalid File", "The selected file is empty or cannot be accessed.")
+            return
+
+        # Check maximum file size (50MB)
+        if os.path.getsize(path) > 50 * 1024 * 1024:
+            QMessageBox.warning(self, "File Too Large", "The selected image exceeds 50MB. Please select a smaller photo.")
+            return
+
+        # Verify image integrity with OpenCV
+        test_img = cv2.imread(path)
+        if test_img is None:
+            QMessageBox.warning(self, "Corrupted Image", "The selected file is not a valid or readable image format.")
+            return
+
+        self.run_task(lambda cb: manual_mod.analyze_photo(path, cb), self.show_hardware,
+                      "Identifying electronic component...")
 
     def open_camera(self):
+        """Open live camera viewfinder for circuit & component capture."""
         dlg = CameraDialog(self)
         if dlg.exec() == QDialog.DialogCode.Accepted and dlg.captured_path:
             self.run_task(lambda cb: manual_mod.analyze_photo(dlg.captured_path, cb), self.show_hardware,
-                          "Identifying hardware...")
+                          "Identifying electronic component...")
 
     def upload_video(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Choose a video of your hardware", "",
-                                              "Videos (*.mp4 *.mov *.avi *.mkv *.webm *.m4v)")
-        if path:
-            self.run_task(lambda cb: manual_mod.analyze_video(path, cb), self.show_hardware,
-                          "Analyzing video...")
+        """Analyze a video clip of hardware or component markings."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose a video of your component/circuit", "",
+            "Videos (*.mp4 *.mov *.avi *.mkv *.webm *.m4v)"
+        )
+        if not path:
+            return
 
-    # ---- Hardware Result ------------------------------------------------------
+        if not os.path.isfile(path) or os.path.getsize(path) == 0:
+            QMessageBox.warning(self, "Invalid Video", "The selected video file is empty or cannot be opened.")
+            return
+
+        self.run_task(lambda cb: manual_mod.analyze_video(path, cb), self.show_hardware,
+                      "Analyzing video frames...")
+
+    # ---- Hardware & Component Result -----------------------------------------
     def show_hardware(self, res):
+        """Display component identification findings and save to recent activity."""
         self.hw_result = res
+        hw = res.get("hardware") or {}
         match_info = res.get("match_info") or {}
         source = match_info.get("source")
         matched_img = match_info.get("matched_image_path")
 
-        # Handle visual match image comparison preview
+        # Side-by-side comparison if visual match found
         if source in ("visual_image", "visual_image_similar") and matched_img and os.path.isfile(matched_img):
             pno = match_info.get("page", "")
             pct = match_info.get("score_pct", 0)
             self.uploaded_caption.setVisible(True)
-            self.matched_caption.setText(f"Matched Manual Image (Page {pno} · {pct}% Visual Match)")
+            self.matched_caption.setText(f"Matched Manual Illustration (Page {pno} · {pct}% Match)")
             self.matched_box.setVisible(True)
-            show_image(self.hw_image, res["preview"], 360, 240)
-            show_image(self.matched_hw_image, matched_img, 360, 240)
+            show_image(self.hw_image, res["preview"], 380, 220)
+            show_image(self.matched_hw_image, matched_img, 380, 220)
         else:
             self.matched_box.setVisible(False)
             self.uploaded_caption.setVisible(False)
-            if not show_image(self.hw_image, res["preview"], 700, 240):
+            if not show_image(self.hw_image, res["preview"], 760, 220):
                 self.hw_image.setText("(image preview unavailable)")
 
+        # Populate specs fields
         for k, lbl in self.hw_values.items():
-            lbl.setText(res["hardware"].get(k) or "Unknown")
+            lbl.setText(hw.get(k) or "Unknown")
 
-        exact, similar = res["exact"], res["similar"]
+        # Check for matching electronic component reference in components library
+        comp_match = comp_service.find_component_match(
+            f"{hw.get('product_name', '')} {hw.get('model', '')} {hw.get('part_number', '')} {hw.get('hardware_type', '')}"
+        )
+
+        name = hw.get("product_name") or hw.get("model") or "Electronic Component"
+        cat = hw.get("hardware_type") or "Hardware"
+        confidence = 0.95 if res.get("exact") else 0.75
+
+        desc_text = f"<b>{name}</b> ({cat})"
+        if comp_match:
+            desc_text += f"<br>💡 <b>Quick Guide:</b> {comp_match['simple_explanation']}<br>⚡ <b>Key Specs:</b> {comp_match.get('key_specs', 'N/A')}"
+        else:
+            v_desc = hw.get("visual_description")
+            if v_desc:
+                desc_text += f"<br>🔍 {v_desc}"
+
+        self.view.dash_desc_lbl.setText(desc_text)
+        self.dash_ask_comp_btn.setEnabled(True)
+
+        # Save to persistent component scans table
+        try:
+            details_json = json.dumps({
+                "specs": hw,
+                "comp_match_id": comp_match.get("id") if comp_match else None,
+                "preview": res.get("preview")
+            })
+            db.add_component_scan(name, cat, confidence, res.get("preview"), details_json)
+            self.refresh_recent_scans()
+        except Exception as e:
+            print(f"[SCAN_DB] Failed to record scan: {e}")
+
+        # Update manual combobox & status
+        exact, similar = res.get("exact") or [], res.get("similar") or []
         exact_ids = [m["id"] for m in exact]
         similar_ids = [m["id"] for m in similar if m["id"] not in exact_ids]
+
         self.manual_combo.blockSignals(True)
         self.manual_combo.clear()
         if not exact:
-            self.manual_combo.addItem("— choose a manual —", None)
+            self.manual_combo.addItem("— choose an indexed manual —", None)
         for m in db.list_manuals():
             mark = "✓ " if m["id"] in exact_ids else ("≈ " if m["id"] in similar_ids else "")
             self.manual_combo.addItem(f"{mark}{m['name']}", m["id"])
@@ -246,55 +377,136 @@ class MainWindow(QWidget):
         self.manual_combo.blockSignals(False)
 
         if exact:
-            self.match_status.setObjectName("ok")
-            if source == "visual_image":
-                self.match_status.setText("✓ Visual Match Found in Manual Images")
-                pno = match_info.get("page")
-                score = match_info.get("score_pct", 0)
-                detail = f"Matching manual: {exact[0]['name']}"
-                if pno:
-                    detail += f"\nMatched illustration from manual on Page {pno} (Visual match: {score}%)"
-                self.match_detail.setText(detail)
-            else:
-                self.match_status.setText("✓ Manual Found")
-                self.match_detail.setText(f"Matching manual: {exact[0]['name']}")
+            self.dash_match_badge.setText("✓ Verified Match")
+            self.dash_match_badge.setProperty("kind", "badgeOk")
+            self.match_status.setText(f"✓ Matching Manual: {exact[0]['name']}")
+            self.match_detail.setText("Step-by-step instructions available in assistant.")
         else:
-            self.match_status.setObjectName("bad")
-            self.match_status.setText("⚠ No matching manual found")
-            msg = "No verified matching manual was found."
-            if similar:
-                if source == "visual_image_similar":
-                    pno = match_info.get("page")
-                    score = match_info.get("score_pct", 0)
-                    msg += f"\n\nClosest visual manual image: {similar[0]['name']} (Page {pno}, ~{score}%)"
-                else:
-                    msg += "\n\nClosest by content (not verified): " + ", ".join(m["name"] for m in similar)
-            self.match_detail.setText(msg)
+            self.dash_match_badge.setText("Component Identified")
+            self.match_status.setText("General Component Knowledge")
+            self.match_detail.setText("Ask questions below or view component pinout.")
 
-        self.match_status.style().unpolish(self.match_status)
-        self.match_status.style().polish(self.match_status)
         self._update_continue()
-        self.go(self.result_page)
+        self.navigate_to(0)
 
-    def _update_continue(self, *_):
-        self.continue_btn.setEnabled(self.manual_combo.currentData() is not None)
+    def _update_continue(self):
+        mid = self.manual_combo.currentData()
+        self.continue_btn.setEnabled(mid is not None)
+        if mid:
+            self.manual_id = mid
 
     def continue_from_result(self):
         mid = self.manual_combo.currentData()
-        if mid is not None:
-            self.open_manual(mid)
+        if mid:
+            self.manual_id = mid
+            self.open_chat(manual_id=mid)
+        else:
+            self.open_chat()
 
-    # ---- Manual Library -------------------------------------------------------
-    def open_library(self):
-        self.refresh_library()
-        self.go(self.library_page)
+    def ask_about_scanned_component(self):
+        """Jump from Dashboard result directly into AI Assistant with prompt preloaded."""
+        if not self.hw_result:
+            self.navigate_to(1)
+            return
+        hw = self.hw_result.get("hardware") or {}
+        name = hw.get("product_name") or hw.get("model") or "this component"
+        prompt = f"Can you explain the function, pinout connections, and typical circuit applications for {name}?"
+        self.open_chat()
+        self.send_chat_message(prompt)
 
-    def refresh_library(self, *_):
+    # ---- Recent Scans Management ---------------------------------------------
+    def refresh_recent_scans(self):
+        """Populate recent scans list on the Dashboard."""
+        self.dash_scans_list.clear()
+        scans = db.list_component_scans(limit=15)
+        for s in scans:
+            ts = (s.get("scanned_at") or "")[:16]
+            c_name = s.get("component_name") or "Component"
+            cat = s.get("category") or "General"
+            try:
+                conf = int(float(s.get("confidence") or 0.8) * 100)
+            except Exception:
+                conf = 85
+            item = QListWidgetItem(f"⚡ {c_name}  ·  {cat}  ·  {conf}% match  ({ts})")
+            item.setData(Qt.ItemDataRole.UserRole, s)
+            self.dash_scans_list.addItem(item)
+
+    def on_recent_scan_clicked(self, item):
+        """Inspect a saved recent scan."""
+        s = item.data(Qt.ItemDataRole.UserRole)
+        if not s:
+            return
+        name = s.get("component_name", "Component")
+        cat = s.get("category", "")
+        img_path = s.get("image_path")
+        self.hw_values["product_name"].setText(name)
+        self.hw_values["hardware_type"].setText(cat)
+        if img_path and os.path.isfile(img_path):
+            show_image(self.hw_image, img_path, 760, 220)
+
+        comp_match = comp_service.find_component_match(name)
+        if comp_match:
+            self.view.dash_desc_lbl.setText(
+                f"<b>{comp_match['name']}</b> ({comp_match['category']})<br>"
+                f"💡 {comp_match['simple_explanation']}<br>"
+                f"⚡ <b>Key Specs:</b> {comp_match.get('key_specs', '')}"
+            )
+        else:
+            self.view.dash_desc_lbl.setText(f"Identified component: <b>{name}</b> ({cat})")
+        self.dash_ask_comp_btn.setEnabled(True)
+
+    def clear_recent_scans(self):
+        scans = db.list_component_scans()
+        if not scans:
+            return
+        if QMessageBox.question(self, "Clear Scans", "Clear all recent component scans from history?") == QMessageBox.StandardButton.Yes:
+            for s in scans:
+                db.delete_component_scan(s["id"])
+            self.refresh_recent_scans()
+
+    # ---- Component Library Management ----------------------------------------
+    def on_category_chip_clicked(self, category):
+        self.active_category = category
+        for cat, btn in self.view.chip_buttons:
+            is_active = (cat == category)
+            btn.setProperty("kind", "chipActive" if is_active else "chip")
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+
+        if category == "Hardware Manuals":
+            self.view.lib_stack.setCurrentIndex(1)
+            self.refresh_library()
+        else:
+            self.view.lib_stack.setCurrentIndex(0)
+            self.filter_library_cards()
+
+    def filter_library_cards(self):
+        """Dynamically render component cards based on category and search query."""
+        search_q = self.lib_search.text().strip()
+        comps = comp_service.filter_components(self.active_category, search_q)
+
+        # Clear existing cards
+        while self.cards_lay.count() > 1:
+            child = self.cards_lay.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        for c in comps:
+            card_widget = ComponentCardWidget(c, on_ask_cb=self.on_ask_component_from_library)
+            self.cards_lay.insertWidget(self.cards_lay.count() - 1, card_widget)
+
+    def on_ask_component_from_library(self, comp):
+        """Triggered from Component Card 'Ask Assistant' button."""
+        prompt = f"Can you explain how to wire the {comp['name']}, its pinout functions, and safety tips?"
+        self.open_chat()
+        self.send_chat_message(prompt)
+
+    # ---- PDF Manuals Management -----------------------------------------------
+    def refresh_library(self):
         self.lib_list.clear()
-        manuals = db.list_manuals(self.lib_search.text())
+        manuals = db.list_manuals()
         for m in manuals:
-            item = QListWidgetItem(f"{m['name']}\n{m['manufacturer'] or '—'}  ·  "
-                                   f"Model {m['model'] or '—'}  ·  {m['page_count']} pages")
+            item = QListWidgetItem(f"📖 {m['name']} — {m.get('manufacturer', '')} {m.get('model', '')}")
             item.setData(Qt.ItemDataRole.UserRole, m["id"])
             self.lib_list.addItem(item)
         self.lib_empty.setVisible(not manuals)
@@ -302,7 +514,7 @@ class MainWindow(QWidget):
     def _selected_id(self):
         item = self.lib_list.currentItem()
         if not item:
-            QMessageBox.information(self, "Manual Library", "Please select a manual first.")
+            QMessageBox.information(self, "Manual Library", "Please select a manual from the list first.")
             return None
         return item.data(Qt.ItemDataRole.UserRole)
 
@@ -315,341 +527,43 @@ class MainWindow(QWidget):
             return
         name, maker, model = dlg.name.text(), dlg.maker.text(), dlg.model.text()
         self.run_task(lambda cb: manual_mod.import_pdf(path, name, maker, model, cb),
-                      lambda _id: self.refresh_library(), "Importing manual...")
+                      lambda _id: (self.refresh_library(), self.ev_load_manual(_id)), "Importing manual...")
 
     def delete_selected(self):
         mid = self._selected_id()
         if mid is None:
             return
-        if QMessageBox.question(self, "Delete manual",
-                                "Delete this manual, its images and its search index?") \
-                != QMessageBox.StandardButton.Yes:
+        if QMessageBox.question(self, "Delete Manual", "Delete this manual and its indexed pages?") != QMessageBox.StandardButton.Yes:
             return
         manual_mod.delete_manual(mid)
-        self.question_cache.pop(mid, None)
         self.refresh_library()
 
     def use_selected_manual(self):
         mid = self._selected_id()
         if mid is not None:
-            self.open_manual(mid)
+            self.manual_id = mid
+            self.open_chat(manual_id=mid)
 
-    # ---- Q&A / Ask the Manual -------------------------------------------------
-    def default_questions(self, manual_id):
-        """Fast fallback questions shown immediately while AI suggestions load."""
-        m = db.get_manual(manual_id)
-        manual_name = m["name"] if m else "this manual"
-        return [
-            f"What are the main features of {manual_name}?",
-            "How do I install or set up this hardware?",
-            "What are the important safety precautions?",
-            "What are the specifications of this hardware?",
-            "How do I troubleshoot common problems?",
-            "How do I maintain this hardware?"
-        ]
-
-    def open_manual(self, manual_id):
-        self.manual_id = manual_id
-        self.open_chat(manual_id=manual_id)
-
-    def _generate_questions_background(self, manual_id):
-        """Generate AI questions without blocking the GUI."""
-        def done(questions):
-            # Make sure user is still working with the same manual
-            if self.manual_id != manual_id:
-                return
-
-            if questions:
-                self.question_cache[manual_id] = questions
-                # If user is currently on the ask page, refresh the cards immediately
-                if self.stack.currentWidget() is self.ask_page:
-                    self.show_ask(questions)
-                else:
-                    # Silently update the grid in background without stealing active view
-                    self._update_ask_grid(questions)
-
-        def fail(_msg):
-            print("AI question generation failed; keeping fallback questions.")
-
-        self._workers = [w for w in self._workers if not w.isFinished()]
-        worker = Worker(lambda cb: rag.generate_questions(manual_id, cb))
-        self._workers.append(worker)
-        worker.done.connect(done)
-        worker.failed.connect(fail)
-        worker.start()
-
-    def _update_ask_grid(self, questions):
-        """Safely populate suggested question cards and ensure they are visible."""
-        m = db.get_manual(self.manual_id)
-        self.ask_manual_name.setText(m["name"] if m else "")
-
-        # Remove existing widgets from layout
-        while self.q_grid.count():
-            item = self.q_grid.takeAt(0)
-            w = item.widget()
-            if w:
-                w.deleteLater()
-
-        # Add new cards and explicitly call show() on each
-        for i, q in enumerate(questions):
-            card = QuestionCard(q)
-            card.clicked.connect(lambda _=False, q=q: self.ask(q))
-            self.q_grid.addWidget(card, i // 2, i % 2)
-            card.show()
-
-    def show_ask(self, questions):
-        """Populate questions on the ask page."""
-        self._update_ask_grid(questions)
-        self.q_input.clear()
-
-    def return_to_ask_page(self):
-        """Return to the Ask page, ensuring questions are always populated and visible."""
-        if self.manual_id:
-            qs = self.question_cache.get(self.manual_id) or self.default_questions(self.manual_id)
-            self.show_ask(qs)
-            self.go(self.ask_page)
-        else:
-            self.go(self.home_page)
-
-    def speak(self):
-        if not voice.is_available():
-            QMessageBox.information(self, "Voice", voice.UNAVAILABLE)
-            return
-
-        dlg = VoiceInputDialog(self)
-        if dlg.exec() == QDialog.DialogCode.Accepted and getattr(dlg, "transcribed_text", None):
-            text = dlg.transcribed_text.strip()
-            if text:
-                self.q_input.setText(text)
-                self.q_input.setFocus()
-                if self.manual_id:
-                    self.go(self.ask_page)
-
-    def speak_viewer(self):
-        if not voice.is_available():
-            QMessageBox.information(self, "Voice", voice.UNAVAILABLE)
-            return
-
-        dlg = VoiceInputDialog(self)
-        if dlg.exec() == QDialog.DialogCode.Accepted and getattr(dlg, "transcribed_text", None):
-            text = dlg.transcribed_text.strip()
-            if text:
-                self.v_quick_input.setText(text)
-                self.v_quick_input.setFocus()
-
-    def ask(self, question):
-        question = (question or "").strip()
-        print("\n========== ASK DEBUG ==========")
-        print("Question:", repr(question))
-        print("Manual ID:", repr(self.manual_id))
-        print("Full mode:", self.full_check.isChecked())
-        print("================================")
-
-        if not question:
-            print("[ASK] Empty question - returning")
-            return
-
-        if self.manual_id is None:
-            print("[ASK] ERROR: manual_id is None")
-            QMessageBox.warning(
-                self,
-                "Manual not selected",
-                "No manual is currently selected. Please go back and select the manual again."
-            )
-            return
-
-        self.q_input.setText(question)
-        mid = self.manual_id
-        mode = "full" if self.full_check.isChecked() else "auto"
-
-        print("[ASK] Starting answer task...")
-        self.run_task(
-            lambda cb: rag.answer_question(mid, question, cb, mode),
-            self.show_answer,
-            "Searching the manual..."
-        )
-
-    def ask_from_viewer(self):
-        """Allow asking another question directly from the viewer page."""
-        q = self.v_quick_input.text().strip()
-        if q:
-            self.v_quick_input.clear()
-            self.ask(q)
-
-    # ---- Answer / Step Viewer -------------------------------------------------
-    def show_answer(self, ans):
-        print("\n========== SHOW ANSWER ==========")
-        print("Answer received:", repr(ans)[:1500])
-        print("=================================")
-
-        self.answer = ans
-        self.step_i = 0
-        self.render_step()
-        self.go(self.viewer_page)
-
-    def render_step(self):
-        ans = self.answer or {}
-        steps = ans.get("steps") or []
-        self.v_title.setText((ans.get("title") or "ANSWER").upper())
-
-        # When manual has no answer / nothing to show
-        if not steps:
-            self.v_step_badge.setText("Not in manual" if not ans.get("found") else "Overview")
-            self.step_tabs_host.hide()
-            self.v_text.setText(ans.get("summary") or "The manual does not contain this information.")
-            ans_text = (ans.get("answer") or "").strip()
-            if ans_text and ans_text != self.v_text.text():
-                self.v_answer.setText(ans_text)
-                self.v_answer.show()
-            else:
-                self.v_answer.hide()
-            self.v_warning.hide()
-            self.prev_btn.hide()
-            self.next_btn.show()
-            self.next_btn.setText("Back to Questions")
-            self.v_image.set_image(None)
-            self.v_img_badge.hide()
-            self.v_caption.setText("")
-            self.zoom_btn.hide()
-            self.ref_card.hide()
-            return
-
-        total_steps = len(steps)
-        self.step_i = max(0, min(self.step_i, total_steps - 1))
-        s = steps[self.step_i]
-
-        # 1. Update Step Badge
-        self.v_step_badge.setText(f"Step {self.step_i + 1} of {total_steps}")
-        self.v_step_badge.show()
-
-        # 2. Update Step Tabs (Pills)
-        while self.step_tabs_lay.count():
-            item = self.step_tabs_lay.takeAt(0)
-            w = item.widget()
-            if w:
-                w.deleteLater()
-
-        if total_steps > 1:
-            self.step_tabs_host.show()
-            for idx in range(total_steps):
-                tab_btn = QuestionCard(f"Step {idx + 1}")
-                tab_btn.setProperty("kind", "stepTabActive" if idx == self.step_i else "stepTab")
-                tab_btn.clicked.connect(lambda _, step_idx=idx: self.go_to_step(step_idx))
-                self.step_tabs_lay.addWidget(tab_btn)
-                tab_btn.show()
-            self.step_tabs_lay.addStretch()
-        else:
-            self.step_tabs_host.hide()
-
-        # 3. Update Step Action / Instruction Text
-        step_text = str(s.get("text") or "").strip()
-        self.v_text.setText(f"Step {self.step_i + 1}: {step_text}" if total_steps > 1 else step_text)
-        self.v_text.show()
-
-        # 4. Update Answer Explanation Text
-        ans_text = str(ans.get("answer") or ans.get("summary") or "").strip()
-        if ans_text and ans_text.lower() != step_text.lower():
-            self.v_answer.setText(ans_text)
-            self.v_answer.show()
-        else:
-            self.v_answer.hide()
-
-        # 5. Warning
-        warning = str(s.get("warning") or ans.get("warning") or "").strip()
-        if warning:
-            self.v_warning.setText(f"⚠ WARNING\n{warning}")
-            self.v_warning.show()
-        else:
-            self.v_warning.hide()
-
-        # 6. Previous / Next buttons
-        self.prev_btn.show()
-        self.prev_btn.setEnabled(self.step_i > 0)
-        self.next_btn.setText("Done ✓" if self.step_i == total_steps - 1 else "Next Step →")
-
-        # 7. Update Image Panel (Right)
-        image_path = s.get("image")
-        page_num = s.get("page", "")
-        image_kind = s.get("image_kind", "illustration")
-
-        self.v_image.set_image(image_path)
-        if page_num:
-            kind_label = "Illustration" if image_kind == "illustration" else "Page Render"
-            self.v_img_badge.setText(f"Page {page_num} · {kind_label}")
-            self.v_img_badge.show()
-            self.v_caption.setText(f"Manual Page {page_num} ({kind_label})")
-        else:
-            self.v_img_badge.hide()
-            self.v_caption.setText("")
-
-        self.zoom_btn.setVisible(bool(image_path and os.path.isfile(image_path)))
-
-        # 8. Update Reference Panel (Bottom)
-        source_text = str(s.get("source") or "").strip()
-        m_name = ""
-        if self.manual_id:
-            m = db.get_manual(self.manual_id)
-            if m:
-                m_name = m.get("name") or ""
-
-        ref_parts = []
-        if page_num:
-            ref_parts.append(f"Page {page_num}")
-        if m_name:
-            ref_parts.append(m_name[:40] + ("..." if len(m_name) > 40 else ""))
-        self.v_ref_badge.setText(" · ".join(ref_parts))
-
-        if source_text:
-            self.v_source.setText(f"“{source_text}”")
-            self.ref_card.show()
-        elif page_num:
-            self.v_source.setText(f"Reference from manual page {page_num}.")
-            self.ref_card.show()
-        else:
-            self.ref_card.hide()
-
-    def go_to_step(self, idx):
-        steps = (self.answer or {}).get("steps") or []
-        if 0 <= idx < len(steps):
-            self.step_i = idx
-            self.render_step()
-
-    def zoom_image(self):
-        img_path = self.v_image.get_image_path()
-        if img_path and os.path.isfile(img_path):
-            title = self.v_caption.text() or "Manual Illustration"
-            ImagePreviewDialog(self, img_path, title).exec()
-
-    def prev_step(self):
-        if self.step_i > 0:
-            self.step_i -= 1
-            self.render_step()
-
-    def next_step(self):
-        steps = (self.answer or {}).get("steps") or []
-        if steps and self.step_i < len(steps) - 1:
-            self.step_i += 1
-            self.render_step()
-        else:
-            self.return_to_ask_page()
-
-    def open_current_pdf(self):
-        self.open_user_manual()
+    def view_selected_manual(self):
+        mid = self._selected_id()
+        if mid:
+            self.manual_id = mid
+            self.ev_load_manual(mid)
+            self.navigate_to(3)
 
     # ---- Chat & Conversation System -------------------------------------------
     def toggle_sidebar(self):
-        visible = not self.chat_sidebar.isVisible()
-        self.chat_sidebar.setVisible(visible)
-        self.expand_sidebar_btn.setVisible(not visible)
+        vis = not self.chat_sidebar.isVisible()
+        self.chat_sidebar.setVisible(vis)
+        self.expand_sidebar_btn.setVisible(not vis)
 
     def refresh_history_sidebar(self):
         self.chat_history_list.clear()
         convs = db.list_conversations()
         for c in convs:
             title = c.get("title") or "New Chat"
-            mname = c.get("manual_name") or "Manual"
             date = (c.get("updated_at") or "")[:10]
-            item = QListWidgetItem(f"💬 {title}\n  {mname} • {date}")
+            item = QListWidgetItem(f"💬 {title}\n  {date}")
             item.setData(Qt.ItemDataRole.UserRole, c["id"])
             if c["id"] == self.active_conv_id:
                 item.setSelected(True)
@@ -661,6 +575,7 @@ class MainWindow(QWidget):
             self.load_conversation(cid)
 
     def open_chat(self, manual_id=None, conv_id=None):
+        """Open chat page, ensuring active conversation is loaded."""
         if manual_id:
             self.manual_id = manual_id
         elif not self.manual_id:
@@ -669,8 +584,8 @@ class MainWindow(QWidget):
                 self.manual_id = manuals[0]["id"]
 
         m = db.get_manual(self.manual_id) if self.manual_id else None
-        mname = m["name"] if m else "General Manual"
-        self.chat_manual_badge.setText(f"📖 Manual: {mname}")
+        mname = m["name"] if m else "General Electronics Assistant"
+        self.chat_manual_badge.setText(f"📖 Reference: {mname}")
 
         self.refresh_history_sidebar()
 
@@ -685,14 +600,10 @@ class MainWindow(QWidget):
             else:
                 self.new_chat()
 
-        self.go(self.chat_page)
+        self.top_bar.set_active_tab(1)
+        self.stack.setCurrentIndex(1)
 
     def new_chat(self):
-        if not self.manual_id:
-            manuals = db.list_manuals()
-            if manuals:
-                self.manual_id = manuals[0]["id"]
-
         cid = db.create_conversation(self.manual_id, "New Chat")
         self.active_conv_id = cid
         self.render_empty_chat_welcome()
@@ -712,16 +623,23 @@ class MainWindow(QWidget):
         w_lay.setSpacing(12)
 
         m = db.get_manual(self.manual_id) if self.manual_id else None
-        mtitle = m["name"] if m else "User Manual Assistant"
+        mtitle = m["name"] if m else "Electronics Assistant"
         w_lay.addWidget(label(f"👋 Welcome to {mtitle}", "h1"))
-        w_lay.addWidget(label("Ask any question below or click a suggested topic to get step-by-step instructions directly verified from the manufacturer's manual.", "muted"))
+        w_lay.addWidget(label("Ask any question below or click a suggested topic to get verified pinouts, calculations, and circuit guidance.", "muted"))
 
-        qs = self.default_questions(self.manual_id) if self.manual_id else ["How do I install this?", "What are the safety instructions?", "How do I troubleshoot errors?"]
-        w_lay.addWidget(label("✨ SUGGESTED QUESTIONS:", "sectionHeader", wrap=False))
+        qs = [
+            "How do I determine resistor values from color bands?",
+            "What is the difference between NPN and PNP transistors?",
+            "How do I wire an NE555 timer in Astable mode?",
+            "What voltage regulator should I use to step down 12V to 5V?",
+            "How does an ultrasonic distance sensor measure flight time?",
+            "What safety precautions prevent electrostatic discharge (ESD)?"
+        ]
+        w_lay.addWidget(label("✨ SUGGESTED QUESTIONS:", "caption", wrap=False))
 
         grid = QGridLayout()
         grid.setSpacing(8)
-        for i, q in enumerate(qs[:6]):
+        for i, q in enumerate(qs):
             card = QuestionCard(q)
             card.clicked.connect(lambda _, qtext=q: self.send_chat_message(qtext))
             grid.addWidget(card, i // 2, i % 2)
@@ -740,6 +658,7 @@ class MainWindow(QWidget):
         if not self.active_conv_id:
             self.active_conv_id = db.create_conversation(self.manual_id, question[:35])
 
+        # Remove welcome card once real chat starts
         if self.chat_thread_lay.count() == 2:
             item = self.chat_thread_lay.itemAt(0)
             if item and item.widget() and item.widget().objectName() == "asstCard":
@@ -756,7 +675,7 @@ class MainWindow(QWidget):
         QTimer.singleShot(50, lambda: self.chat_scroll.verticalScrollBar().setValue(
             self.chat_scroll.verticalScrollBar().maximum()))
 
-        self.typing_lbl.setText("Searching manual & reasoning answer...")
+        self.typing_lbl.setText("Reasoning answer & searching manuals...")
         self.typing_card.setVisible(True)
         self.chat_send_btn.setEnabled(False)
         self.chat_speak_btn.setEnabled(False)
@@ -772,7 +691,7 @@ class MainWindow(QWidget):
             self.chat_send_btn.setEnabled(True)
             self.chat_speak_btn.setEnabled(True)
 
-            summary = ans.get("summary") or ans.get("answer") or "Here are the instructions from the manual."
+            summary = ans.get("summary") or ans.get("answer") or "Here is the guidance for your question."
             db.add_chat_message(self.active_conv_id, "assistant", summary, data=ans)
 
             asst_w = ChatMessageWidget("assistant", summary, data=ans, parent_win=self)
@@ -790,7 +709,7 @@ class MainWindow(QWidget):
             self.typing_card.setVisible(False),
             self.chat_send_btn.setEnabled(True),
             self.chat_speak_btn.setEnabled(True),
-            QMessageBox.warning(self, "Chat Problem", err)
+            QMessageBox.warning(self, "Assistant Problem", err)
         ))
         worker.start()
 
@@ -800,7 +719,7 @@ class MainWindow(QWidget):
         if conv and conv.get("manual_id"):
             self.manual_id = conv["manual_id"]
             mname = conv.get("manual_name") or "Manual"
-            self.chat_manual_badge.setText(f"📖 Manual: {mname}")
+            self.chat_manual_badge.setText(f"📖 Reference: {mname}")
 
         while self.chat_thread_lay.count() > 1:
             child = self.chat_thread_lay.takeAt(0)
@@ -861,28 +780,164 @@ class MainWindow(QWidget):
                 self.chat_input.setText(text)
                 self.chat_input.setFocus()
 
+    # ---- Embedded PDF Manual Viewer in Page 4 ---------------------------------
+    def ev_load_manual(self, manual_id, page=1):
+        self.manual_id = manual_id
+        minfo = db.get_manual(manual_id)
+        if not minfo or not minfo.get("file_path") or not os.path.isfile(minfo["file_path"]):
+            self.view.ev_manual_lbl.setText("No manual PDF found")
+            return
+
+        self.view.ev_manual_lbl.setText(minfo["name"])
+        try:
+            self.ev_doc = fitz.open(minfo["file_path"])
+            self.ev_total_pages = len(self.ev_doc)
+            self.view.ev_page_spin.setMaximum(self.ev_total_pages)
+            self.view.ev_total_lbl.setText(f"of {self.ev_total_pages}")
+            self.ev_populate_toc()
+            self.ev_render_page(page)
+        except Exception as e:
+            self.view.ev_page_lbl.setText(f"Could not load PDF: {e}")
+
+    def ev_populate_toc(self):
+        if not self.ev_doc:
+            return
+        toc = self.ev_doc.get_toc()
+        self.view.ev_toc_tree.clear()
+        if not toc:
+            root = QTreeWidgetItem(["Document Pages"])
+            for p in range(1, min(self.ev_total_pages + 1, 100)):
+                item = QTreeWidgetItem([f"Page {p}"])
+                item.setData(0, Qt.ItemDataRole.UserRole, p)
+                root.addChild(item)
+            self.view.ev_toc_tree.addTopLevelItem(root)
+            root.setExpanded(True)
+            return
+
+        stack = [self.view.ev_toc_tree.invisibleRootItem()]
+        for item in toc:
+            lvl, title, pno = item
+            node = QTreeWidgetItem([f"{title} (p. {pno})"])
+            node.setData(0, Qt.ItemDataRole.UserRole, pno)
+            while len(stack) > lvl:
+                stack.pop()
+            stack[-1].addChild(node)
+            stack.append(node)
+        self.view.ev_toc_tree.expandToDepth(1)
+
+    def ev_render_page(self, page_num):
+        if not self.ev_doc or self.ev_total_pages == 0:
+            return
+        self.ev_current_page = max(1, min(page_num, self.ev_total_pages))
+        self.view.ev_page_spin.blockSignals(True)
+        self.view.ev_page_spin.setValue(self.ev_current_page)
+        self.view.ev_page_spin.blockSignals(False)
+
+        self.view.ev_prev_btn.setEnabled(self.ev_current_page > 1)
+        self.view.ev_next_btn.setEnabled(self.ev_current_page < self.ev_total_pages)
+        self.view.ev_zoom_lbl.setText(f"{int(self.ev_zoom * 100)}%")
+
+        try:
+            page = self.ev_doc[self.ev_current_page - 1]
+            matrix = fitz.Matrix(self.ev_zoom, self.ev_zoom)
+            pix = page.get_pixmap(matrix=matrix)
+            qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format.Format_RGB888)
+            pm = QPixmap.fromImage(qimg)
+            self.view.ev_page_lbl.setPixmap(pm)
+            self.view.ev_page_lbl.setFixedSize(pm.size())
+            self.view.ev_scroll.verticalScrollBar().setValue(0)
+        except Exception as e:
+            self.view.ev_page_lbl.setText(f"Error rendering page: {e}")
+
+    def ev_jump_page(self, pno):
+        self.ev_render_page(pno)
+
+    def ev_prev_page(self):
+        if self.ev_current_page > 1:
+            self.ev_render_page(self.ev_current_page - 1)
+
+    def ev_next_page(self):
+        if self.ev_current_page < self.ev_total_pages:
+            self.ev_render_page(self.ev_current_page + 1)
+
+    def ev_zoom_in(self):
+        self.ev_zoom = min(3.0, round(self.ev_zoom + 0.25, 2))
+        self.ev_render_page(self.ev_current_page)
+
+    def ev_zoom_out(self):
+        self.ev_zoom = max(0.5, round(self.ev_zoom - 0.25, 2))
+        self.ev_render_page(self.ev_current_page)
+
+    def ev_fit_width(self):
+        if not self.ev_doc or self.ev_total_pages == 0:
+            return
+        avail_w = self.view.ev_scroll.viewport().width() - 32
+        page = self.ev_doc[self.ev_current_page - 1]
+        orig_w = page.rect.width
+        if orig_w > 0:
+            self.ev_zoom = round(avail_w / orig_w, 2)
+            self.ev_render_page(self.ev_current_page)
+
+    def ev_on_toc_clicked(self, item, col):
+        pno = item.data(0, Qt.ItemDataRole.UserRole)
+        if pno:
+            self.ev_render_page(int(pno))
+
+    def ev_search_text(self):
+        query = self.view.ev_search_input.text().strip()
+        if not query or not self.ev_doc:
+            return
+        self.view.ev_search_list.clear()
+        matches = []
+        q_lower = query.lower()
+        for pno in range(len(self.ev_doc)):
+            txt = self.ev_doc[pno].get_text("text")
+            if q_lower in txt.lower():
+                idx = txt.lower().find(q_lower)
+                start = max(0, idx - 30)
+                end = min(len(txt), idx + 70)
+                snippet = txt[start:end].replace("\n", " ").strip()
+                matches.append((pno + 1, snippet))
+                if len(matches) >= 25:
+                    break
+
+        if matches:
+            for pno, snip in matches:
+                item = QListWidgetItem(f"p. {pno}: ...{snip}...")
+                item.setData(Qt.ItemDataRole.UserRole, pno)
+                self.view.ev_search_list.addItem(item)
+            self.ev_render_page(matches[0][0])
+        else:
+            QMessageBox.information(self, "Search", f"No matches found for '{query}'.")
+
+    def ev_on_search_clicked(self, item):
+        pno = item.data(Qt.ItemDataRole.UserRole)
+        if pno:
+            self.ev_render_page(int(pno))
+
+    def ev_open_external(self):
+        if self.manual_id:
+            m = db.get_manual(self.manual_id)
+            if m and m.get("file_path") and os.path.isfile(m["file_path"]):
+                try:
+                    os.startfile(m["file_path"])
+                except Exception as e:
+                    QMessageBox.warning(self, "Viewer", f"Could not launch external viewer:\n{e}")
+
     def open_user_manual(self, page_number=None):
-        """Open the interactive User Manual viewer with Outline, Search, and Page Zoom."""
+        """Open User Manual viewer Dialog or navigate to Page 4."""
         if not self.manual_id:
             manuals = db.list_manuals()
             if manuals:
                 self.manual_id = manuals[0]["id"]
             else:
-                QMessageBox.information(self, "User Manual", "No manuals found. Please import a PDF manual first.")
-                self.open_library()
+                self.navigate_to(3)
                 return
 
         dlg = UserManualDialog(self, manual_id=self.manual_id, initial_page=page_number or 1)
         dlg.exec()
 
-    def view_selected_manual(self):
-        mid = self._selected_id()
-        if mid:
-            dlg = UserManualDialog(self, manual_id=mid, initial_page=1)
-            dlg.exec()
-        else:
-            QMessageBox.information(self, "Manual Library", "Please select a manual from the list first.")
-
+    # ---- Exporting -----------------------------------------------------------
     def export_current_chat(self, fmt="txt"):
         if not self.active_conv_id:
             QMessageBox.information(self, "Export", "No active conversation to export.")
@@ -895,7 +950,7 @@ class MainWindow(QWidget):
             return
 
         title = conv.get("title") or "Conversation"
-        mname = conv.get("manual_name") or ""
+        mname = conv.get("manual_name") or "Electronics Assistant"
         ext = f".{fmt}"
         filter_str = f"{fmt.upper()} files (*{ext})"
         dest, _ = QFileDialog.getSaveFileName(self, f"Export Conversation as {fmt.upper()}", f"{title}{ext}", filter_str)
@@ -926,7 +981,7 @@ class MainWindow(QWidget):
 
         all_msgs = []
         for c in convs[:15]:
-            all_msgs.append({"role": "user", "content": f"--- CHAT: {c.get('title')} ({c.get('manual_name')}) ---"})
+            all_msgs.append({"role": "user", "content": f"--- CHAT: {c.get('title')} ---"})
             all_msgs.extend(db.get_chat_messages(c["id"]))
 
         ext = f".{fmt}"
@@ -936,14 +991,14 @@ class MainWindow(QWidget):
 
         try:
             if fmt == "pdf":
-                html = export_mod.format_conversation_html(all_msgs, title="Recent Chats Export", manual_name="All Manuals")
+                html = export_mod.format_conversation_html(all_msgs, title="Recent Chats Export", manual_name="ElectroLearn AI")
                 export_mod.save_as_pdf(html, dest)
             elif fmt == "md":
-                content = export_mod.format_conversation_md(all_msgs, title="Recent Chats Export", manual_name="All Manuals")
+                content = export_mod.format_conversation_md(all_msgs, title="Recent Chats Export", manual_name="ElectroLearn AI")
                 with open(dest, "w", encoding="utf-8") as f:
                     f.write(content)
             else:
-                content = export_mod.format_conversation_txt(all_msgs, title="Recent Chats Export", manual_name="All Manuals")
+                content = export_mod.format_conversation_txt(all_msgs, title="Recent Chats Export", manual_name="ElectroLearn AI")
                 with open(dest, "w", encoding="utf-8") as f:
                     f.write(content)
             QMessageBox.information(self, "Export Complete", f"Recent chats exported successfully to:\n{dest}")
@@ -951,7 +1006,7 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Export Failed", f"Could not export recent chats:\n{e}")
 
     def export_single_answer(self, answer_data, question="", fmt="txt"):
-        title = answer_data.get("title") or "Manual_Answer"
+        title = answer_data.get("title") or "Component_Answer"
         safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "_", "-")).strip()[:40]
         ext = f".{fmt}"
         dest, _ = QFileDialog.getSaveFileName(self, f"Export Answer as {fmt.upper()}", f"{safe_title}{ext}", f"{fmt.upper()} files (*{ext})")
@@ -959,7 +1014,7 @@ class MainWindow(QWidget):
             return
 
         m = db.get_manual(self.manual_id) if self.manual_id else None
-        mname = m["name"] if m else ""
+        mname = m["name"] if m else "Electronics Assistant"
         try:
             if fmt == "pdf":
                 html = export_mod.format_answer_html(answer_data, question=question, manual_name=mname)
@@ -975,3 +1030,34 @@ class MainWindow(QWidget):
             QMessageBox.information(self, "Export Complete", f"Answer exported successfully to:\n{dest}")
         except Exception as e:
             QMessageBox.warning(self, "Export Failed", f"Could not export answer:\n{e}")
+
+    # Backward compatibility helpers
+    def open_library(self):
+        self.navigate_to(2)
+
+    def speak(self):
+        self.speak_chat()
+
+    def speak_viewer(self):
+        self.speak_chat()
+
+    def ask(self, q):
+        self.open_chat()
+        self.send_chat_message(q)
+
+    def ask_from_viewer(self):
+        self.open_chat()
+
+    def return_to_ask_page(self):
+        self.top_bar.set_active_tab(1)
+        self.stack.setCurrentIndex(1)
+
+    def default_questions(self, mid=None):
+        return [
+            "How do I determine resistor values from color bands?",
+            "What is the difference between NPN and PNP transistors?",
+            "How do I wire an NE555 timer in Astable mode?",
+            "What voltage regulator should I use to step down 12V to 5V?",
+            "How does an ultrasonic distance sensor measure flight time?",
+            "What safety precautions prevent electrostatic discharge (ESD)?"
+        ]

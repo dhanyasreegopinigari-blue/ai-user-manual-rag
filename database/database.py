@@ -63,6 +63,17 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     created_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_chat_conv ON chat_messages(conversation_id);
+CREATE TABLE IF NOT EXISTS component_scans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    image_path TEXT,
+    component_name TEXT,
+    category TEXT,
+    manufacturer TEXT,
+    model TEXT,
+    confidence TEXT,
+    data_json TEXT,
+    created_at TEXT
+);
 """
 
 
@@ -342,3 +353,58 @@ def get_chat_messages(conv_id):
 
 def delete_chat_message(msg_id):
     execute("DELETE FROM chat_messages WHERE id=?", (msg_id,))
+
+
+# ---- Recent Activity & Scans ------------------------------------------------
+def add_component_scan(*args, **kwargs):
+    now = datetime.now().isoformat(timespec="seconds")
+    if len(args) == 2 and isinstance(args[1], dict):
+        image_path = args[0]
+        hw_data = args[1]
+        name = (
+            hw_data.get("product_name") or
+            hw_data.get("model") or
+            hw_data.get("hardware_type") or
+            "Identified Component"
+        )
+        cat = hw_data.get("category") or hw_data.get("hardware_type") or "General"
+        mfg = hw_data.get("manufacturer") or ""
+        model = hw_data.get("model") or ""
+        conf = str(hw_data.get("confidence") or "")
+        data_str = json.dumps(hw_data)
+    else:
+        name = args[0] if len(args) > 0 else kwargs.get("name", "Component")
+        cat = args[1] if len(args) > 1 else kwargs.get("category", "General")
+        conf = str(args[2] if len(args) > 2 else kwargs.get("confidence", "0.9"))
+        image_path = args[3] if len(args) > 3 else kwargs.get("image_path", "")
+        details = args[4] if len(args) > 4 else kwargs.get("details", {})
+        mfg = kwargs.get("manufacturer", "")
+        model = kwargs.get("model", "")
+        data_str = json.dumps(details) if isinstance(details, dict) else str(details or "")
+
+    return execute(
+        "INSERT INTO component_scans (image_path, component_name, category, manufacturer, model, confidence, data_json, created_at) VALUES (?,?,?,?,?,?,?,?)",
+        (image_path, name, cat, mfg, model, conf, data_str, now)
+    )
+
+
+def list_component_scans(limit=10):
+    rows = query("SELECT * FROM component_scans ORDER BY id DESC LIMIT ?", (limit,))
+    results = []
+    for r in rows:
+        item = dict(r)
+        item["scanned_at"] = item.get("created_at") or ""
+        if item.get("data_json"):
+            try:
+                item["data"] = json.loads(item["data_json"])
+            except Exception:
+                item["data"] = None
+        else:
+            item["data"] = None
+        results.append(item)
+    return results
+
+
+def delete_component_scan(scan_id):
+    execute("DELETE FROM component_scans WHERE id=?", (scan_id,))
+

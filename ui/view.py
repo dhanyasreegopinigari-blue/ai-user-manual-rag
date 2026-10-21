@@ -1,18 +1,20 @@
-"""UI View layer: Styles, Custom Widgets, Dialogs, and Page Layouts."""
+"""UI View layer: Modern Styles, Responsive Widgets, Dialogs, and 4-Page Architecture."""
 import os
 import time
 import cv2
 
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt6.QtGui import QAction, QImage, QPainter, QPixmap
+from PyQt6.QtGui import QAction, QImage, QPainter, QPixmap, QFont
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QFrame,
     QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy,
-    QSpinBox, QSplitter, QStackedWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+    QSpinBox, QSplitter, QStackedWidget, QTabWidget, QTextEdit, QTreeWidget,
+    QTreeWidgetItem, QVBoxLayout, QWidget
 )
 import database as db
 import services.export as export_mod
+import services.components as comp_service
 try:
     import pymupdf as fitz
 except ImportError:
@@ -20,62 +22,173 @@ except ImportError:
 
 import config
 
-STYLE = """
-QWidget { background:#12151c; color:#e6e9ef; font-family:'Segoe UI','Inter','Helvetica Neue',Arial; font-size:14px; }
+
+DARK_STYLE = """
+QWidget { background:#0d121a; color:#e6edf6; font-family:'Segoe UI','Inter',system-ui,sans-serif; font-size:14px; }
 QLabel { background:transparent; }
-QPushButton { background:#262c3a; border:1px solid #333b4f; border-radius:10px; padding:10px 18px; }
-QPushButton:hover { background:#2f3748; }
-QPushButton:disabled { color:#6b7385; background:#1b2029; border-color:#262c3a; }
-QPushButton[kind="primary"] { background:#4f8cff; border:none; color:white; font-weight:600; }
-QPushButton[kind="primary"]:hover { background:#6aa0ff; }
-QPushButton[kind="primary"]:disabled { background:#2a3550; color:#7b86a3; }
-QPushButton[kind="danger"] { background:#3a2025; border-color:#6a2f38; color:#ff9aa5; }
-QPushButton[kind="card"] { text-align:left; border-radius:14px; background:#1b202b; border:1px solid #2a3142; }
-QPushButton[kind="card"]:hover { border-color:#4f8cff; background:#212838; }
-QPushButton[kind="secondary"] { background:#1f2636; border:1px solid #333f57; color:#c9d3e8; border-radius:8px; padding:7px 14px; font-size:13px; font-weight:600; }
-QPushButton[kind="secondary"]:hover { background:#2a354c; color:white; border-color:#4f8cff; }
-QPushButton[kind="stepTab"] { background:#1c2331; border:1px solid #2c364b; color:#9aa6bd; border-radius:7px; padding:5px 12px; font-weight:600; font-size:12px; }
-QPushButton[kind="stepTab"]:hover { background:#273145; color:#ffffff; border-color:#4f8cff; }
-QPushButton[kind="stepTabActive"] { background:#3b72db; border:1px solid #4f8cff; color:#ffffff; border-radius:7px; padding:5px 12px; font-weight:700; font-size:12px; }
-QLineEdit, QComboBox { background:#1b202b; border:1px solid #333b4f; border-radius:10px; padding:9px 12px; }
-QLineEdit:focus, QComboBox:focus { border-color:#4f8cff; }
-QComboBox QAbstractItemView { background:#1b202b; selection-background-color:#2d3a5a; }
-QListWidget { background:#1b202b; border:1px solid #2a3142; border-radius:12px; padding:6px; outline:0; }
-QListWidget::item { padding:10px; border-radius:8px; }
-QListWidget::item:selected { background:#2d3a5a; color:white; }
-QFrame#card { background:#1b202b; border:1px solid #2a3142; border-radius:16px; }
-QFrame#refCard { background:#151a24; border:1px solid #283347; border-left:5px solid #4f8cff; border-radius:14px; }
-QLabel#title { font-size:36px; font-weight:700; letter-spacing:2px; }
-QLabel#h1 { font-size:22px; font-weight:700; }
-QLabel#subtitle { font-size:16px; color:#9aa4ba; }
-QLabel#muted { color:#8791a8; }
-QLabel#caption { color:#8791a8; font-size:12px; }
-QLabel#stepText { font-size:17px; font-weight:600; color:#ffffff; line-height:1.4; }
-QLabel#ok { color:#5fd38d; font-weight:600; font-size:16px; }
-QLabel#bad { color:#ffcf6b; font-weight:600; font-size:16px; }
-QLabel#source { background:#1b202b; border-left:4px solid #4f8cff; border-radius:8px; padding:10px 14px; color:#c9d1e3; }
-QLabel#answerBox { background:#151a24; border:1px solid #283347; border-radius:12px; padding:14px 16px; font-size:14.5px; color:#d6dce7; line-height:1.5; }
-QLabel#warning { background:#3a2c12; border:1px solid #8a6a1f; border-radius:10px; padding:10px 14px; color:#ffcf6b; font-size:13.5px; }
-QLabel#image { background:#0d0f14; border:1px solid #2a3142; border-radius:12px; color:#8791a8; }
-QLabel#imageContainer { background:#0d0f14; border:1px solid #252d3d; border-radius:12px; color:#8791a8; }
-QLabel#sectionHeader { font-size:12px; font-weight:700; color:#6ea4ff; letter-spacing:1.2px; }
-QLabel#badge { background:#21293b; color:#8ab4f8; border:1px solid #32405d; border-radius:6px; padding:3px 9px; font-size:12px; font-weight:600; }
-QLabel#refHeader { font-size:12px; font-weight:700; color:#8ab4f8; letter-spacing:1px; }
-QLabel#refText { font-size:13.5px; color:#c4cddb; font-style:italic; line-height:1.5; }
-QProgressBar { background:#1b202b; border:none; border-radius:5px; height:10px; }
-QProgressBar::chunk { background:#4f8cff; border-radius:5px; }
-QProgressBar#voiceMeter { background:#161a23; border:1px solid #2a3449; border-radius:6px; height:12px; }
-QProgressBar#voiceMeter::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4f8cff, stop:0.8 #45d48b, stop:1 #2fdc71); border-radius:5px; }
-QFrame#sidebarFrame { background:#141722; border-right:1px solid #232b3b; }
-QFrame#userBubble { background:#1e3250; border:1px solid #2d4873; border-radius:14px; }
-QFrame#asstCard { background:#181e2b; border:1px solid #283347; border-radius:16px; }
-QFrame#typingCard { background:#151b26; border:1px dashed #34425d; border-radius:12px; }
-QTreeWidget { background:#171c26; border:1px solid #283347; border-radius:8px; outline:0; color:#c9d3e8; }
-QTreeWidget::item { padding:5px 4px; border-radius:4px; }
-QTreeWidget::item:hover { background:#242c3d; }
-QTreeWidget::item:selected { background:#304060; color:#ffffff; }
-QSpinBox { background:#1b202b; border:1px solid #333b4f; border-radius:8px; padding:6px 8px; color:#ffffff; }
+QPushButton { background:#1b2332; border:1px solid #2a374c; border-radius:10px; padding:9px 16px; color:#e6edf6; font-weight:500; }
+QPushButton:hover { background:#253043; border-color:#3d4e68; }
+QPushButton:pressed { background:#161c28; }
+QPushButton:disabled { color:#5f6b80; background:#141a24; border-color:#1e2634; }
+
+QPushButton[kind="primary"] { background:#3b82f6; border:none; color:#ffffff; font-weight:600; }
+QPushButton[kind="primary"]:hover { background:#60a5fa; }
+QPushButton[kind="primary"]:pressed { background:#2563eb; }
+QPushButton[kind="primary"]:disabled { background:#1e293b; color:#64748b; }
+
+QPushButton[kind="secondary"] { background:#161f2c; border:1px solid #2d3b52; color:#cbd5e1; font-weight:500; }
+QPushButton[kind="secondary"]:hover { background:#222f42; color:#ffffff; border-color:#475975; }
+
+QPushButton[kind="danger"] { background:#351b20; border:1px solid #632832; color:#fca5a5; }
+QPushButton[kind="danger"]:hover { background:#47232a; border-color:#843442; color:#fecaca; }
+
+QPushButton[kind="nav"] { background:transparent; border:none; border-radius:8px; padding:8px 14px; color:#94a3b8; font-weight:600; font-size:14px; }
+QPushButton[kind="nav"]:hover { background:#182232; color:#e2e8f0; }
+QPushButton[kind="navActive"] { background:#2563eb; border:none; border-radius:8px; padding:8px 14px; color:#ffffff; font-weight:700; font-size:14px; }
+
+QPushButton[kind="chip"] { background:#16202e; border:1px solid #27374e; border-radius:16px; padding:6px 14px; color:#94a3b8; font-size:13px; font-weight:500; }
+QPushButton[kind="chip"]:hover { background:#223046; color:#ffffff; border-color:#3d5272; }
+QPushButton[kind="chipActive"] { background:#1d4ed8; border:1px solid #3b82f6; border-radius:16px; padding:6px 14px; color:#ffffff; font-size:13px; font-weight:600; }
+
+QPushButton[kind="cardAction"] { text-align:left; border-radius:14px; background:#141b26; border:1px solid #253347; padding:16px; }
+QPushButton[kind="cardAction"]:hover { border-color:#3b82f6; background:#1b2434; }
+
+QLineEdit, QComboBox, QSpinBox { background:#131a24; border:1px solid #27364b; border-radius:10px; padding:9px 12px; color:#ffffff; selection-background-color:#2563eb; }
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border-color:#3b82f6; background:#16202e; }
+QComboBox QAbstractItemView { background:#131a24; border:1px solid #27364b; selection-background-color:#2563eb; selection-color:white; }
+
+QListWidget { background:#111722; border:1px solid #222f42; border-radius:12px; padding:6px; outline:0; }
+QListWidget::item { padding:10px 12px; border-radius:8px; margin-bottom:4px; }
+QListWidget::item:hover { background:#1b2536; }
+QListWidget::item:selected { background:#243654; color:#ffffff; }
+
+QFrame#card { background:#131b26; border:1px solid #222f42; border-radius:14px; }
+QFrame#accentCard { background:#122038; border:1px solid #214373; border-radius:14px; }
+QFrame#tipCard { background:#131a24; border:1px solid #24344a; border-radius:14px; padding:12px; }
+QFrame#tipCard:hover { border-color:#3b82f6; background:#172230; }
+QFrame#sidebarFrame { background:#0f1520; border-right:1px solid #202b3c; }
+
+QFrame#userBubble { background:#1b3558; border:1px solid #2b4f7e; border-radius:14px; }
+QFrame#asstCard { background:#131c28; border:1px solid #233145; border-radius:16px; }
+QFrame#typingCard { background:#101722; border:1px dashed #2f4362; border-radius:12px; }
+
+QLabel#brand { font-size:18px; font-weight:800; color:#ffffff; letter-spacing:0.5px; }
+QLabel#title { font-size:28px; font-weight:800; color:#f8fafc; letter-spacing:0.5px; }
+QLabel#h1 { font-size:20px; font-weight:700; color:#f1f5f9; }
+QLabel#h2 { font-size:16px; font-weight:600; color:#e2e8f0; }
+QLabel#subtitle { font-size:14.5px; color:#94a3b8; }
+QLabel#muted { color:#8292a8; font-size:13px; }
+QLabel#caption { color:#75849a; font-size:12px; }
+QLabel#badge { background:#1a273b; border:1px solid #293d5c; border-radius:8px; padding:3px 8px; color:#93c5fd; font-size:11.5px; font-weight:600; }
+QLabel#badgeOk { background:#12281e; border:1px solid #1f4f39; border-radius:8px; padding:3px 8px; color:#6ee7b7; font-size:11.5px; font-weight:600; }
+QLabel#badgeWarn { background:#302110; border:1px solid #633f17; border-radius:8px; padding:3px 8px; color:#fcd34d; font-size:11.5px; font-weight:600; }
+QLabel#codeBlock { background:#090d14; border:1px solid #1e2838; border-radius:8px; padding:10px 12px; font-family:'Cascadia Code','Consolas','Courier New',monospace; font-size:12.5px; color:#67e8f9; }
+
+QScrollBar:vertical { background:#0d121a; width:10px; margin:0; }
+QScrollBar::handle:vertical { background:#27364b; min-height:24px; border-radius:5px; margin:2px; }
+QScrollBar::handle:vertical:hover { background:#3b82f6; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
+QScrollBar:horizontal { background:#0d121a; height:10px; margin:0; }
+QScrollBar::handle:horizontal { background:#27364b; min-width:24px; border-radius:5px; margin:2px; }
+QScrollBar::handle:horizontal:hover { background:#3b82f6; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width:0; }
+
+QProgressBar { background:#111823; border:1px solid #233044; border-radius:6px; text-align:center; }
+QProgressBar::chunk { background:#3b82f6; border-radius:5px; }
+QTreeWidget { background:#101722; border:1px solid #222f42; border-radius:10px; outline:0; color:#cbd5e1; }
+QTreeWidget::item { padding:6px; border-radius:4px; }
+QTreeWidget::item:hover { background:#1b2536; }
+QTreeWidget::item:selected { background:#2563eb; color:#ffffff; }
+QTabWidget::pane { border:1px solid #222f42; border-radius:12px; background:#111722; }
+QTabBar::tab { background:#141b26; border:1px solid #222f42; border-bottom:none; border-top-left-radius:8px; border-top-right-radius:8px; padding:8px 18px; margin-right:4px; color:#94a3b8; font-weight:600; }
+QTabBar::tab:selected { background:#1d4ed8; color:#ffffff; border-color:#3b82f6; }
+QTabBar::tab:hover:!selected { background:#1b2434; color:#e2e8f0; }
 """
+
+LIGHT_STYLE = """
+QWidget { background:#f8fafc; color:#0f172a; font-family:'Segoe UI','Inter',system-ui,sans-serif; font-size:14px; }
+QLabel { background:transparent; }
+QPushButton { background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; padding:9px 16px; color:#0f172a; font-weight:500; }
+QPushButton:hover { background:#f1f5f9; border-color:#94a3b8; }
+QPushButton:pressed { background:#e2e8f0; }
+QPushButton:disabled { color:#94a3b8; background:#f1f5f9; border-color:#e2e8f0; }
+
+QPushButton[kind="primary"] { background:#2563eb; border:none; color:#ffffff; font-weight:600; }
+QPushButton[kind="primary"]:hover { background:#1d4ed8; }
+QPushButton[kind="primary"]:pressed { background:#1e40af; }
+QPushButton[kind="primary"]:disabled { background:#e2e8f0; color:#94a3b8; }
+
+QPushButton[kind="secondary"] { background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:500; }
+QPushButton[kind="secondary"]:hover { background:#f1f5f9; color:#0f172a; border-color:#94a3b8; }
+
+QPushButton[kind="danger"] { background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; }
+QPushButton[kind="danger"]:hover { background:#fecaca; border-color:#f87171; color:#991b1b; }
+
+QPushButton[kind="nav"] { background:transparent; border:none; border-radius:8px; padding:8px 14px; color:#64748b; font-weight:600; font-size:14px; }
+QPushButton[kind="nav"]:hover { background:#e2e8f0; color:#0f172a; }
+QPushButton[kind="navActive"] { background:#2563eb; border:none; border-radius:8px; padding:8px 14px; color:#ffffff; font-weight:700; font-size:14px; }
+
+QPushButton[kind="chip"] { background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; padding:6px 14px; color:#475569; font-size:13px; font-weight:500; }
+QPushButton[kind="chip"]:hover { background:#f1f5f9; color:#0f172a; border-color:#94a3b8; }
+QPushButton[kind="chipActive"] { background:#2563eb; border:1px solid #1d4ed8; border-radius:16px; padding:6px 14px; color:#ffffff; font-size:13px; font-weight:600; }
+
+QPushButton[kind="cardAction"] { text-align:left; border-radius:14px; background:#ffffff; border:1px solid #e2e8f0; padding:16px; }
+QPushButton[kind="cardAction"]:hover { border-color:#2563eb; background:#f8fafc; }
+
+QLineEdit, QComboBox, QSpinBox { background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; padding:9px 12px; color:#0f172a; selection-background-color:#2563eb; }
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border-color:#2563eb; background:#ffffff; }
+QComboBox QAbstractItemView { background:#ffffff; border:1px solid #cbd5e1; selection-background-color:#2563eb; selection-color:white; }
+
+QListWidget { background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:6px; outline:0; }
+QListWidget::item { padding:10px 12px; border-radius:8px; margin-bottom:4px; }
+QListWidget::item:hover { background:#f1f5f9; }
+QListWidget::item:selected { background:#e0f2fe; color:#0369a1; }
+
+QFrame#card { background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; }
+QFrame#accentCard { background:#eff6ff; border:1px solid #bfdbfe; border-radius:14px; }
+QFrame#tipCard { background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:12px; }
+QFrame#tipCard:hover { border-color:#2563eb; background:#f8fafc; }
+QFrame#sidebarFrame { background:#f1f5f9; border-right:1px solid #e2e8f0; }
+
+QFrame#userBubble { background:#dbeafe; border:1px solid #bfdbfe; border-radius:14px; }
+QFrame#asstCard { background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; }
+QFrame#typingCard { background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; }
+
+QLabel#brand { font-size:18px; font-weight:800; color:#0f172a; letter-spacing:0.5px; }
+QLabel#title { font-size:28px; font-weight:800; color:#0f172a; letter-spacing:0.5px; }
+QLabel#h1 { font-size:20px; font-weight:700; color:#0f172a; }
+QLabel#h2 { font-size:16px; font-weight:600; color:#1e293b; }
+QLabel#subtitle { font-size:14.5px; color:#475569; }
+QLabel#muted { color:#64748b; font-size:13px; }
+QLabel#caption { color:#64748b; font-size:12px; }
+QLabel#badge { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:3px 8px; color:#1d4ed8; font-size:11.5px; font-weight:600; }
+QLabel#badgeOk { background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:3px 8px; color:#047857; font-size:11.5px; font-weight:600; }
+QLabel#badgeWarn { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:3px 8px; color:#b45309; font-size:11.5px; font-weight:600; }
+QLabel#codeBlock { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; font-family:'Cascadia Code','Consolas','Courier New',monospace; font-size:12.5px; color:#0369a1; }
+
+QScrollBar:vertical { background:#f8fafc; width:10px; margin:0; }
+QScrollBar::handle:vertical { background:#cbd5e1; min-height:24px; border-radius:5px; margin:2px; }
+QScrollBar::handle:vertical:hover { background:#2563eb; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
+QScrollBar:horizontal { background:#f8fafc; height:10px; margin:0; }
+QScrollBar::handle:horizontal { background:#cbd5e1; min-width:24px; border-radius:5px; margin:2px; }
+QScrollBar::handle:horizontal:hover { background:#2563eb; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width:0; }
+
+QProgressBar { background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; text-align:center; }
+QProgressBar::chunk { background:#2563eb; border-radius:5px; }
+QTreeWidget { background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; outline:0; color:#334155; }
+QTreeWidget::item { padding:6px; border-radius:4px; }
+QTreeWidget::item:hover { background:#f1f5f9; }
+QTreeWidget::item:selected { background:#2563eb; color:#ffffff; }
+QTabWidget::pane { border:1px solid #e2e8f0; border-radius:12px; background:#ffffff; }
+QTabBar::tab { background:#f8fafc; border:1px solid #e2e8f0; border-bottom:none; border-top-left-radius:8px; border-top-right-radius:8px; padding:8px 18px; margin-right:4px; color:#64748b; font-weight:600; }
+QTabBar::tab:selected { background:#2563eb; color:#ffffff; border-color:#1d4ed8; }
+QTabBar::tab:hover:!selected { background:#e2e8f0; color:#0f172a; }
+"""
+
+# Default backward compatibility alias
+STYLE = DARK_STYLE
 
 
 def button(text, kind=None, slot=None):
@@ -89,7 +202,7 @@ def button(text, kind=None, slot=None):
 
 
 def label(text="", name=None, wrap=True, align=None):
-    l = QLabel(text)
+    l = QLabel(str(text))
     l.setWordWrap(wrap)
     if name:
         l.setObjectName(name)
@@ -109,12 +222,12 @@ def show_image(lbl, path, w, h):
 
 
 class QuestionCard(QPushButton):
-    """A clickable card with word-wrapped text (QPushButton itself cannot wrap)."""
+    """A clickable card with word-wrapped text."""
     def __init__(self, text):
         super().__init__()
-        self.setProperty("kind", "card")
+        self.setProperty("kind", "secondary")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setMinimumHeight(58)
+        self.setMinimumHeight(54)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(14, 8, 14, 8)
         lbl = QLabel(text)
@@ -140,11 +253,12 @@ class MetaDialog(QDialog):
         row = QHBoxLayout()
         row.addStretch()
         row.addWidget(button("Cancel", slot=self.reject))
-        row.addWidget(button("Import", "primary", self.accept))
+        row.addWidget(button("Add", "primary", self.accept))
         form.addRow(row)
 
 
 class SettingsDialog(QDialog):
+    """Configure Ollama URL and model choices."""
     def __init__(self, parent):
         super().__init__(parent)
         self.setWindowTitle("Settings")
@@ -180,40 +294,73 @@ class SettingsDialog(QDialog):
 
 
 class CameraDialog(QDialog):
-    """Live camera viewfinder to preview and capture hardware photos."""
+    """Live camera viewfinder with robust device fallback and disk picker option."""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Live Camera Capture")
-        self.resize(700, 560)
+        self.setWindowTitle("Live Camera Scanner")
+        self.resize(720, 580)
         self.captured_path = None
-        self.cap = cv2.VideoCapture(0)
+        self.last_frame = None
 
         lay = QVBoxLayout(self)
-        self.view = QLabel("Starting camera...", self)
+        lay.setContentsMargins(20, 20, 20, 20)
+        lay.setSpacing(14)
+
+        # Header
+        top_row = QHBoxLayout()
+        top_row.addWidget(label("📷 Component Camera Scan", "h1"))
+        top_row.addStretch()
+        top_row.addWidget(label("Align component clearly in frame", "caption"))
+        lay.addLayout(top_row)
+
+        self.view = QLabel("Initializing camera...", self)
         self.view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.view.setStyleSheet("background:#0d0f14; border-radius:12px;")
-        self.view.setMinimumSize(640, 420)
-        lay.addWidget(self.view)
+        self.view.setStyleSheet("background:#080c12; border:1px solid #1f2a3a; border-radius:12px; color:#94a3b8;")
+        self.view.setMinimumSize(660, 420)
+        lay.addWidget(self.view, 1)
 
         btn_row = QHBoxLayout()
+        self.fallback_btn = button("📁 Choose Photo from Disk", "secondary", slot=self.choose_disk_photo)
         self.cancel_btn = button("Cancel", slot=self.reject)
-        self.snap_btn = button("📸 Capture Photo", "primary", self.capture_frame)
+        self.snap_btn = button("📸 Capture Photo", "primary", slot=self.capture_frame)
+        self.snap_btn.setMinimumWidth(160)
+
         btn_row.addWidget(self.cancel_btn)
+        btn_row.addWidget(self.fallback_btn)
         btn_row.addStretch()
         btn_row.addWidget(self.snap_btn)
         lay.addLayout(btn_row)
 
-        if not self.cap.isOpened():
-            self.view.setText("No camera detected or camera is in use by another application.")
+        # Try opening camera 0, then 1 with DirectShow on Windows
+        self.cap = None
+        for idx in (0, 1):
+            if os.name == 'nt':
+                c = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
+            else:
+                c = cv2.VideoCapture(idx)
+            if c.isOpened():
+                ret, test_f = c.read()
+                if ret and test_f is not None:
+                    self.cap = c
+                    break
+                c.release()
+
+        if self.cap is None or not self.cap.isOpened():
+            self.view.setText(
+                "⚠️ No live camera detected or camera permission was denied.\n\n"
+                "Please verify your camera is plugged in and permissions are enabled in Windows Settings,\n"
+                "or click 'Choose Photo from Disk' below to scan a component image."
+            )
             self.snap_btn.setEnabled(False)
             return
 
-        self.last_frame = None
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._update_frame)
         self.timer.start(33)
 
     def _update_frame(self):
+        if not self.cap or not self.cap.isOpened():
+            return
         ret, frame = self.cap.read()
         if ret and frame is not None:
             self.last_frame = frame
@@ -231,6 +378,17 @@ class CameraDialog(QDialog):
             dest = os.path.join(config.IMAGES_DIR, f"camera_snap_{int(time.time())}.jpg")
             cv2.imwrite(dest, self.last_frame)
             self.captured_path = dest
+            self._cleanup()
+            self.accept()
+
+    def choose_disk_photo(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose component photo", "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)"
+        )
+        if path and os.path.isfile(path):
+            self.captured_path = path
+            self._cleanup()
             self.accept()
 
     def closeEvent(self, event):
@@ -241,14 +399,10 @@ class CameraDialog(QDialog):
         self._cleanup()
         super().reject()
 
-    def accept(self):
-        self._cleanup()
-        super().accept()
-
     def _cleanup(self):
         if hasattr(self, "timer") and self.timer.isActive():
             self.timer.stop()
-        if hasattr(self, "cap") and self.cap.isOpened():
+        if hasattr(self, "cap") and self.cap and self.cap.isOpened():
             self.cap.release()
 
 
@@ -319,11 +473,11 @@ class VoiceInputDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Voice Question Input")
-        self.setFixedSize(480, 260)
+        self.setFixedSize(500, 270)
         self.transcribed_text = ""
 
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(28, 24, 28, 20)
+        lay.setContentsMargins(28, 24, 28, 22)
         lay.setSpacing(16)
 
         header_lay = QHBoxLayout()
@@ -333,8 +487,8 @@ class VoiceInputDialog(QDialog):
 
         title_box = QVBoxLayout()
         title_box.setSpacing(2)
-        title_lbl = label("Voice Input", "h1", wrap=False)
-        self.sub_lbl = label("Listening... Speak your question into the microphone.", "muted")
+        title_lbl = label("Voice Assistant Input", "h1", wrap=False)
+        self.sub_lbl = label("Listening... Speak your electronic question into the microphone.", "muted")
         title_box.addWidget(title_lbl)
         title_box.addWidget(self.sub_lbl)
         header_lay.addLayout(title_box)
@@ -346,13 +500,13 @@ class VoiceInputDialog(QDialog):
         self.meter.setRange(0, 100)
         self.meter.setValue(0)
         self.meter.setTextVisible(False)
-        self.meter.setFixedHeight(14)
+        self.meter.setFixedHeight(12)
         lay.addWidget(self.meter)
 
-        self.status_box = QLabel("Ready... Speak now. Will auto-transcribe when you pause.")
+        self.status_box = QLabel("Ready... Speak now. Transcription will automatically start when you pause.")
         self.status_box.setStyleSheet(
-            "background:#151a24; border:1px solid #283347; border-radius:10px; "
-            "padding:10px 14px; font-size:13.5px; color:#c9d1e3;"
+            "background:#121824; border:1px solid #233145; border-radius:10px; "
+            "padding:10px 14px; font-size:13.5px; color:#cbd5e1;"
         )
         self.status_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(self.status_box)
@@ -379,8 +533,8 @@ class VoiceInputDialog(QDialog):
     def _on_speech_started(self):
         self.status_box.setText("🎙 Hearing speech... (auto-finishing on pause)")
         self.status_box.setStyleSheet(
-            "background:#15241b; border:1px solid #2d6a4f; border-radius:10px; "
-            "padding:10px 14px; font-size:13.5px; color:#5fd38d; font-weight:600;"
+            "background:#10261b; border:1px solid #1e5a3c; border-radius:10px; "
+            "padding:10px 14px; font-size:13.5px; color:#6ee7b7; font-weight:600;"
         )
 
     def _on_status(self, text):
@@ -389,8 +543,8 @@ class VoiceInputDialog(QDialog):
             self.meter.setValue(0)
             self.status_box.setText("⏳ Transcribing speech with Whisper AI...")
             self.status_box.setStyleSheet(
-                "background:#182033; border:1px solid #3b72db; border-radius:10px; "
-                "padding:10px 14px; font-size:13.5px; color:#8ab4f8; font-weight:600;"
+                "background:#17253d; border:1px solid #2d5599; border-radius:10px; "
+                "padding:10px 14px; font-size:13.5px; color:#93c5fd; font-weight:600;"
             )
             self.done_btn.setEnabled(False)
             self.done_btn.setText("Transcribing...")
@@ -434,7 +588,7 @@ class ImagePreviewDialog(QDialog):
 
         lbl = QLabel()
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl.setStyleSheet("background:#0d0f14; border-radius:12px;")
+        lbl.setStyleSheet("background:#080c12; border-radius:12px;")
         pm = QPixmap(image_path) if image_path else QPixmap()
         if not pm.isNull():
             lbl.setPixmap(pm.scaled(920, 640, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
@@ -448,175 +602,147 @@ class ImagePreviewDialog(QDialog):
 
 
 class ImageViewerWidget(QLabel):
-    """Smooth scaling image widget with aspect-ratio preservation and click-to-zoom."""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    """Image display with smooth scaling and path storage."""
+    def __init__(self):
+        super().__init__()
         self.setObjectName("imageContainer")
-        self.setMinimumSize(280, 240)
-        self._pixmap = QPixmap()
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setMinimumSize(320, 240)
         self._image_path = None
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("Click to view full size")
 
     def set_image(self, path):
         self._image_path = path
-        if path and os.path.isfile(path):
-            self._pixmap = QPixmap(path)
-            self.setText("")
-        else:
-            self._pixmap = QPixmap()
-            self.setText("No illustration available for this step.")
-        self.update()
+        if not path or not os.path.isfile(path):
+            self.setText("No illustration available")
+            self.setPixmap(QPixmap())
+            return
+        pm = QPixmap(path)
+        if pm.isNull():
+            self.setText("Failed to load image")
+            return
+        self.setPixmap(pm.scaled(
+            self.width() if self.width() > 100 else 460,
+            self.height() if self.height() > 100 else 320,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        ))
 
     def get_image_path(self):
         return self._image_path
 
-    def paintEvent(self, event):
-        if self._pixmap.isNull():
-            super().paintEvent(event)
-            return
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        avail_w = max(self.width() - 16, 100)
-        avail_h = max(self.height() - 16, 100)
-        scaled = self._pixmap.scaled(
-            avail_w, avail_h,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
-        )
-        x = (self.width() - scaled.width()) // 2
-        y = (self.height() - scaled.height()) // 2
-        painter.drawPixmap(x, y, scaled)
-
-    def mousePressEvent(self, event):
-        if self._image_path and os.path.isfile(self._image_path):
-            ImagePreviewDialog(self.window(), self._image_path).exec()
-        super().mousePressEvent(event)
-
-
 
 class UserManualDialog(QDialog):
-    """Full-featured in-app manual viewer: TOC Outline, Full-text Search, and Zoom."""
+    """Comprehensive PDF viewer with Table of Contents, in-doc search, and zoom controls."""
     def __init__(self, parent=None, manual_id=None, initial_page=1):
         super().__init__(parent)
         self.manual_id = manual_id
-        self.current_page = max(1, initial_page)
-        self.zoom = 1.25
+        self.manual_info = db.get_manual(manual_id) if manual_id else None
         self.doc = None
         self.total_pages = 0
-        self.manual_info = db.get_manual(manual_id) if manual_id else None
+        self.current_page = initial_page
+        self.zoom = 1.25
 
-        manual_title = self.manual_info["name"] if self.manual_info else "User Manual"
-        self.setWindowTitle(f"📖 User Manual — {manual_title}")
+        title = f"User Manual: {self.manual_info['name']}" if self.manual_info else "User Manual Viewer"
+        self.setWindowTitle(title)
         self.resize(1120, 800)
 
         main_lay = QVBoxLayout(self)
-        main_lay.setContentsMargins(14, 12, 14, 12)
+        main_lay.setContentsMargins(14, 12, 14, 14)
         main_lay.setSpacing(10)
 
-        # Top Control Toolbar
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(8)
+        # Controls bar
+        ctrl_bar = QHBoxLayout()
+        ctrl_bar.setSpacing(10)
 
-        self.prev_btn = button("◀ Prev", slot=self.prev_page)
-        self.next_btn = button("Next ▶", slot=self.next_page)
-        toolbar.addWidget(self.prev_btn)
-        toolbar.addWidget(self.next_btn)
+        self.prev_btn = button("◀ Prev", "secondary", self.prev_page)
+        self.next_btn = button("Next ▶", "secondary", self.next_page)
+        ctrl_bar.addWidget(self.prev_btn)
+        ctrl_bar.addWidget(self.next_btn)
 
-        toolbar.addSpacing(10)
-        toolbar.addWidget(label("Page:", "muted", wrap=False))
+        ctrl_bar.addWidget(label("Page:", "caption"))
         self.page_spin = QSpinBox()
-        self.page_spin.setMinimum(1)
-        self.page_spin.setMaximum(1)
+        self.page_spin.setRange(1, 1)
         self.page_spin.setValue(self.current_page)
-        self.page_spin.valueChanged.connect(self._on_spin_changed)
-        toolbar.addWidget(self.page_spin)
+        self.page_spin.valueChanged.connect(self.jump_to_page)
+        ctrl_bar.addWidget(self.page_spin)
 
-        self.total_lbl = label("of 1", "muted", wrap=False)
-        toolbar.addWidget(self.total_lbl)
+        self.total_lbl = label("of 0", "caption")
+        ctrl_bar.addWidget(self.total_lbl)
 
-        toolbar.addSpacing(15)
-        # Zoom buttons
-        self.zoom_out_btn = button("–", slot=self.zoom_out)
-        self.zoom_out_btn.setFixedWidth(36)
-        self.zoom_lbl = label("125%", "caption", wrap=False)
-        self.zoom_in_btn = button("+", slot=self.zoom_in)
-        self.zoom_in_btn.setFixedWidth(36)
-        self.fit_width_btn = button("Fit Width", slot=self.fit_width)
-        toolbar.addWidget(self.zoom_out_btn)
-        toolbar.addWidget(self.zoom_lbl)
-        toolbar.addWidget(self.zoom_in_btn)
-        toolbar.addWidget(self.fit_width_btn)
+        ctrl_bar.addSpacing(16)
+        ctrl_bar.addWidget(label("Zoom:", "caption"))
+        self.zoom_out_btn = button("－", slot=self.zoom_out)
+        self.zoom_in_btn = button("＋", slot=self.zoom_in)
+        self.fit_btn = button("Fit Width", slot=self.fit_width)
+        self.zoom_lbl = label("125%", "caption")
+        ctrl_bar.addWidget(self.zoom_out_btn)
+        ctrl_bar.addWidget(self.zoom_lbl)
+        ctrl_bar.addWidget(self.zoom_in_btn)
+        ctrl_bar.addWidget(self.fit_btn)
 
-        toolbar.addStretch()
+        ctrl_bar.addStretch()
 
-        # In-document search
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("🔍 Search in manual...")
-        self.search_input.setFixedWidth(200)
-        self.search_input.returnPressed.connect(self.search_manual)
-        self.search_btn = button("Find", slot=self.search_manual)
-        toolbar.addWidget(self.search_input)
-        toolbar.addWidget(self.search_btn)
-
-        toolbar.addSpacing(10)
-        # Open external
-        self.ext_btn = button("Open External", slot=self.open_external)
-        toolbar.addWidget(self.ext_btn)
-
+        self.ext_btn = button("↗ Open External Viewer", slot=self.open_external)
+        ctrl_bar.addWidget(self.ext_btn)
         self.close_btn = button("Close", slot=self.accept)
-        toolbar.addWidget(self.close_btn)
+        ctrl_bar.addWidget(self.close_btn)
 
-        main_lay.addLayout(toolbar)
+        main_lay.addLayout(ctrl_bar)
 
-        # Splitter: Left = TOC & Search, Right = Page view
+        # Splitter: Left Outline/Search | Right Document Page View
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        left_widget = QWidget()
-        left_widget.setMinimumWidth(260)
-        left_widget.setMaximumWidth(360)
-        left_lay = QVBoxLayout(left_widget)
-        left_lay.setContentsMargins(0, 0, 0, 0)
-        left_lay.setSpacing(6)
+        # Left panel: Tabs (TOC Outline vs Search)
+        left_tabs = QTabWidget()
+        left_tabs.setFixedWidth(300)
 
-        left_lay.addWidget(label("📑 DOCUMENT SECTIONS", "sectionHeader", wrap=False))
+        # TOC Tab
+        toc_widget = QWidget()
+        toc_lay = QVBoxLayout(toc_widget)
+        toc_lay.setContentsMargins(6, 6, 6, 6)
         self.toc_tree = QTreeWidget()
-        self.toc_tree.setHeaderHidden(True)
+        self.toc_tree.setHeaderLabel("Table of Contents")
         self.toc_tree.itemClicked.connect(self._on_toc_clicked)
-        left_lay.addWidget(self.toc_tree, 2)
+        toc_lay.addWidget(self.toc_tree)
+        left_tabs.addTab(toc_widget, "📖 Outline")
 
-        self.search_res_header = label("🔍 SEARCH RESULTS", "sectionHeader", wrap=False)
+        # Search Tab
+        search_widget = QWidget()
+        s_lay = QVBoxLayout(search_widget)
+        s_lay.setContentsMargins(6, 6, 6, 6)
+        s_lay.setSpacing(6)
+        s_input_row = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search in manual...")
+        self.search_input.returnPressed.connect(self.search_manual)
+        self.search_btn = button("🔍", slot=self.search_manual)
+        s_input_row.addWidget(self.search_input, 1)
+        s_input_row.addWidget(self.search_btn)
+        s_lay.addLayout(s_input_row)
+
+        self.search_res_header = label("", "caption")
         self.search_res_header.setVisible(False)
-        left_lay.addWidget(self.search_res_header)
+        s_lay.addWidget(self.search_res_header)
+
         self.search_list = QListWidget()
         self.search_list.itemClicked.connect(self._on_search_item_clicked)
         self.search_list.setVisible(False)
-        left_lay.addWidget(self.search_list, 1)
+        s_lay.addWidget(self.search_list, 1)
 
-        splitter.addWidget(left_widget)
+        left_tabs.addTab(search_widget, "🔍 Search")
+        splitter.addWidget(left_tabs)
 
-        # Right Document Viewer (Scroll Area)
+        # Right panel: Page view inside ScrollArea
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("background:#0a0c10; border:1px solid #232b3a; border-radius:10px;")
-
-        self.scroll_content = QWidget()
-        self.scroll_content_lay = QVBoxLayout(self.scroll_content)
-        self.scroll_content_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.scroll_content_lay.setContentsMargins(12, 12, 12, 12)
-
-        self.page_lbl = QLabel()
+        self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.page_lbl = QLabel("Loading manual...", self)
         self.page_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.scroll_content_lay.addWidget(self.page_lbl)
-
-        self.scroll_area.setWidget(self.scroll_content)
+        self.scroll_area.setWidget(self.page_lbl)
         splitter.addWidget(self.scroll_area)
-        splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 4)
 
         main_lay.addWidget(splitter, 1)
-
         self._load_document()
 
     def _load_document(self):
@@ -701,25 +827,23 @@ class UserManualDialog(QDialog):
         if self.current_page < self.total_pages:
             self.render_page(self.current_page + 1)
 
-    def _on_spin_changed(self, val):
-        self.render_page(val)
-
     def zoom_in(self):
-        self.zoom = min(3.0, self.zoom + 0.25)
+        self.zoom = min(3.0, round(self.zoom + 0.25, 2))
         self.render_page(self.current_page)
 
     def zoom_out(self):
-        self.zoom = max(0.5, self.zoom - 0.25)
+        self.zoom = max(0.5, round(self.zoom - 0.25, 2))
         self.render_page(self.current_page)
 
     def fit_width(self):
-        avail_w = self.scroll_area.viewport().width() - 36
-        if self.doc and avail_w > 100:
-            page = self.doc[self.current_page - 1]
-            orig_w = page.rect.width
-            if orig_w > 0:
-                self.zoom = round(avail_w / orig_w, 2)
-                self.render_page(self.current_page)
+        if not self.doc or self.total_pages == 0:
+            return
+        avail_w = self.scroll_area.viewport().width() - 32
+        page = self.doc[self.current_page - 1]
+        orig_w = page.rect.width
+        if orig_w > 0:
+            self.zoom = round(avail_w / orig_w, 2)
+            self.render_page(self.current_page)
 
     def _on_toc_clicked(self, item, col):
         pno = item.data(0, Qt.ItemDataRole.UserRole)
@@ -803,10 +927,10 @@ class ChatMessageWidget(QWidget):
             txt_lbl = QLabel(self.content)
             txt_lbl.setWordWrap(True)
             txt_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            txt_lbl.setStyleSheet("color:#ffffff; font-size:15px; line-height:1.4;")
+            txt_lbl.setStyleSheet("font-size:14.5px; line-height:1.4;")
             b_lay.addWidget(txt_lbl)
 
-            bubble.setMaximumWidth(700)
+            bubble.setMaximumWidth(720)
             row.addWidget(bubble)
             lay.addLayout(row)
         else:
@@ -818,7 +942,7 @@ class ChatMessageWidget(QWidget):
             c_lay.setSpacing(12)
 
             head = QHBoxLayout()
-            head.addWidget(label("🤖 Manual Assistant", "sectionHeader", wrap=False))
+            head.addWidget(label("🤖 Assistant", "badgeOk", wrap=False))
             head.addStretch()
             head.addWidget(label(self.created_at, "caption"))
             c_lay.addLayout(head)
@@ -834,12 +958,12 @@ class ChatMessageWidget(QWidget):
                 s_lbl = QLabel(summary)
                 s_lbl.setWordWrap(True)
                 s_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-                s_lbl.setStyleSheet("color:#d6dce7; font-size:14.5px; line-height:1.5;")
+                s_lbl.setStyleSheet("font-size:14.5px; line-height:1.5;")
                 c_lay.addWidget(s_lbl)
 
             warning = (self.data or {}).get("warning") if isinstance(self.data, dict) else ""
             if warning:
-                c_lay.addWidget(label(f"⚠️ WARNING: {warning}", "warning"))
+                c_lay.addWidget(label(f"⚠️ WARNING: {warning}", "badgeWarn"))
 
             steps = (self.data or {}).get("steps") or [] if isinstance(self.data, dict) else []
             if steps:
@@ -853,68 +977,43 @@ class ChatMessageWidget(QWidget):
                     s_row = QHBoxLayout()
                     s_row.setSpacing(10)
                     s_num = label(f" {s.get('number', '')} ", "badge", wrap=False)
-                    s_num.setStyleSheet("background:#2a4575; color:#8ab4f8; font-weight:700; border-radius:10px; padding:4px 8px;")
                     s_row.addWidget(s_num, alignment=Qt.AlignmentFlag.AlignTop)
 
                     s_text = QLabel(s.get("text", ""))
                     s_text.setWordWrap(True)
                     s_text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-                    s_text.setStyleSheet("color:#ffffff; font-size:14.5px; line-height:1.4;")
+                    s_text.setStyleSheet("font-size:14px; line-height:1.4;")
                     s_row.addWidget(s_text, 1)
 
-                    pg = s.get("page")
-                    if pg and self.win:
-                        pg_btn = button(f"📖 Page {pg}", "secondary", slot=lambda p=pg: self.win.open_user_manual(p))
-                        pg_btn.setToolTip(f"Open manual at page {pg}")
-                        s_row.addWidget(pg_btn, alignment=Qt.AlignmentFlag.AlignTop)
+                    pno = s.get("page")
+                    if pno and self.win:
+                        jump_b = button(f"p. {pno} ↗", "chip", slot=lambda _=False, p=pno: self.win.open_user_manual(p))
+                        jump_b.setFixedHeight(26)
+                        s_row.addWidget(jump_b, alignment=Qt.AlignmentFlag.AlignTop)
 
                     sb_lay.addLayout(s_row)
                 c_lay.addWidget(steps_box)
 
-            img_path = None
-            if isinstance(self.data, dict):
-                for s in steps:
-                    if s.get("image") and os.path.isfile(s["image"]):
-                        img_path = s["image"]
-                        break
-
-            if img_path:
-                img_box = QFrame()
-                img_box.setStyleSheet("background:#0d0f14; border:1px solid #283347; border-radius:10px; padding:10px;")
-                ib_lay = QVBoxLayout(img_box)
-                ib_lay.setSpacing(6)
-                ib_lay.addWidget(label("📷 Matched Illustration from Manual:", "caption"))
-                img_lbl = QLabel()
-                img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                pm = QPixmap(img_path)
-                if not pm.isNull():
-                    img_lbl.setPixmap(pm.scaled(380, 220, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-                ib_lay.addWidget(img_lbl)
-                zoom_btn = button("🔍 Click to Zoom Illustration", slot=lambda p=img_path: ImagePreviewDialog(self.win, p).exec())
-                ib_lay.addWidget(zoom_btn, alignment=Qt.AlignmentFlag.AlignCenter)
-                c_lay.addWidget(img_box)
-
-            actions_row = QHBoxLayout()
-            actions_row.setSpacing(8)
-
+            # Footer actions: Copy, Export
+            f_row = QHBoxLayout()
             copy_btn = button("📋 Copy", "secondary", slot=self.copy_text)
-            actions_row.addWidget(copy_btn)
+            f_row.addWidget(copy_btn)
 
-            export_btn = button("📥 Export Answer ▼", "secondary")
-            menu = QMenu(export_btn)
+            exp_btn = button("📥 Export Answer ▼", "secondary")
+            menu = QMenu(exp_btn)
             act_pdf = menu.addAction("Export as PDF (.pdf)")
             act_pdf.triggered.connect(lambda: self.export_answer("pdf"))
             act_md = menu.addAction("Export as Markdown (.md)")
             act_md.triggered.connect(lambda: self.export_answer("md"))
             act_txt = menu.addAction("Export as Plain Text (.txt)")
             act_txt.triggered.connect(lambda: self.export_answer("txt"))
-            export_btn.setMenu(menu)
-            actions_row.addWidget(export_btn)
+            exp_btn.setMenu(menu)
+            f_row.addWidget(exp_btn)
 
-            actions_row.addStretch()
-            c_lay.addLayout(actions_row)
+            f_row.addStretch()
+            c_lay.addLayout(f_row)
 
-            card.setMaximumWidth(780)
+            card.setMaximumWidth(840)
             row.addWidget(card)
             row.addStretch()
             lay.addLayout(row)
@@ -930,8 +1029,139 @@ class ChatMessageWidget(QWidget):
             self.win.export_single_answer(self.data or {"answer": self.content}, fmt=fmt)
 
 
+class ComponentCardWidget(QFrame):
+    """Rich interactive card for electronic component info & pinouts."""
+    def __init__(self, comp_dict, on_ask_cb=None):
+        super().__init__()
+        self.setObjectName("card")
+        self.comp = comp_dict
+        self.on_ask_cb = on_ask_cb
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(18, 16, 18, 16)
+        lay.setSpacing(10)
+
+        # Header: Name, Package & Category Badge
+        head = QHBoxLayout()
+        name_lbl = label(comp_dict.get("name", "Component"), "h1", wrap=False)
+        head.addWidget(name_lbl)
+        head.addStretch()
+
+        cat_badge = label(f"🏷 {comp_dict.get('category', 'Generic')}", "badge", wrap=False)
+        head.addWidget(cat_badge)
+        lay.addLayout(head)
+
+        pkg_lbl = label(f"Package: {comp_dict.get('package', 'Standard')}", "caption")
+        lay.addWidget(pkg_lbl)
+
+        # Function & Beginner Explanation
+        func_lbl = label(f"<b>Function:</b> {comp_dict.get('function', '')}")
+        lay.addWidget(func_lbl)
+
+        simple_lbl = label(f"💡 <i>{comp_dict.get('simple_explanation', '')}</i>")
+        lay.addWidget(simple_lbl)
+
+        # Monospace Schematic Symbol
+        sym = comp_dict.get("symbol", "").strip()
+        if sym:
+            sym_box = label(sym, "codeBlock")
+            lay.addWidget(sym_box)
+
+        # Expandable Details Box
+        self.details_box = QWidget()
+        d_lay = QVBoxLayout(self.details_box)
+        d_lay.setContentsMargins(0, 6, 0, 6)
+        d_lay.setSpacing(8)
+
+        if comp_dict.get("pinout"):
+            d_lay.addWidget(label("📍 PIN DIAGRAM & CONNECTIONS:", "h2", wrap=False))
+            pin_lbl = label(comp_dict["pinout"], "codeBlock")
+            d_lay.addWidget(pin_lbl)
+
+        if comp_dict.get("key_specs"):
+            d_lay.addWidget(label(f"⚡ <b>Key Specs:</b> {comp_dict['key_specs']}"))
+
+        uses = comp_dict.get("typical_uses") or []
+        if uses:
+            d_lay.addWidget(label("🛠 <b>Typical Applications:</b> " + ", ".join(uses)))
+
+        if comp_dict.get("detailed_explanation"):
+            d_lay.addWidget(label(f"🔬 <b>Technical Deep Dive:</b> {comp_dict['detailed_explanation']}"))
+
+        self.details_expanded = False
+        self.details_box.setVisible(False)
+        lay.addWidget(self.details_box)
+
+        # Action Buttons Row
+        btn_row = QHBoxLayout()
+        self.toggle_btn = button("▼ View Pinout & Details", "secondary", slot=self.toggle_details)
+        btn_row.addWidget(self.toggle_btn)
+
+        btn_row.addStretch()
+        ask_b = button("💬 Ask Assistant About This", "primary", slot=self.ask_about)
+        btn_row.addWidget(ask_b)
+
+        lay.addLayout(btn_row)
+
+    def toggle_details(self):
+        self.details_expanded = not self.details_expanded
+        self.details_box.setVisible(self.details_expanded)
+        self.toggle_btn.setText("▲ Hide Details" if self.details_expanded else "▼ View Pinout & Details")
+
+    def ask_about(self):
+        if self.on_ask_cb:
+            self.on_ask_cb(self.comp)
+
+
+class TopNavBar(QFrame):
+    """Top navigation bar for unified 4-page access and theme toggling."""
+    def __init__(self, win):
+        super().__init__()
+        self.win = win
+        self.setObjectName("card")
+        self.setFixedHeight(64)
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(18, 8, 18, 8)
+        lay.setSpacing(8)
+
+        # Brand / Logo
+        brand_icon = label("⚡", wrap=False)
+        brand_icon.setStyleSheet("font-size:22px; color:#3b82f6;")
+        brand_lbl = label("ElectroLearn AI", "brand", wrap=False)
+        lay.addWidget(brand_icon)
+        lay.addWidget(brand_lbl)
+        lay.addSpacing(24)
+
+        # The 4 Main Navigation Buttons
+        self.btn_dash = button("🏠 Dashboard", "navActive", slot=lambda: self.win.navigate_to(0))
+        self.btn_chat = button("💬 AI Assistant", "nav", slot=lambda: self.win.navigate_to(1))
+        self.btn_lib = button("📚 Component Library", "nav", slot=lambda: self.win.navigate_to(2))
+        self.btn_manual = button("📖 User Manual & Help", "nav", slot=lambda: self.win.navigate_to(3))
+
+        for b in (self.btn_dash, self.btn_chat, self.btn_lib, self.btn_manual):
+            lay.addWidget(b)
+
+        lay.addStretch()
+
+        # Theme toggle & Settings
+        self.theme_btn = button("🌓 Dark Mode", "secondary", slot=self.win.toggle_theme)
+        self.theme_btn.setToolTip("Toggle Dark / Light Theme")
+        lay.addWidget(self.theme_btn)
+
+        self.settings_btn = button("⚙ Settings", "secondary", slot=lambda: SettingsDialog(self.win).exec())
+        lay.addWidget(self.settings_btn)
+
+    def set_active_tab(self, idx):
+        buttons = [self.btn_dash, self.btn_chat, self.btn_lib, self.btn_manual]
+        for i, b in enumerate(buttons):
+            b.setProperty("kind", "navActive" if i == idx else "nav")
+            b.style().unpolish(b)
+            b.style().polish(b)
+
+
 class MainView:
-    """Pure View builder for MainWindow: creates pages, layouts, and widget hierarchies."""
+    """Builder for the modern 4-page electronic components learning interface."""
     def __init__(self, window):
         self.win = window
         self.stack = QStackedWidget()
@@ -939,116 +1169,117 @@ class MainView:
     def setup_ui(self):
         outer = QVBoxLayout(self.win)
         outer.setContentsMargins(0, 0, 0, 0)
-        outer.addWidget(self.stack)
+        outer.setSpacing(0)
 
-        self.home_page = self._build_home()
-        self.library_page = self._build_library()
+        # Persistent Top Navigation Bar
+        self.top_bar = TopNavBar(self.win)
+        outer.addWidget(self.top_bar)
+        outer.addWidget(self.stack, 1)
+
+        # Build the exact 4 pages requested
+        self.dashboard_page = self._build_dashboard()   # Page 0
+        self.chat_page = self._build_chat()             # Page 1
+        self.library_page = self._build_library()       # Page 2
+        self.manual_page = self._build_manual_help()    # Page 3
+
+        # Auxiliary background transition page (for long processing operations)
         self.busy_page = self._build_busy()
-        self.result_page = self._build_result()
-        self.ask_page = self._build_ask()
-        self.viewer_page = self._build_viewer()
-        self.chat_page = self._build_chat()
 
-        for p in (self.home_page, self.library_page, self.busy_page, self.result_page,
-                  self.ask_page, self.viewer_page, self.chat_page):
-            self.stack.addWidget(p)
+        # Add to stack in order
+        self.stack.addWidget(self.dashboard_page)
+        self.stack.addWidget(self.chat_page)
+        self.stack.addWidget(self.library_page)
+        self.stack.addWidget(self.manual_page)
+        self.stack.addWidget(self.busy_page)
 
-    def _page(self, margins=(40, 28, 40, 28)):
-        p = QWidget()
-        lay = QVBoxLayout(p)
-        lay.setContentsMargins(*margins)
-        lay.setSpacing(14)
-        return p, lay
+        # Aliases for backward compatibility
+        self.home_page = self.dashboard_page
+        self.result_page = self.dashboard_page
+        self.viewer_page = self.manual_page
+        self.ask_page = self.chat_page
 
-    def _header(self, title, back_slot):
-        row = QHBoxLayout()
-        row.addWidget(button("← Back", slot=back_slot))
-        row.addStretch()
-        row.addWidget(label(title, "h1"))
-        row.addStretch()
-        spacer = QWidget()
-        spacer.setFixedWidth(90)
-        row.addWidget(spacer)
-        return row
+    def _page_scroll(self):
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        lay = QVBoxLayout(content)
+        lay.setContentsMargins(32, 24, 32, 28)
+        lay.setSpacing(20)
+        scroll.setWidget(content)
+        return scroll, lay
 
-    def _build_home(self):
-        p, lay = self._page()
-        lay.addStretch(2)
-        lay.addWidget(label("AI USER MANUAL", "title", align=Qt.AlignmentFlag.AlignCenter))
-        lay.addWidget(label("Intelligent Hardware Assistant", "subtitle", align=Qt.AlignmentFlag.AlignCenter))
-        lay.addSpacing(18)
-        lay.addWidget(label("Upload a photo or video of your hardware", "h1", align=Qt.AlignmentFlag.AlignCenter))
-        lay.addWidget(label("Identify your hardware and get easy step-by-step instructions\n"
-                            "directly from the manufacturer's manual.", "muted",
-                            align=Qt.AlignmentFlag.AlignCenter))
-        lay.addSpacing(18)
-        row = QHBoxLayout()
-        row.addStretch()
-        for text, slot in (("📷  Upload Photo", self.win.upload_photo),
-                           ("🎥  Live Camera", self.win.open_camera),
-                           ("🎬  Upload Video", self.win.upload_video)):
-            b = button(text, "primary", slot)
-            b.setMinimumSize(180, 52)
-            row.addWidget(b)
-        row.addStretch()
-        lay.addLayout(row)
-        row2 = QHBoxLayout()
-        row2.addStretch()
-        row2.addWidget(button("💬  Chat Assistant", "primary", slot=lambda: self.win.open_chat()))
-        row2.addWidget(button("📖  User Manual", slot=lambda: self.win.open_user_manual()))
-        row2.addWidget(button("📚  Manual Library", slot=self.win.open_library))
-        row2.addWidget(button("⚙  Settings", slot=lambda: SettingsDialog(self.win).exec()))
-        row2.addStretch()
-        lay.addLayout(row2)
-        lay.addStretch(3)
-        return p
+    # =========================================================================
+    # PAGE 1: DASHBOARD / HOME
+    # =========================================================================
+    def _build_dashboard(self):
+        page, lay = self._page_scroll()
 
-    def _build_busy(self):
-        p, lay = self._page()
-        lay.addStretch()
-        self.busy_title = label("Working...", "h1", align=Qt.AlignmentFlag.AlignCenter)
-        self.busy_detail = label("", "subtitle", align=Qt.AlignmentFlag.AlignCenter)
-        self.busy_bar = QProgressBar()
-        self.busy_bar.setRange(0, 0)
-        self.busy_bar.setTextVisible(False)
-        self.busy_bar.setMaximumWidth(420)
-        lay.addWidget(self.busy_title)
-        lay.addWidget(self.busy_detail)
-        row = QHBoxLayout()
-        row.addStretch()
-        row.addWidget(self.busy_bar)
-        row.addStretch()
-        lay.addLayout(row)
-        lay.addStretch()
-        return p
+        # Top Banner
+        banner_box = QFrame()
+        banner_box.setObjectName("accentCard")
+        b_lay = QVBoxLayout(banner_box)
+        b_lay.setContentsMargins(24, 20, 24, 20)
+        b_lay.setSpacing(8)
 
-    def _build_library(self):
-        p, lay = self._page()
-        lay.addLayout(self._header("MANUAL LIBRARY", lambda: self.win.go(self.home_page)))
-        self.lib_search = QLineEdit()
-        self.lib_search.setPlaceholderText("Search manuals...")
-        self.lib_search.textChanged.connect(self.win.refresh_library)
-        lay.addWidget(self.lib_search)
-        self.lib_list = QListWidget()
-        self.lib_list.itemDoubleClicked.connect(lambda _: self.win.use_selected_manual())
-        lay.addWidget(self.lib_list, 1)
-        self.lib_empty = label("No manuals yet. Click “+ Add Manual” to import a PDF.", "muted",
-                               align=Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self.lib_empty)
-        row = QHBoxLayout()
-        row.addWidget(button("+ Add Manual", "primary", self.win.add_manual))
-        row.addWidget(button("📖 View Manual", slot=self.win.view_selected_manual))
-        row.addWidget(button("💬 Chat With Manual", "primary", slot=self.win.use_selected_manual))
-        row.addStretch()
-        row.addWidget(button("Delete", "danger", self.win.delete_selected))
-        lay.addLayout(row)
-        return p
+        b_head = QHBoxLayout()
+        b_title = label("Electronic Components Learning & Identification Hub", "title")
+        b_head.addWidget(b_title)
+        b_head.addStretch()
+        b_badge = label("⚡ AI-Powered Vision & Manuals", "badge", wrap=False)
+        b_head.addWidget(b_badge)
+        b_lay.addLayout(b_head)
 
-    def _build_result(self):
-        p, lay = self._page()
-        lay.addLayout(self._header("HARDWARE FOUND", lambda: self.win.go(self.home_page)))
+        b_sub = label("Scan live circuits, identify mystery ICs and passive components, review pinout schematics, and ask instant questions with conversational AI assistance.", "subtitle")
+        b_lay.addWidget(b_sub)
+        lay.addWidget(banner_box)
 
-        # Photo / Frame preview area (supports side-by-side when matched with a manual image)
+        # Quick Actions Grid (4 Cards)
+        lay.addWidget(label("QUICK ACTIONS", "h2", wrap=False))
+        actions_grid = QGridLayout()
+        actions_grid.setSpacing(14)
+
+        act1 = QPushButton("📷  Upload Image\nSelect photo from disk")
+        act1.setProperty("kind", "cardAction")
+        act1.setCursor(Qt.CursorShape.PointingHandCursor)
+        act1.clicked.connect(self.win.upload_photo)
+        actions_grid.addWidget(act1, 0, 0)
+
+        act2 = QPushButton("🎥  Live Camera Scan\nPoint camera at board")
+        act2.setProperty("kind", "cardAction")
+        act2.setCursor(Qt.CursorShape.PointingHandCursor)
+        act2.clicked.connect(self.win.open_camera)
+        actions_grid.addWidget(act2, 0, 1)
+
+        act3 = QPushButton("🎬  Upload Video\nAnalyze video frames")
+        act3.setProperty("kind", "cardAction")
+        act3.setCursor(Qt.CursorShape.PointingHandCursor)
+        act3.clicked.connect(self.win.upload_video)
+        actions_grid.addWidget(act3, 0, 2)
+
+        act4 = QPushButton("💬  Ask AI Question\nChat about components")
+        act4.setProperty("kind", "cardAction")
+        act4.setCursor(Qt.CursorShape.PointingHandCursor)
+        act4.clicked.connect(lambda: self.win.open_chat())
+        actions_grid.addWidget(act4, 0, 3)
+
+        lay.addLayout(actions_grid)
+
+        # Component Identification Result Card (Shown when a scan completes or is selected)
+        self.dash_result_card = QFrame()
+        self.dash_result_card.setObjectName("card")
+        res_lay = QVBoxLayout(self.dash_result_card)
+        res_lay.setContentsMargins(22, 18, 22, 18)
+        res_lay.setSpacing(14)
+
+        r_head = QHBoxLayout()
+        r_head.addWidget(label("🔍 COMPONENT IDENTIFICATION RESULT", "h1", wrap=False))
+        r_head.addStretch()
+        self.dash_match_badge = label("Ready to Scan", "badgeOk", wrap=False)
+        r_head.addWidget(self.dash_match_badge)
+        res_lay.addLayout(r_head)
+
+        # Side-by-side images (Uploaded Photo vs Matched Reference)
         self.img_row = QHBoxLayout()
         self.img_row.setSpacing(16)
 
@@ -1056,10 +1287,11 @@ class MainView:
         up_lay = QVBoxLayout(self.uploaded_box)
         up_lay.setContentsMargins(0, 0, 0, 0)
         up_lay.setSpacing(4)
-        self.uploaded_caption = label("Uploaded Photo / Video Frame", "caption", align=Qt.AlignmentFlag.AlignCenter)
+        self.uploaded_caption = label("Uploaded Photo / Frame", "caption", align=Qt.AlignmentFlag.AlignCenter)
         up_lay.addWidget(self.uploaded_caption)
-        self.hw_image = label("", "image", align=Qt.AlignmentFlag.AlignCenter)
-        self.hw_image.setFixedHeight(240)
+        self.hw_image = label("", align=Qt.AlignmentFlag.AlignCenter)
+        self.hw_image.setStyleSheet("background:#080c12; border:1px solid #1f2a3a; border-radius:12px;")
+        self.hw_image.setFixedHeight(220)
         up_lay.addWidget(self.hw_image)
         self.img_row.addWidget(self.uploaded_box, 1)
 
@@ -1067,96 +1299,119 @@ class MainView:
         mat_lay = QVBoxLayout(self.matched_box)
         mat_lay.setContentsMargins(0, 0, 0, 0)
         mat_lay.setSpacing(4)
-        self.matched_caption = label("Matched Manual Illustration", "caption", align=Qt.AlignmentFlag.AlignCenter)
+        self.matched_caption = label("Matched Manual / Component Reference", "caption", align=Qt.AlignmentFlag.AlignCenter)
         mat_lay.addWidget(self.matched_caption)
-        self.matched_hw_image = label("", "image", align=Qt.AlignmentFlag.AlignCenter)
-        self.matched_hw_image.setFixedHeight(240)
+        self.matched_hw_image = label("", align=Qt.AlignmentFlag.AlignCenter)
+        self.matched_hw_image.setStyleSheet("background:#080c12; border:1px solid #1f2a3a; border-radius:12px;")
+        self.matched_hw_image.setFixedHeight(220)
         mat_lay.addWidget(self.matched_hw_image)
         self.img_row.addWidget(self.matched_box, 1)
         self.matched_box.setVisible(False)
 
-        lay.addLayout(self.img_row)
+        res_lay.addLayout(self.img_row)
 
-        card = QFrame()
-        card.setObjectName("card")
-        grid = QGridLayout(card)
-        grid.setContentsMargins(20, 14, 20, 14)
+        # Specs grid
+        specs_box = QWidget()
+        specs_grid = QGridLayout(specs_box)
+        specs_grid.setContentsMargins(0, 4, 0, 4)
+        specs_grid.setSpacing(8)
         self.hw_values = {}
-        for r, (key, cap) in enumerate((("manufacturer", "Manufacturer"), ("product_name", "Product"),
-                                        ("model", "Model"), ("part_number", "Part number"),
-                                        ("hardware_type", "Hardware type"))):
-            grid.addWidget(label(cap, "caption"), r, 0)
-            v = label("", wrap=False)
-            self.hw_values[key] = v
-            grid.addWidget(v, r, 1)
-        lay.addWidget(card)
+        for r, (key, cap) in enumerate((
+            ("product_name", "Component / Product"),
+            ("manufacturer", "Manufacturer"),
+            ("model", "Model / Marking"),
+            ("part_number", "Part Number"),
+            ("hardware_type", "Category / Type")
+        )):
+            specs_grid.addWidget(label(cap, "caption"), r, 0)
+            val = label("—", wrap=False)
+            self.hw_values[key] = val
+            specs_grid.addWidget(val, r, 1)
+        res_lay.addWidget(specs_box)
 
-        self.match_status = label("", "ok")
+        # Description / Learning Note
+        self.dash_desc_lbl = label("Upload an image or use the live camera to identify your electronic component.", "muted")
+        res_lay.addWidget(self.dash_desc_lbl)
+
+        # Manual selector / Match status
+        self.match_status = label("", "badgeOk")
         self.match_detail = label("", "muted")
-        lay.addWidget(self.match_status)
-        lay.addWidget(self.match_detail)
+        res_lay.addWidget(self.match_status)
+        res_lay.addWidget(self.match_detail)
+
         self.manual_combo = QComboBox()
         self.manual_combo.currentIndexChanged.connect(self.win._update_continue)
-        lay.addWidget(self.manual_combo)
-        lay.addStretch()
-        row = QHBoxLayout()
-        row.addWidget(button("📚 Manual Library", slot=self.win.open_library))
-        row.addStretch()
-        self.continue_btn = button("Continue →", "primary", self.win.continue_from_result)
-        row.addWidget(self.continue_btn)
-        lay.addLayout(row)
-        return p
+        res_lay.addWidget(self.manual_combo)
 
-    def _build_ask(self):
-        p, lay = self._page()
-        lay.addLayout(self._header("ASK THE MANUAL", lambda: self.win.go(self.win.home_page)))
-        self.ask_manual_name = label("", "subtitle", align=Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self.ask_manual_name)
-        lay.addWidget(label("Suggested Questions", "muted"))
+        # Result Action buttons
+        res_btn_row = QHBoxLayout()
+        self.dash_ask_comp_btn = button("💬 Ask Assistant About This Component", "primary", slot=self.win.ask_about_scanned_component)
+        self.dash_ask_comp_btn.setEnabled(False)
+        res_btn_row.addWidget(self.dash_ask_comp_btn)
 
-        self.q_grid_host = QWidget()
-        self.q_grid = QGridLayout(self.q_grid_host)
-        self.q_grid.setContentsMargins(0, 0, 0, 0)
-        self.q_grid.setSpacing(10)
-        lay.addWidget(self.q_grid_host)
-        lay.addStretch()
+        self.continue_btn = button("📖 Open Manual Instructions →", "secondary", self.win.continue_from_result)
+        res_btn_row.addWidget(self.continue_btn)
+        res_btn_row.addStretch()
 
-        lay.addWidget(label("Type your question:", "muted"))
-        self.q_input = QLineEdit()
-        self.q_input.setPlaceholderText("e.g. How do I replace the filter?")
-        self.q_input.returnPressed.connect(lambda: self.win.ask(self.q_input.text()))
-        lay.addWidget(self.q_input)
+        res_lay.addLayout(res_btn_row)
+        lay.addWidget(self.dash_result_card)
 
-        self.full_check = QCheckBox("Full end-to-end guide (reads many pages of the manual)")
-        lay.addWidget(self.full_check)
+        # Recent Scans & Activity Section
+        lay.addWidget(label("RECENT SCANS & IDENTIFICATIONS", "h2", wrap=False))
+        self.dash_scans_list = QListWidget()
+        self.dash_scans_list.setFixedHeight(160)
+        self.dash_scans_list.itemClicked.connect(self.win.on_recent_scan_clicked)
+        lay.addWidget(self.dash_scans_list)
 
-        row = QHBoxLayout()
-        self.speak_btn = button("🎤 Speak", slot=self.win.speak)
-        row.addWidget(self.speak_btn)
-        row.addStretch()
-        self.ask_btn = button("ASK", "primary", lambda: self.win.ask(self.q_input.text()))
-        row.addWidget(self.ask_btn)
-        lay.addLayout(row)
-        return p
+        scans_btn_row = QHBoxLayout()
+        scans_btn_row.addStretch()
+        self.dash_clear_scans_btn = button("🗑 Clear Recent Scans", "danger", slot=self.win.clear_recent_scans)
+        scans_btn_row.addWidget(self.dash_clear_scans_btn)
+        lay.addLayout(scans_btn_row)
 
+        # Quick-Start Learning Tips for Beginners (4 Cards)
+        lay.addWidget(label("BEGINNER ELECTRONICS QUICK TIPS", "h2", wrap=False))
+        tips_grid = QGridLayout()
+        tips_grid.setSpacing(14)
+
+        tips_data = [
+            ("🎨 Resistor Color Bands", "Black=0, Brown=1, Red=2, Orange=3, Yellow=4, Green=5, Blue=6, Violet=7, Grey=8, White=9. Gold tolerance is ±5%. First two bands are digits, third is multiplier."),
+            ("📌 Finding Pin 1 on ICs", "Look for the half-circle notch at one end. With the notch facing UP, Pin 1 is immediately at the top-left! Alternatively, look for a small circular indentation dot next to Pin 1."),
+            ("⚡ Capacitor Polarity Care", "Electrolytic capacitors have polarity! The side marked with a minus (-) stripe is NEGATIVE. Connecting an electrolytic backwards will cause it to overheat and fail!"),
+            ("🔬 Safe Multimeter Testing", "Never measure resistance (ohms) or continuity on a powered circuit! Always disconnect power before probing component leads to prevent blowing the meter's fuse.")
+        ]
+
+        for i, (ttitle, ttext) in enumerate(tips_data):
+            card = QFrame()
+            card.setObjectName("tipCard")
+            c_lay = QVBoxLayout(card)
+            c_lay.setContentsMargins(14, 12, 14, 12)
+            c_lay.setSpacing(6)
+            c_lay.addWidget(label(ttitle, "h2"))
+            c_lay.addWidget(label(ttext, "muted"))
+            tips_grid.addWidget(card, i // 2, i % 2)
+
+        lay.addLayout(tips_grid)
+        return page
+
+    # =========================================================================
+    # PAGE 2: CHAT / ASSISTANT
+    # =========================================================================
     def _build_chat(self):
-        """Build continuous chat interface with collapsible sidebar history and bottom input bar."""
         p = QWidget()
         main_h_lay = QHBoxLayout(p)
         main_h_lay.setContentsMargins(0, 0, 0, 0)
         main_h_lay.setSpacing(0)
 
-        # -------------------------------------------------------------
-        # LEFT: COLLAPSIBLE SIDEBAR
-        # -------------------------------------------------------------
+        # Collapsible Left Sidebar
         self.chat_sidebar = QFrame()
         self.chat_sidebar.setObjectName("sidebarFrame")
-        self.chat_sidebar.setFixedWidth(280)
+        self.chat_sidebar.setFixedWidth(290)
         s_lay = QVBoxLayout(self.chat_sidebar)
         s_lay.setContentsMargins(14, 16, 14, 16)
         s_lay.setSpacing(10)
 
-        # Sidebar top controls: + New Chat and Collapse button
+        # Top sidebar buttons
         s_top = QHBoxLayout()
         self.new_chat_btn = button("＋ New Chat", "primary", slot=self.win.new_chat)
         self.new_chat_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -1168,7 +1423,7 @@ class MainView:
         s_top.addWidget(self.collapse_sidebar_btn)
         s_lay.addLayout(s_top)
 
-        # Export recent chats button
+        # Export Recent Chats Dropdown
         self.export_recent_btn = button("📥 Export Recent Chats ▼", "secondary")
         recent_menu = QMenu(self.export_recent_btn)
         act_p = recent_menu.addAction("Export Recent as PDF (.pdf)")
@@ -1180,11 +1435,10 @@ class MainView:
         self.export_recent_btn.setMenu(recent_menu)
         s_lay.addWidget(self.export_recent_btn)
 
-        s_lay.addWidget(label("RECENT CHATS", "sectionHeader", wrap=False))
+        s_lay.addWidget(label("SAVED CONVERSATIONS", "caption", wrap=False))
 
         # Conversations List
         self.chat_history_list = QListWidget()
-        self.chat_history_list.setObjectName("historyList")
         self.chat_history_list.itemClicked.connect(self.win._on_history_item_clicked)
         s_lay.addWidget(self.chat_history_list, 1)
 
@@ -1193,15 +1447,13 @@ class MainView:
 
         main_h_lay.addWidget(self.chat_sidebar)
 
-        # -------------------------------------------------------------
-        # RIGHT: MAIN CHAT AREA
-        # -------------------------------------------------------------
+        # Main Chat Area
         chat_area = QWidget()
         c_lay = QVBoxLayout(chat_area)
-        c_lay.setContentsMargins(20, 14, 20, 14)
+        c_lay.setContentsMargins(24, 16, 24, 16)
         c_lay.setSpacing(10)
 
-        # Top Navigation Bar
+        # Header bar
         top_bar = QHBoxLayout()
         top_bar.setSpacing(10)
 
@@ -1209,13 +1461,9 @@ class MainView:
         self.expand_sidebar_btn.setVisible(False)
         top_bar.addWidget(self.expand_sidebar_btn)
 
-        self.chat_manual_badge = label("📖 Active Manual: None", "h1", wrap=False)
+        self.chat_manual_badge = label("📖 Active Reference: Electronics Assistant", "h1", wrap=False)
         top_bar.addWidget(self.chat_manual_badge)
         top_bar.addStretch()
-
-        self.chat_user_manual_btn = button("📖 User Manual", "primary", slot=lambda: self.win.open_user_manual())
-        self.chat_user_manual_btn.setStyleSheet("font-weight:700; padding:8px 16px;")
-        top_bar.addWidget(self.chat_user_manual_btn)
 
         self.chat_export_btn = button("📥 Export Chat ▼", "secondary")
         chat_menu = QMenu(self.chat_export_btn)
@@ -1228,22 +1476,16 @@ class MainView:
         self.chat_export_btn.setMenu(chat_menu)
         top_bar.addWidget(self.chat_export_btn)
 
-        self.chat_library_btn = button("📚 Library", slot=self.win.open_library)
-        top_bar.addWidget(self.chat_library_btn)
-
-        self.chat_home_btn = button("🏠 Home", slot=lambda: self.win.go(self.home_page))
-        top_bar.addWidget(self.chat_home_btn)
-
         c_lay.addLayout(top_bar)
 
-        # Scrollable Chat Thread
+        # Scrollable Thread
         self.chat_scroll = QScrollArea()
         self.chat_scroll.setWidgetResizable(True)
-        self.chat_scroll.setStyleSheet("background:#0f1218; border:1px solid #1f2736; border-radius:12px;")
+        self.chat_scroll.setStyleSheet("background:transparent; border:none;")
 
         self.chat_thread_widget = QWidget()
         self.chat_thread_lay = QVBoxLayout(self.chat_thread_widget)
-        self.chat_thread_lay.setContentsMargins(20, 16, 20, 16)
+        self.chat_thread_lay.setContentsMargins(10, 10, 10, 10)
         self.chat_thread_lay.setSpacing(14)
         self.chat_thread_lay.addStretch()
 
@@ -1257,7 +1499,7 @@ class MainView:
         t_lay.setContentsMargins(16, 10, 16, 10)
         t_lay.setSpacing(10)
         t_icon = label("⏳", wrap=False)
-        self.typing_lbl = label("Searching manual & generating answer...", "ok", wrap=False)
+        self.typing_lbl = label("Searching manual & reasoning answer...", "badgeOk", wrap=False)
         t_lay.addWidget(t_icon)
         t_lay.addWidget(self.typing_lbl)
         t_lay.addStretch()
@@ -1266,15 +1508,15 @@ class MainView:
 
         # Fixed Bottom Input Bar
         bottom_box = QFrame()
-        bottom_box.setStyleSheet("background:#171c26; border:1px solid #283347; border-radius:12px; padding:6px;")
+        bottom_box.setObjectName("card")
         b_lay = QVBoxLayout(bottom_box)
-        b_lay.setContentsMargins(10, 8, 10, 8)
+        b_lay.setContentsMargins(12, 10, 12, 10)
         b_lay.setSpacing(8)
 
         input_row = QHBoxLayout()
         input_row.setSpacing(8)
         self.chat_input = QLineEdit()
-        self.chat_input.setPlaceholderText("💬 Type your question about this manual or ask a follow-up...")
+        self.chat_input.setPlaceholderText("💬 Ask about an IC, pinout, circuit problem, or follow-up question...")
         self.chat_input.returnPressed.connect(self.win.send_chat_message)
         input_row.addWidget(self.chat_input, 1)
 
@@ -1287,10 +1529,10 @@ class MainView:
         b_lay.addLayout(input_row)
 
         sub_row = QHBoxLayout()
-        self.chat_full_check = QCheckBox("Full end-to-end guide (reads many pages of the manual)")
+        self.chat_full_check = QCheckBox("Full in-depth analysis (checks all manual pages)")
         sub_row.addWidget(self.chat_full_check)
         sub_row.addStretch()
-        sub_hint = label("Press Enter to send • Conversation history is preserved for follow-ups", "caption")
+        sub_hint = label("Press Enter to send • Conversation history preserved for follow-ups", "caption")
         sub_row.addWidget(sub_hint)
         b_lay.addLayout(sub_row)
 
@@ -1299,146 +1541,267 @@ class MainView:
         main_h_lay.addWidget(chat_area, 1)
         return p
 
-    def _build_viewer(self):
-        p, lay = self._page(margins=(28, 16, 28, 20))
+    # =========================================================================
+    # PAGE 3: COMPONENT LIBRARY / LEARN
+    # =========================================================================
+    def _build_library(self):
+        page = QWidget()
+        lay = QVBoxLayout(page)
+        lay.setContentsMargins(28, 20, 28, 24)
         lay.setSpacing(14)
 
-        # Header row: Back button, Title, Open PDF
-        header_row = QHBoxLayout()
-        header_row.addWidget(button("← All Questions", slot=self.win.return_to_ask_page))
-        header_row.addStretch()
-        self.v_title = label("", "h1", wrap=False, align=Qt.AlignmentFlag.AlignCenter)
-        header_row.addWidget(self.v_title)
-        header_row.addStretch()
-        self.open_pdf_btn = button("📖 Open Manual PDF", slot=self.win.open_current_pdf)
-        header_row.addWidget(self.open_pdf_btn)
-        lay.addLayout(header_row)
+        # Header & Subtabs
+        head_row = QHBoxLayout()
+        head_row.addWidget(label("ELECTRONIC COMPONENT LIBRARY & MANUALS", "h1"))
+        head_row.addStretch()
+        self.lib_add_btn = button("+ Add Manual PDF", "primary", slot=self.win.add_manual)
+        head_row.addWidget(self.lib_add_btn)
+        lay.addLayout(head_row)
 
-        # Quick question bar right on the answer screen
-        quick_ask_row = QHBoxLayout()
-        self.v_quick_input = QLineEdit()
-        self.v_quick_input.setPlaceholderText("💬 Ask another question about this manual...")
-        self.v_quick_input.returnPressed.connect(self.win.ask_from_viewer)
-        self.v_speak_btn = button("🎤 Speak", slot=self.win.speak_viewer)
-        self.v_quick_btn = button("Ask", "primary", slot=self.win.ask_from_viewer)
-        quick_ask_row.addWidget(self.v_quick_input, 1)
-        quick_ask_row.addWidget(self.v_speak_btn)
-        quick_ask_row.addWidget(self.v_quick_btn)
-        lay.addLayout(quick_ask_row)
+        # Search Bar
+        self.lib_search = QLineEdit()
+        self.lib_search.setPlaceholderText("🔍 Search components by name, pin, package, or function (e.g. 555, timer, esp32, ultrasonic, diode)...")
+        self.lib_search.textChanged.connect(self.win.filter_library_cards)
+        lay.addWidget(self.lib_search)
 
-        # Main 2-column layout: Left = Answer, Right = Image
-        cols_row = QHBoxLayout()
-        cols_row.setSpacing(16)
+        # Category Filter Chips
+        self.chip_bar = QHBoxLayout()
+        self.chip_bar.setSpacing(8)
+        self.chip_buttons = []
+        categories = comp_service.get_categories() + ["Hardware Manuals"]
+        for cat in categories:
+            btn = button(cat, "chipActive" if cat == "All" else "chip")
+            btn.clicked.connect(lambda _=False, c=cat: self.win.on_category_chip_clicked(c))
+            self.chip_bar.addWidget(btn)
+            self.chip_buttons.append((cat, btn))
+        self.chip_bar.addStretch()
+        lay.addLayout(self.chip_bar)
 
-        # -------------------------------------------------------------
-        # LEFT: ANSWER PANEL
-        # -------------------------------------------------------------
-        left_card = QFrame()
-        left_card.setObjectName("card")
-        left_lay = QVBoxLayout(left_card)
-        left_lay.setContentsMargins(20, 18, 20, 18)
-        left_lay.setSpacing(12)
+        # Tab view: Components Cards View vs PDF Manuals List View
+        self.lib_stack = QStackedWidget()
 
-        l_head = QHBoxLayout()
-        l_head.addWidget(label("💡 ANSWER & INSTRUCTIONS", "sectionHeader", wrap=False))
-        l_head.addStretch()
-        self.v_step_badge = label("", "badge")
-        l_head.addWidget(self.v_step_badge)
-        left_lay.addLayout(l_head)
+        # View 0: Scrollable Cards Grid
+        self.cards_scroll = QScrollArea()
+        self.cards_scroll.setWidgetResizable(True)
+        self.cards_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.cards_container = QWidget()
+        self.cards_lay = QVBoxLayout(self.cards_container)
+        self.cards_lay.setContentsMargins(0, 0, 0, 0)
+        self.cards_lay.setSpacing(14)
+        self.cards_lay.addStretch()
+        self.cards_scroll.setWidget(self.cards_container)
+        self.lib_stack.addWidget(self.cards_scroll)
 
-        # Step tabs / pills for jumping between steps
-        self.step_tabs_host = QWidget()
-        self.step_tabs_host.setStyleSheet("background:transparent;")
-        self.step_tabs_lay = QHBoxLayout(self.step_tabs_host)
-        self.step_tabs_lay.setContentsMargins(0, 0, 0, 0)
-        self.step_tabs_lay.setSpacing(6)
-        left_lay.addWidget(self.step_tabs_host)
+        # View 1: Manuals List View (for imported PDF hardware manuals)
+        manuals_view = QWidget()
+        m_lay = QVBoxLayout(manuals_view)
+        m_lay.setContentsMargins(0, 0, 0, 0)
+        m_lay.setSpacing(10)
 
-        # Step instruction text (prominent)
-        self.v_text = label("", "stepText")
-        left_lay.addWidget(self.v_text)
+        self.lib_list = QListWidget()
+        self.lib_list.itemDoubleClicked.connect(lambda _: self.win.use_selected_manual())
+        m_lay.addWidget(self.lib_list, 1)
 
-        # Detailed answer / explanation text
-        self.v_answer = label("", "answerBox")
-        left_lay.addWidget(self.v_answer)
+        self.lib_empty = label("No imported PDF manuals found. Click '+ Add Manual PDF' above to index hardware manuals.", "muted", align=Qt.AlignmentFlag.AlignCenter)
+        m_lay.addWidget(self.lib_empty)
 
-        # Warning box
-        self.v_warning = label("", "warning")
-        left_lay.addWidget(self.v_warning)
+        m_btn_row = QHBoxLayout()
+        m_btn_row.addWidget(button("📖 View In Manual Reader", slot=self.win.view_selected_manual))
+        m_btn_row.addWidget(button("💬 Chat With This Manual", "primary", slot=self.win.use_selected_manual))
+        m_btn_row.addStretch()
+        m_btn_row.addWidget(button("Delete", "danger", slot=self.win.delete_selected))
+        m_lay.addLayout(m_btn_row)
 
-        left_lay.addStretch(1)
+        self.lib_stack.addWidget(manuals_view)
+        lay.addWidget(self.lib_stack, 1)
 
-        # Navigation buttons row in left panel
-        nav_row = QHBoxLayout()
-        self.prev_btn = button("← Previous Step", slot=self.win.prev_step)
-        self.next_btn = button("Next Step →", "primary", slot=self.win.next_step)
-        nav_row.addWidget(self.prev_btn)
-        nav_row.addStretch()
-        nav_row.addWidget(self.next_btn)
-        left_lay.addLayout(nav_row)
+        return page
 
-        cols_row.addWidget(left_card, stretch=5)
+    # =========================================================================
+    # PAGE 4: USER MANUAL & APP HELP
+    # =========================================================================
+    def _build_manual_help(self):
+        page = QWidget()
+        lay = QVBoxLayout(page)
+        lay.setContentsMargins(28, 20, 28, 24)
+        lay.setSpacing(14)
 
-        # -------------------------------------------------------------
-        # RIGHT: IMAGE PANEL
-        # -------------------------------------------------------------
-        right_card = QFrame()
-        right_card.setObjectName("card")
-        right_lay = QVBoxLayout(right_card)
-        right_lay.setContentsMargins(20, 18, 20, 18)
-        right_lay.setSpacing(12)
+        tabs = QTabWidget()
 
-        r_head = QHBoxLayout()
-        r_head.addWidget(label("📷 MANUAL ILLUSTRATION", "sectionHeader", wrap=False))
-        r_head.addStretch()
-        self.v_img_badge = label("", "badge")
-        r_head.addWidget(self.v_img_badge)
-        right_lay.addLayout(r_head)
+        # TAB 1: App User Guide & Tutorials
+        guide_widget = QWidget()
+        g_scroll = QScrollArea()
+        g_scroll.setWidgetResizable(True)
+        g_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        g_content = QWidget()
+        g_lay = QVBoxLayout(g_content)
+        g_lay.setContentsMargins(20, 16, 20, 20)
+        g_lay.setSpacing(16)
 
-        # High-definition image viewer
-        self.v_image = ImageViewerWidget()
-        right_lay.addWidget(self.v_image, 1)
+        g_lay.addWidget(label("📖 How to Use ElectroLearn AI & Hardware Assistant", "title"))
+        g_lay.addWidget(label("A complete beginner-to-advanced visual guide on how to capture, identify, learn, and troubleshoot electronics.", "subtitle"))
 
-        # Caption & zoom button row
-        cap_row = QHBoxLayout()
-        self.v_caption = label("", "caption")
-        cap_row.addWidget(self.v_caption)
-        cap_row.addStretch()
-        self.zoom_btn = button("🔍 View Full Size", "secondary", slot=self.win.zoom_image)
-        cap_row.addWidget(self.zoom_btn)
-        right_lay.addLayout(cap_row)
+        guides = [
+            ("1. Live Camera & Photo Scanning",
+             "• Click 'Live Camera Scan' on the Dashboard to start your webcam or external USB microscope.\n"
+             "• Align the chip or circuit board in good lighting. Click 'Capture Photo' to run vision identification.\n"
+             "• Alternatively, click 'Upload Image' to choose a photo from disk. Common formats (.png, .jpg, .webp) are supported up to 50MB."),
 
-        cols_row.addWidget(right_card, stretch=5)
+            ("2. Component Identification & Matching",
+             "• The AI extracts visual markings, text, part numbers, and package types.\n"
+             "• The result card presents the detected component with pinouts, schematic symbols, and typical uses.\n"
+             "• If matched with a manufacturer PDF manual, it displays the exact illustration and page reference side-by-side."),
 
-        lay.addLayout(cols_row, 1)
+            ("3. AI Chat Assistant & Voice Recognition",
+             "• Click 'AI Assistant' in the top bar to open the continuous chat thread.\n"
+             "• Click the '🎤 Speak' button to dictate questions using Whisper speech recognition with automatic pause detection.\n"
+             "• The assistant maintains conversation memory so follow-up questions work seamlessly."),
 
-        # -------------------------------------------------------------
-        # BOTTOM: REFERENCE PANEL
-        # -------------------------------------------------------------
-        self.ref_card = QFrame()
-        self.ref_card.setObjectName("refCard")
-        ref_lay = QVBoxLayout(self.ref_card)
-        ref_lay.setContentsMargins(18, 14, 18, 14)
-        ref_lay.setSpacing(8)
+            ("4. Exporting Answers & Guides",
+             "• Export individual answers or full chat threads to PDF, Markdown (.md), or Plain Text (.txt).\n"
+             "• Use 'Export Recent Chats' from the sidebar to archive your learning sessions."),
 
-        ref_head = QHBoxLayout()
-        ref_head.addWidget(label("📑 REFERENCE FROM MANUAL", "refHeader", wrap=False))
-        ref_head.addStretch()
-        self.v_ref_badge = label("", "badge")
-        ref_head.addWidget(self.v_ref_badge)
-        ref_lay.addLayout(ref_head)
+            ("5. Reading Electronic Symbols & Safety",
+             "• Notch & Dot: Pin 1 is always top-left when the notch points upwards.\n"
+             "• Polarity: Diodes have a cathode stripe; electrolytic capacitors have a negative (-) stripe.\n"
+             "• Safety: Always turn off power before probing resistance or continuity with a multimeter.")
+        ]
 
-        self.v_source = label("", "refText")
-        ref_lay.addWidget(self.v_source)
+        for g_title, g_body in guides:
+            card = QFrame()
+            card.setObjectName("card")
+            c_lay = QVBoxLayout(card)
+            c_lay.setContentsMargins(18, 14, 18, 14)
+            c_lay.setSpacing(6)
+            c_lay.addWidget(label(g_title, "h2"))
+            body_lbl = label(g_body)
+            body_lbl.setStyleSheet("line-height:1.5;")
+            c_lay.addWidget(body_lbl)
+            g_lay.addWidget(card)
 
-        lay.addWidget(self.ref_card)
+        g_lay.addStretch()
+        g_scroll.setWidget(g_content)
 
-        # Backward compatibility aliases
-        self.v_step = self.v_step_badge
-        self.v_summary = label("", "subtitle")
+        g_main_lay = QVBoxLayout(guide_widget)
+        g_main_lay.setContentsMargins(0, 0, 0, 0)
+        g_main_lay.addWidget(g_scroll)
+        tabs.addTab(guide_widget, "📘 App User Guide & Tutorials")
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setWidget(p)
-        return scroll
+        # TAB 2: Embedded Interactive PDF Manual Reader
+        self.embedded_viewer_widget = QWidget()
+        ev_lay = QVBoxLayout(self.embedded_viewer_widget)
+        ev_lay.setContentsMargins(10, 10, 10, 10)
+        ev_lay.setSpacing(10)
+
+        # Embedded viewer controls
+        ev_ctrl = QHBoxLayout()
+        ev_ctrl.addWidget(label("Active Manual:", "caption"))
+        self.ev_manual_lbl = label("No manual selected", "h2")
+        ev_ctrl.addWidget(self.ev_manual_lbl)
+        ev_ctrl.addStretch()
+
+        self.ev_prev_btn = button("◀ Prev", "secondary", slot=self.win.ev_prev_page)
+        self.ev_next_btn = button("Next ▶", "secondary", slot=self.win.ev_next_page)
+        ev_ctrl.addWidget(self.ev_prev_btn)
+        ev_ctrl.addWidget(self.ev_next_btn)
+
+        self.ev_page_spin = QSpinBox()
+        self.ev_page_spin.setRange(1, 1)
+        self.ev_page_spin.valueChanged.connect(self.win.ev_jump_page)
+        ev_ctrl.addWidget(self.ev_page_spin)
+
+        self.ev_total_lbl = label("of 0", "caption")
+        ev_ctrl.addWidget(self.ev_total_lbl)
+
+        ev_ctrl.addSpacing(12)
+        self.ev_zoom_lbl = label("125%", "caption")
+        ev_ctrl.addWidget(button("－", slot=self.win.ev_zoom_out))
+        ev_ctrl.addWidget(self.ev_zoom_lbl)
+        ev_ctrl.addWidget(button("＋", slot=self.win.ev_zoom_in))
+        ev_ctrl.addWidget(button("Fit", slot=self.win.ev_fit_width))
+
+        self.ev_ext_btn = button("↗ External", "secondary", slot=self.win.ev_open_external)
+        ev_ctrl.addWidget(self.ev_ext_btn)
+
+        ev_lay.addLayout(ev_ctrl)
+
+        # Splitter: Left Outline/Search | Right Document Page View
+        ev_splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # Left: TOC and Search tabs
+        ev_left_tabs = QTabWidget()
+        ev_left_tabs.setFixedWidth(280)
+
+        # Outline tab
+        ev_toc_w = QWidget()
+        ev_toc_l = QVBoxLayout(ev_toc_w)
+        ev_toc_l.setContentsMargins(4, 4, 4, 4)
+        self.ev_toc_tree = QTreeWidget()
+        self.ev_toc_tree.setHeaderLabel("Manual Outline")
+        self.ev_toc_tree.itemClicked.connect(self.win.ev_on_toc_clicked)
+        ev_toc_l.addWidget(self.ev_toc_tree)
+        ev_left_tabs.addTab(ev_toc_w, "Outline")
+
+        # Search tab
+        ev_search_w = QWidget()
+        ev_s_l = QVBoxLayout(ev_search_w)
+        ev_s_l.setContentsMargins(4, 4, 4, 4)
+        ev_s_row = QHBoxLayout()
+        self.ev_search_input = QLineEdit()
+        self.ev_search_input.setPlaceholderText("Search manual text...")
+        self.ev_search_input.returnPressed.connect(self.win.ev_search_text)
+        ev_s_btn = button("🔍", slot=self.win.ev_search_text)
+        ev_s_row.addWidget(self.ev_search_input)
+        ev_s_row.addWidget(ev_s_btn)
+        ev_s_l.addLayout(ev_s_row)
+
+        self.ev_search_list = QListWidget()
+        self.ev_search_list.itemClicked.connect(self.win.ev_on_search_clicked)
+        ev_s_l.addWidget(self.ev_search_list, 1)
+        ev_left_tabs.addTab(ev_search_w, "Search")
+
+        ev_splitter.addWidget(ev_left_tabs)
+
+        # Right: Page Scroll Area
+        self.ev_scroll = QScrollArea()
+        self.ev_scroll.setWidgetResizable(True)
+        self.ev_scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ev_page_lbl = QLabel("Select a manual to view its pages", self.ev_scroll)
+        self.ev_page_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ev_scroll.setWidget(self.ev_page_lbl)
+        ev_splitter.addWidget(self.ev_scroll)
+        ev_splitter.setStretchFactor(1, 4)
+
+        ev_lay.addWidget(ev_splitter, 1)
+
+        tabs.addTab(self.embedded_viewer_widget, "📑 Interactive Manual PDF Viewer")
+        lay.addWidget(tabs, 1)
+        return page
+
+    # =========================================================================
+    # AUXILIARY / TRANSITION PAGE: BUSY PROGRESS
+    # =========================================================================
+    def _build_busy(self):
+        p = QWidget()
+        lay = QVBoxLayout(p)
+        lay.setContentsMargins(40, 40, 40, 40)
+        lay.addStretch()
+
+        self.busy_title = label("Working...", "h1", align=Qt.AlignmentFlag.AlignCenter)
+        self.busy_detail = label("", "subtitle", align=Qt.AlignmentFlag.AlignCenter)
+        self.busy_bar = QProgressBar()
+        self.busy_bar.setRange(0, 0)
+        self.busy_bar.setTextVisible(False)
+        self.busy_bar.setMaximumWidth(420)
+
+        lay.addWidget(self.busy_title)
+        lay.addWidget(self.busy_detail)
+
+        row = QHBoxLayout()
+        row.addStretch()
+        row.addWidget(self.busy_bar)
+        row.addStretch()
+        lay.addLayout(row)
+
+        lay.addStretch()
+        return p
