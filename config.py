@@ -18,13 +18,23 @@ IMAGES_DIR = os.path.join(DATA_DIR, "images")     # extracted manual images
 FAISS_DIR = os.path.join(DATA_DIR, "faiss")       # one FAISS index per manual
 DB_PATH = os.path.join(BASE_DIR, "app.db")
 SETTINGS_PATH = os.path.join(BASE_DIR, "settings.json")
+ENV_PATH = os.path.join(BASE_DIR, ".env")
 
-# ---- Ollama -----------------------------------------------------------------
-OLLAMA_URL = "http://localhost:11434"
+# ---- Ollama (Local) ---------------------------------------------------------
+OLLAMA_URL = "http://127.0.0.1:11434"
 VISION_MODEL = "qwen3-vl:2b-instruct"            # photo / video analysis
 LLM_MODEL = "qwen3:4b"                  # questions + answers
 EMBED_MODEL = "nomic-embed-text:latest" # embeddings for FAISS
 REQUEST_TIMEOUT = 600                   # seconds (local models can be slow)
+
+# ---- Online LLM API Integrations (ChatGPT / Claude / Gemini) ----------------
+LLM_PROVIDER = "auto"                    # "auto", "gemini", "openai", "claude", or "ollama"
+GEMINI_API_KEY = ""
+GEMINI_MODEL = "gemini-2.5-flash"
+OPENAI_API_KEY = ""
+OPENAI_MODEL = "gpt-4o-mini"
+ANTHROPIC_API_KEY = ""
+ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 
 # ---- Tuning -----------------------------------------------------------------
 ANSWER_MAX_TOKENS = 1024 # max tokens for LLM answers to prevent JSON truncation
@@ -42,7 +52,26 @@ VOICE_MODEL = "base"      # faster-whisper model (e.g. "base", "tiny.en", "small
 VOICE_LANGUAGE = "en"     # language code ("en" or None for auto-detection)
 VOICE_SILENCE_TIMEOUT = 1.8 # seconds of silence after speech to auto-finish
 
-_SETTING_KEYS = ("OLLAMA_URL", "VISION_MODEL", "LLM_MODEL", "EMBED_MODEL")
+_SETTING_KEYS = ("OLLAMA_URL", "VISION_MODEL", "LLM_MODEL", "EMBED_MODEL", "LLM_PROVIDER")
+
+
+def load_env():
+    """Load key-value pairs from .env into environment and module variables."""
+    if os.path.isfile(ENV_PATH):
+        try:
+            with open(ENV_PATH, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    k, v = k.strip(), v.strip().strip("'\"")
+                    if k:
+                        os.environ[k] = v
+                        if k in globals():
+                            globals()[k] = v
+        except Exception as e:
+            print(f"[CONFIG] Warning loading .env: {e}")
 
 
 def ensure_dirs():
@@ -51,7 +80,8 @@ def ensure_dirs():
 
 
 def load_settings():
-    """Override defaults with values saved by the Settings dialog."""
+    """Override defaults with values saved by the Settings dialog and .env."""
+    load_env()
     try:
         with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
             saved = json.load(f)
@@ -62,9 +92,10 @@ def load_settings():
         pass
 
 
-def save_settings(url, vision, llm, embed):
+def save_settings(url, vision, llm, embed, provider="auto"):
     globals().update(OLLAMA_URL=url.strip(), VISION_MODEL=vision.strip(),
-                     LLM_MODEL=llm.strip(), EMBED_MODEL=embed.strip())
+                     LLM_MODEL=llm.strip(), EMBED_MODEL=embed.strip(),
+                     LLM_PROVIDER=provider.strip())
     with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
         json.dump({k: globals()[k] for k in _SETTING_KEYS}, f, indent=2)
 
