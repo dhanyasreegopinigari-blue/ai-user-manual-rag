@@ -20,9 +20,6 @@ DB_PATH = os.path.join(BASE_DIR, "app.db")
 SETTINGS_PATH = os.path.join(BASE_DIR, "settings.json")
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 
-# ---- Theme ------------------------------------------------------------------
-APP_THEME = "dark"                      # "dark" or "light"
-
 # ---- Ollama (Local) ---------------------------------------------------------
 OLLAMA_URL = "http://127.0.0.1:11434"
 VISION_MODEL = "qwen3-vl:2b-instruct"            # photo / video analysis
@@ -55,7 +52,7 @@ VOICE_MODEL = "base"      # faster-whisper model (e.g. "base", "tiny.en", "small
 VOICE_LANGUAGE = "en"     # language code ("en" or None for auto-detection)
 VOICE_SILENCE_TIMEOUT = 1.8 # seconds of silence after speech to auto-finish
 
-_SETTING_KEYS = ("OLLAMA_URL", "VISION_MODEL", "LLM_MODEL", "EMBED_MODEL", "LLM_PROVIDER", "APP_THEME")
+_SETTING_KEYS = ("OLLAMA_URL", "VISION_MODEL", "LLM_MODEL", "EMBED_MODEL", "LLM_PROVIDER")
 
 
 def load_env():
@@ -95,29 +92,12 @@ def load_settings():
         pass
 
 
-def save_settings(url, vision, llm, embed, provider="auto", theme=None):
+def save_settings(url, vision, llm, embed, provider="auto"):
     globals().update(OLLAMA_URL=url.strip(), VISION_MODEL=vision.strip(),
                      LLM_MODEL=llm.strip(), EMBED_MODEL=embed.strip(),
                      LLM_PROVIDER=provider.strip())
-    if theme:
-        globals()["APP_THEME"] = theme.strip()
     with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
         json.dump({k: globals()[k] for k in _SETTING_KEYS}, f, indent=2)
-
-
-def save_theme(theme_name):
-    """Persist active theme (dark or light) so it survives application restarts."""
-    globals()["APP_THEME"] = theme_name.strip()
-    try:
-        data = {}
-        if os.path.isfile(SETTINGS_PATH):
-            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        data["APP_THEME"] = theme_name.strip()
-        with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        print(f"[CONFIG] Error saving theme: {e}")
 
 
 load_settings()

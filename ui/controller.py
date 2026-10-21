@@ -75,7 +75,7 @@ class MainWindow(QWidget):
         self.answer = None
         self.step_i = 0
         self.hw_result = None
-        self.is_dark_theme = (getattr(config, "APP_THEME", "dark") != "light")
+        self.is_dark_theme = True
         self.active_category = "All"
 
         # Embedded Manual Viewer state (Page 4)
@@ -192,9 +192,8 @@ class MainWindow(QWidget):
 
     # ---- Theme Management ----------------------------------------------------
     def toggle_theme(self):
-        """Toggle between Agent One Matrix Dark and Clean Mint Light themes."""
+        """Toggle between Matrix Black & Green and Clean Emerald Light themes."""
         self.is_dark_theme = not self.is_dark_theme
-        config.save_theme("dark" if self.is_dark_theme else "light")
         theme = DARK_STYLE if self.is_dark_theme else LIGHT_STYLE
         app = QApplication.instance()
         if app:
