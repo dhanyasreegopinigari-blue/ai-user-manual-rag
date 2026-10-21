@@ -6,6 +6,8 @@ import sys
 import tempfile
 import traceback
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import config
 
 TMP = tempfile.mkdtemp(prefix="aum_test_")
@@ -15,10 +17,10 @@ config.MANUALS_DIR = os.path.join(TMP, "manuals")
 config.IMAGES_DIR = os.path.join(TMP, "images")
 config.FAISS_DIR = os.path.join(TMP, "faiss")
 
-import database as db          # noqa: E402
-import manual                  # noqa: E402
-import rag                     # noqa: E402
-import vision                  # noqa: E402
+import database as db                  # noqa: E402
+import services.manual as manual        # noqa: E402
+import services.rag as rag             # noqa: E402
+import services.vision as vision       # noqa: E402
 
 try:
     import pymupdf as fitz

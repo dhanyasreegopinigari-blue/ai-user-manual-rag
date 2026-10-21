@@ -10,7 +10,7 @@ from PIL import Image
 
 import config
 from config import AppError
-from rag import chat, parse_json
+from services.rag import chat, parse_json
 
 FIELDS = (
     "manufacturer",
