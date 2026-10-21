@@ -37,7 +37,10 @@ MAX_STEPS = 40           # cap on steps in a full guide
 TOP_K = 4                # chunks sent to the LLM per question
 VIDEO_MAX_FRAMES = 6     # frames actually sent to the vision model
 VISION_MAX_SIDE = 1024   # max resolution dimension for hardware vision input
-VOICE_SECONDS = 6        # microphone recording length
+VOICE_SECONDS = 15        # max microphone recording length (auto-stops on silence)
+VOICE_MODEL = "base"      # faster-whisper model (e.g. "base", "tiny.en", "small")
+VOICE_LANGUAGE = "en"     # language code ("en" or None for auto-detection)
+VOICE_SILENCE_TIMEOUT = 1.8 # seconds of silence after speech to auto-finish
 
 _SETTING_KEYS = ("OLLAMA_URL", "VISION_MODEL", "LLM_MODEL", "EMBED_MODEL")
 

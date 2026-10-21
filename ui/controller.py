@@ -11,7 +11,7 @@ import services.manual as manual_mod
 import services.rag as rag
 import services.voice as voice
 from config import AppError
-from ui.view import MainView, QuestionCard, MetaDialog, CameraDialog, ImagePreviewDialog, show_image
+from ui.view import MainView, QuestionCard, MetaDialog, CameraDialog, ImagePreviewDialog, VoiceInputDialog, show_image
 
 
 class Worker(QThread):
@@ -93,10 +93,12 @@ class MainWindow(QWidget):
         self.q_grid_host = self.view.q_grid_host
         self.q_grid = self.view.q_grid
         self.q_input = self.view.q_input
+        self.speak_btn = getattr(self.view, "speak_btn", None)
         self.full_check = self.view.full_check
 
         self.v_title = self.view.v_title
         self.v_quick_input = self.view.v_quick_input
+        self.v_speak_btn = getattr(self.view, "v_speak_btn", None)
         self.v_quick_btn = self.view.v_quick_btn
         self.v_step_badge = self.view.v_step_badge
         self.step_tabs_host = self.view.step_tabs_host
@@ -406,11 +408,26 @@ class MainWindow(QWidget):
             QMessageBox.information(self, "Voice", voice.UNAVAILABLE)
             return
 
-        def done(text):
-            self.q_input.setText(text)
-            self.go(self.ask_page)
+        dlg = VoiceInputDialog(self)
+        if dlg.exec() == QDialog.DialogCode.Accepted and getattr(dlg, "transcribed_text", None):
+            text = dlg.transcribed_text.strip()
+            if text:
+                self.q_input.setText(text)
+                self.q_input.setFocus()
+                if self.manual_id:
+                    self.go(self.ask_page)
 
-        self.run_task(lambda cb: voice.listen(cb), done, "Listening...")
+    def speak_viewer(self):
+        if not voice.is_available():
+            QMessageBox.information(self, "Voice", voice.UNAVAILABLE)
+            return
+
+        dlg = VoiceInputDialog(self)
+        if dlg.exec() == QDialog.DialogCode.Accepted and getattr(dlg, "transcribed_text", None):
+            text = dlg.transcribed_text.strip()
+            if text:
+                self.v_quick_input.setText(text)
+                self.v_quick_input.setFocus()
 
     def ask(self, question):
         question = (question or "").strip()

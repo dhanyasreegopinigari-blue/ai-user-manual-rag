@@ -1,3 +1,4 @@
-# Optional: offline voice input (the app works without these)
+# Voice input dependencies
 faster-whisper
 sounddevice
+SpeechRecognition

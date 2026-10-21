@@ -3,7 +3,7 @@ import os
 import time
 import cv2
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QFrame,
@@ -58,6 +58,8 @@ QLabel#refHeader { font-size:12px; font-weight:700; color:#8ab4f8; letter-spacin
 QLabel#refText { font-size:13.5px; color:#c4cddb; font-style:italic; line-height:1.5; }
 QProgressBar { background:#1b202b; border:none; border-radius:5px; height:10px; }
 QProgressBar::chunk { background:#4f8cff; border-radius:5px; }
+QProgressBar#voiceMeter { background:#161a23; border:1px solid #2a3449; border-radius:6px; height:12px; }
+QProgressBar#voiceMeter::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4f8cff, stop:0.8 #45d48b, stop:1 #2fdc71); border-radius:5px; }
 """
 
 
@@ -233,6 +235,176 @@ class CameraDialog(QDialog):
             self.timer.stop()
         if hasattr(self, "cap") and self.cap.isOpened():
             self.cap.release()
+
+
+class VoiceRecordWorker(QThread):
+    level = pyqtSignal(int)
+    speech_started = pyqtSignal()
+    status = pyqtSignal(str)
+    transcription_done = pyqtSignal(str)
+    failed = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.recorder = None
+        self.should_stop = False
+        self.cancelled = False
+
+    def run(self):
+        try:
+            import services.voice as voice
+            self.recorder = voice.AudioRecorder()
+            self.recorder.start(level_callback=self.level.emit)
+            self.status.emit("Listening... speak now")
+
+            start_t = time.time()
+            max_sec = getattr(config, "VOICE_SECONDS", 15)
+            speech_announced = False
+
+            while not self.should_stop and not self.cancelled:
+                self.msleep(50)
+                if self.recorder.speech_detected and not speech_announced:
+                    speech_announced = True
+                    self.speech_started.emit()
+
+                if self.recorder.should_auto_stop():
+                    break
+                if time.time() - start_t >= max_sec:
+                    break
+
+            if self.cancelled:
+                if self.recorder:
+                    self.recorder.stop()
+                return
+
+            self.status.emit("Transcribing your question...")
+            audio = self.recorder.stop() if self.recorder else None
+
+            text = voice.transcribe_audio(audio, progress=self.status.emit)
+            self.transcription_done.emit(text)
+        except Exception as e:
+            if not self.cancelled:
+                self.failed.emit(str(e))
+
+    def finish_recording(self):
+        self.should_stop = True
+
+    def abort(self):
+        self.cancelled = True
+        self.should_stop = True
+        if self.recorder:
+            try:
+                self.recorder.stop()
+            except Exception:
+                pass
+
+
+class VoiceInputDialog(QDialog):
+    """Voice input dialog with live volume meter and Whisper transcription."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Voice Question Input")
+        self.setFixedSize(480, 260)
+        self.transcribed_text = ""
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(28, 24, 28, 20)
+        lay.setSpacing(16)
+
+        header_lay = QHBoxLayout()
+        mic_icon = QLabel("🎙")
+        mic_icon.setStyleSheet("font-size:28px;")
+        header_lay.addWidget(mic_icon)
+
+        title_box = QVBoxLayout()
+        title_box.setSpacing(2)
+        title_lbl = label("Voice Input", "h1", wrap=False)
+        self.sub_lbl = label("Listening... Speak your question into the microphone.", "muted")
+        title_box.addWidget(title_lbl)
+        title_box.addWidget(self.sub_lbl)
+        header_lay.addLayout(title_box)
+        header_lay.addStretch()
+        lay.addLayout(header_lay)
+
+        self.meter = QProgressBar()
+        self.meter.setObjectName("voiceMeter")
+        self.meter.setRange(0, 100)
+        self.meter.setValue(0)
+        self.meter.setTextVisible(False)
+        self.meter.setFixedHeight(14)
+        lay.addWidget(self.meter)
+
+        self.status_box = QLabel("Ready... Speak now. Will auto-transcribe when you pause.")
+        self.status_box.setStyleSheet(
+            "background:#151a24; border:1px solid #283347; border-radius:10px; "
+            "padding:10px 14px; font-size:13.5px; color:#c9d1e3;"
+        )
+        self.status_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(self.status_box)
+
+        btn_row = QHBoxLayout()
+        self.cancel_btn = button("Cancel", slot=self.reject)
+        self.done_btn = button("✓ Done Speaking", "primary", slot=self.on_done_clicked)
+        btn_row.addWidget(self.cancel_btn)
+        btn_row.addStretch()
+        btn_row.addWidget(self.done_btn)
+        lay.addLayout(btn_row)
+
+        self.worker = VoiceRecordWorker()
+        self.worker.level.connect(self._on_level)
+        self.worker.speech_started.connect(self._on_speech_started)
+        self.worker.status.connect(self._on_status)
+        self.worker.transcription_done.connect(self._on_transcribed)
+        self.worker.failed.connect(self._on_failed)
+        self.worker.start()
+
+    def _on_level(self, val):
+        self.meter.setValue(val)
+
+    def _on_speech_started(self):
+        self.status_box.setText("🎙 Hearing speech... (auto-finishing on pause)")
+        self.status_box.setStyleSheet(
+            "background:#15241b; border:1px solid #2d6a4f; border-radius:10px; "
+            "padding:10px 14px; font-size:13.5px; color:#5fd38d; font-weight:600;"
+        )
+
+    def _on_status(self, text):
+        self.sub_lbl.setText(text)
+        if "Transcribing" in text:
+            self.meter.setValue(0)
+            self.status_box.setText("⏳ Transcribing speech with Whisper AI...")
+            self.status_box.setStyleSheet(
+                "background:#182033; border:1px solid #3b72db; border-radius:10px; "
+                "padding:10px 14px; font-size:13.5px; color:#8ab4f8; font-weight:600;"
+            )
+            self.done_btn.setEnabled(False)
+            self.done_btn.setText("Transcribing...")
+
+    def _on_transcribed(self, text):
+        self.transcribed_text = text
+        self.accept()
+
+    def _on_failed(self, err_msg):
+        QMessageBox.warning(self, "Voice Recognition", err_msg)
+        self.reject()
+
+    def on_done_clicked(self):
+        self.done_btn.setEnabled(False)
+        self.done_btn.setText("Transcribing...")
+        self.status_box.setText("Finishing recording & transcribing...")
+        self.worker.finish_recording()
+
+    def reject(self):
+        if hasattr(self, "worker") and self.worker.isRunning():
+            self.worker.abort()
+            self.worker.wait(1000)
+        super().reject()
+
+    def closeEvent(self, event):
+        if hasattr(self, "worker") and self.worker.isRunning():
+            self.worker.abort()
+            self.worker.wait(1000)
+        super().closeEvent(event)
 
 
 class ImagePreviewDialog(QDialog):
@@ -533,8 +705,10 @@ class MainView:
         self.v_quick_input = QLineEdit()
         self.v_quick_input.setPlaceholderText("💬 Ask another question about this manual...")
         self.v_quick_input.returnPressed.connect(self.win.ask_from_viewer)
+        self.v_speak_btn = button("🎤 Speak", slot=self.win.speak_viewer)
         self.v_quick_btn = button("Ask", "primary", slot=self.win.ask_from_viewer)
         quick_ask_row.addWidget(self.v_quick_input, 1)
+        quick_ask_row.addWidget(self.v_speak_btn)
         quick_ask_row.addWidget(self.v_quick_btn)
         lay.addLayout(quick_ask_row)
 
