@@ -75,7 +75,7 @@ class MainWindow(QWidget):
         self.answer = None
         self.step_i = 0
         self.hw_result = None
-        self.is_dark_theme = True
+        self.is_dark_theme = (getattr(config, "APP_THEME", "dark") != "light")
         self.active_category = "All"
 
         # Embedded Manual Viewer state (Page 4)
@@ -192,8 +192,9 @@ class MainWindow(QWidget):
 
     # ---- Theme Management ----------------------------------------------------
     def toggle_theme(self):
-        """Toggle between Matrix Black & Green and Clean Emerald Light themes."""
+        """Toggle between Agent One Matrix Dark and Clean Mint Light themes."""
         self.is_dark_theme = not self.is_dark_theme
+        config.save_theme("dark" if self.is_dark_theme else "light")
         theme = DARK_STYLE if self.is_dark_theme else LIGHT_STYLE
         app = QApplication.instance()
         if app:
@@ -497,8 +498,10 @@ class MainWindow(QWidget):
 
         while self.cards_lay.count() > 1:
             child = self.cards_lay.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            w = child.widget()
+            if w:
+                w.setParent(None)
+                w.deleteLater()
 
         for c in comps:
             card_widget = ComponentCardWidget(c, on_ask_cb=self.on_ask_component_from_library)

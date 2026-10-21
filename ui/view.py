@@ -29,622 +29,840 @@ import config
 
 DARK_STYLE = """
 /* =========================================================================
-   BLACK & GREEN (MATRIX / INTERSTELLAR) DARK THEME
-   Deep obsidian space background, cyber green accents, glassmorphic panels
+   AGENT ONE DESIGN SYSTEM — OBSIDIAN VOID & BIOLUMINESCENT EMERALD (DARK)
+   Canvas: #060907 to #0A0F0C | Surfaces: #0A0F0C & #101712 | Accents: #00FF85 / #00FF66 / #39FF14
    ========================================================================= */
 QWidget {
     background: transparent;
-    color: #e6f4ea;
-    font-family: 'Segoe UI', 'Inter', -apple-system, system-ui, sans-serif;
+    color: #F3FBF5;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 14px;
+    selection-background-color: #00FF85;
+    selection-color: #060907;
 }
-QLabel { background: transparent; }
 
-/* Buttons */
-QPushButton {
-    background: rgba(12, 22, 16, 0.88);
-    border: 1px solid #1c3d28;
-    border-radius: 10px;
-    padding: 9px 18px;
-    color: #bbf7d0;
+QLabel {
+    background: transparent;
+    color: #F3FBF5;
+}
+
+/* Primary Pill CTA Button (agent-one signature) */
+QPushButton#primaryBtn, QPushButton[kind="primary"] {
+    background-color: #00FF85;
+    border: 1px solid #00FF66;
+    border-radius: 9999px;
+    padding: 8px 18px;
+    color: #05140A;
+    font-weight: 800;
+    font-size: 13.5px;
+    letter-spacing: -0.2px;
+}
+QPushButton#primaryBtn:hover, QPushButton[kind="primary"]:hover {
+    background: #00FF66;
+    border-color: #39FF14;
+    color: #05140A;
+}
+QPushButton#primaryBtn:pressed, QPushButton[kind="primary"]:pressed {
+    background: #00CC6A;
+}
+QPushButton#primaryBtn:disabled, QPushButton[kind="primary"]:disabled {
+    background: #0D2616;
+    border-color: #133A22;
+    color: #4B6353;
+}
+
+/* Secondary Button (Glassmorphic dark pill) */
+QPushButton#secondaryBtn, QPushButton[kind="secondary"], QPushButton {
+    background: rgba(16, 23, 18, 0.90);
+    border: 1px solid rgba(0, 255, 133, 0.22);
+    border-radius: 9999px;
+    padding: 8px 18px;
+    color: #F3FBF5;
+    font-weight: 600;
+    font-size: 13.5px;
+}
+QPushButton#secondaryBtn:hover, QPushButton[kind="secondary"]:hover, QPushButton:hover {
+    background: #162119;
+    border-color: #00FF85;
+    color: #00FF85;
+}
+QPushButton#secondaryBtn:pressed, QPushButton[kind="secondary"]:pressed, QPushButton:pressed {
+    background: #0c3822;
+}
+QPushButton#secondaryBtn:disabled, QPushButton[kind="secondary"]:disabled, QPushButton:disabled {
+    background: rgba(10, 15, 12, 0.6);
+    border-color: rgba(255, 255, 255, 0.05);
+    color: #556B5D;
+}
+
+/* Danger Pill Button */
+QPushButton#dangerBtn, QPushButton[kind="danger"] {
+    background: rgba(45, 18, 20, 0.85);
+    border: 1px solid #7F1D1D;
+    border-radius: 9999px;
+    padding: 8px 18px;
+    color: #FCA5A5;
     font-weight: 600;
 }
-QPushButton:hover {
-    background: rgba(18, 36, 25, 0.95);
-    border-color: #22c55e;
-    color: #ffffff;
-}
-QPushButton:pressed {
-    background: #06180d;
-}
-QPushButton:disabled {
-    color: #4b6353;
-    background: rgba(8, 14, 10, 0.6);
-    border-color: #122116;
-}
-
-/* Primary Green Button (Cyber / Terminal Green) */
-QPushButton[kind="primary"] {
-    background: #00e65c;
-    border: 1px solid #00ff66;
-    color: #031407;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-}
-QPushButton[kind="primary"]:hover {
-    background: #00ff66;
-    border-color: #66ff99;
-}
-QPushButton[kind="primary"]:pressed {
-    background: #00b347;
-}
-QPushButton[kind="primary"]:disabled {
-    background: #0d2616;
-    border-color: #133a22;
-    color: #3b6b4e;
-}
-
-QPushButton[kind="secondary"] {
-    background: rgba(9, 18, 13, 0.85);
-    border: 1px solid #1a3824;
-    color: #86efac;
-    font-weight: 500;
-}
-QPushButton[kind="secondary"]:hover {
-    background: #142a1c;
-    color: #ffffff;
-    border-color: #22c55e;
-}
-
-QPushButton[kind="danger"] {
-    background: rgba(38, 16, 18, 0.85);
-    border: 1px solid #572025;
-    color: #fca5a5;
-}
-QPushButton[kind="danger"]:hover {
-    background: #451b20;
-    border-color: #ef4444;
-    color: #fecaca;
+QPushButton#dangerBtn:hover, QPushButton[kind="danger"]:hover {
+    background: #5A1E24;
+    border-color: #EF4444;
+    color: #FFFFFF;
 }
 
 /* Top Navigation Bar Buttons */
-QPushButton[kind="nav"] {
+QPushButton#navBtn, QPushButton[kind="nav"] {
     background: transparent;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 16px;
-    color: #86efac;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    padding: 8px 18px;
+    color: #A7BDAE;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13.5px;
 }
-QPushButton[kind="nav"]:hover {
-    background: rgba(18, 42, 27, 0.6);
-    color: #ffffff;
+QPushButton#navBtn:hover, QPushButton[kind="nav"]:hover {
+    background: rgba(0, 255, 133, 0.08);
+    border-color: rgba(0, 255, 133, 0.16);
+    color: #F3FBF5;
 }
-QPushButton[kind="navActive"] {
-    background: #092916;
-    border: 1px solid #22c55e;
-    border-radius: 8px;
-    padding: 8px 16px;
-    color: #4ade80;
+QPushButton#navActiveBtn, QPushButton[kind="navActive"] {
+    background: rgba(0, 255, 133, 0.14);
+    border: 1px solid #00FF85;
+    border-radius: 9999px;
+    padding: 8px 18px;
+    color: #00FF85;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 13.5px;
 }
 
 /* Category Filter Chips */
-QPushButton[kind="chip"] {
-    background: rgba(10, 20, 14, 0.8);
-    border: 1px solid #193823;
-    border-radius: 16px;
-    padding: 6px 14px;
-    color: #86efac;
+QPushButton#chipBtn, QPushButton[kind="chip"] {
+    background: rgba(16, 23, 18, 0.85);
+    border: 1px solid rgba(0, 255, 133, 0.18);
+    border-radius: 9999px;
+    padding: 7px 16px;
+    color: #A7BDAE;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
 }
-QPushButton[kind="chip"]:hover {
-    background: #152d1d;
-    color: #ffffff;
-    border-color: #22c55e;
+QPushButton#chipBtn:hover, QPushButton[kind="chip"]:hover {
+    background: #162119;
+    color: #F3FBF5;
+    border-color: #00FF85;
 }
-QPushButton[kind="chipActive"] {
-    background: #064e26;
-    border: 1px solid #00ff66;
-    border-radius: 16px;
-    padding: 6px 14px;
-    color: #86efac;
+QPushButton#chipActiveBtn, QPushButton[kind="chipActive"] {
+    background: rgba(0, 255, 133, 0.16);
+    border: 1px solid #00FF85;
+    border-radius: 9999px;
+    padding: 7px 16px;
+    color: #00FF85;
     font-size: 13px;
     font-weight: 700;
 }
 
 /* Dashboard Action Cards */
-QPushButton[kind="cardAction"] {
+QPushButton#cardActionBtn, QPushButton[kind="cardAction"] {
     text-align: left;
-    border-radius: 14px;
-    background: rgba(9, 16, 12, 0.82);
-    border: 1px solid #173321;
-    padding: 16px;
-    color: #e6f4ea;
+    border-radius: 20px;
+    background: rgba(16, 23, 18, 0.85);
+    border: 1px solid rgba(0, 255, 133, 0.14);
+    padding: 22px;
+    color: #F3FBF5;
+    font-size: 14px;
+    font-weight: 600;
 }
-QPushButton[kind="cardAction"]:hover {
-    border-color: #00ff66;
-    background: rgba(14, 28, 19, 0.92);
+QPushButton#cardActionBtn:hover, QPushButton[kind="cardAction"]:hover {
+    border-color: #00FF85;
+    background: rgba(22, 33, 25, 0.95);
+    color: #FFFFFF;
 }
 
 /* Inputs & Form Elements */
 QLineEdit, QComboBox, QSpinBox {
-    background: rgba(7, 13, 9, 0.9);
-    border: 1px solid #1a3a24;
-    border-radius: 10px;
-    padding: 9px 12px;
-    color: #f0fdf4;
-    selection-background-color: #16a34a;
+    background: rgba(10, 15, 12, 0.95);
+    border: 1px solid rgba(0, 255, 133, 0.18);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: #F3FBF5;
+    font-size: 14px;
 }
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
-    border-color: #00ff66;
-    background: #09160e;
+    border-color: #00FF85;
+    background: #0A0F0C;
 }
 QComboBox QAbstractItemView {
-    background: #07120a;
-    border: 1px solid #1b3d26;
-    selection-background-color: #15803d;
-    selection-color: #ffffff;
+    background: #0A0F0C;
+    border: 1px solid rgba(0, 255, 133, 0.22);
+    border-radius: 10px;
+    selection-background-color: #0c3822;
+    selection-color: #00FF85;
+    outline: 0;
 }
 
+
+QScrollArea { background: transparent; border: none; }
+QScrollArea > QWidget > QWidget { background: transparent; }
 /* Lists */
 QListWidget {
-    background: rgba(7, 13, 9, 0.88);
-    border: 1px solid #193822;
-    border-radius: 12px;
-    padding: 6px;
+    background: rgba(10, 15, 12, 0.90);
+    border: 1px solid rgba(0, 255, 133, 0.12);
+    border-radius: 16px;
+    padding: 8px;
     outline: 0;
 }
 QListWidget::item {
     padding: 10px 12px;
-    border-radius: 8px;
+    border-radius: 10px;
     margin-bottom: 4px;
-    color: #e6f4ea;
+    color: #F3FBF5;
 }
 QListWidget::item:hover {
-    background: #112618;
+    background: #162119;
+    color: #00FF85;
 }
 QListWidget::item:selected {
-    background: #0f3d20;
-    color: #ffffff;
-    border: 1px solid #22c55e;
+    background: #0c3822;
+    color: #FFFFFF;
+    border: 1px solid #00FF85;
 }
 
-/* Glassmorphic Cards & Containers */
+/* Glassmorphic Cards & Panels */
 QFrame#card {
-    background: rgba(9, 16, 12, 0.85);
-    border: 1px solid #183623;
-    border-radius: 14px;
+    background-color: rgba(16, 23, 18, 0.85);
+    border: 1px solid rgba(0, 255, 133, 0.14);
+    border-radius: 20px;
 }
 QFrame#accentCard {
-    background: rgba(6, 26, 14, 0.88);
-    border: 1px solid #15803d;
-    border-radius: 14px;
+    background-color: rgba(12, 32, 20, 0.88);
+    border: 1px solid rgba(0, 255, 133, 0.35);
+    border-radius: 20px;
 }
 QFrame#tipCard {
-    background: rgba(8, 15, 11, 0.85);
-    border: 1px solid #163321;
-    border-radius: 14px;
-    padding: 12px;
+    background-color: rgba(16, 23, 18, 0.80);
+    border: 1px solid rgba(0, 255, 133, 0.14);
+    border-radius: 18px;
+    padding: 14px;
 }
 QFrame#tipCard:hover {
-    border-color: #00ff66;
-    background: rgba(13, 26, 18, 0.92);
+    border-color: #00FF85;
+    background-color: rgba(22, 33, 25, 0.92);
 }
+
+/* Sidebar in Dark Mode */
 QFrame#sidebarFrame {
-    background: rgba(6, 11, 8, 0.92);
-    border-right: 1px solid #173321;
+    background-color: #0A0F0C;
+    border-right: 1px solid rgba(0, 255, 133, 0.14);
+}
+QFrame#sidebarFrame QLabel {
+    color: #A7BDAE;
+}
+QFrame#sidebarFrame QLabel#caption {
+    color: #7FB894;
+}
+QFrame#sidebarFrame QPushButton#primaryBtn, QFrame#sidebarFrame QPushButton[kind="primary"] {
+    background-color: #0c3822;
+    border: 1px solid rgba(0, 255, 133, 0.45);
+    border-radius: 9999px;
+    color: #FFFFFF;
+    font-weight: 700;
+    padding: 10px 16px;
+}
+QFrame#sidebarFrame QPushButton#primaryBtn:hover, QFrame#sidebarFrame QPushButton[kind="primary"]:hover {
+    background-color: #14532D;
+    border-color: #00FF85;
+    color: #FFFFFF;
+}
+QFrame#sidebarFrame QPushButton#secondaryBtn, QFrame#sidebarFrame QPushButton[kind="secondary"], QFrame#sidebarFrame QPushButton {
+    background-color: #162019;
+    border: 1px solid rgba(0, 255, 133, 0.16);
+    border-radius: 9999px;
+    color: #A7BDAE;
+}
+QFrame#sidebarFrame QPushButton#secondaryBtn:hover, QFrame#sidebarFrame QPushButton[kind="secondary"]:hover, QFrame#sidebarFrame QPushButton:hover {
+    background-color: #1F2E23;
+    border-color: #00FF85;
+    color: #00FF85;
+}
+QFrame#sidebarFrame QPushButton#dangerBtn, QFrame#sidebarFrame QPushButton[kind="danger"] {
+    background-color: rgba(45, 18, 20, 0.9);
+    border: 1px solid #7F1D1D;
+    color: #FCA5A5;
+    border-radius: 9999px;
+}
+QFrame#sidebarFrame QPushButton#dangerBtn:hover, QFrame#sidebarFrame QPushButton[kind="danger"]:hover {
+    background-color: #5A1E24;
+    border-color: #EF4444;
+    color: #FFFFFF;
 }
 
 /* Chat Message Bubbles */
 QFrame#userBubble {
-    background: rgba(9, 36, 19, 0.92);
-    border: 1px solid #166534;
-    border-radius: 14px;
+    background-color: #0c3822;
+    border: 1px solid rgba(0, 255, 133, 0.35);
+    border-radius: 18px;
 }
 QFrame#asstCard {
-    background: rgba(7, 14, 10, 0.94);
-    border: 1px solid #1a3d25;
-    border-radius: 16px;
+    background-color: rgba(16, 23, 18, 0.90);
+    border: 1px solid rgba(0, 255, 133, 0.16);
+    border-radius: 18px;
 }
 QFrame#typingCard {
-    background: rgba(6, 13, 9, 0.85);
-    border: 1px dashed #22c55e;
-    border-radius: 12px;
+    background-color: rgba(16, 23, 18, 0.65);
+    border: 1px dashed rgba(0, 255, 133, 0.35);
+    border-radius: 16px;
 }
 
 /* Typography & Labels */
 QLabel#brand {
     font-size: 19px;
     font-weight: 800;
-    color: #ffffff;
-    letter-spacing: 0.5px;
+    color: #F3FBF5;
+    letter-spacing: -0.3px;
 }
 QLabel#title {
     font-size: 26px;
     font-weight: 800;
-    color: #ffffff;
-    letter-spacing: 0.3px;
+    color: #F3FBF5;
+    letter-spacing: -0.4px;
 }
-QLabel#h1 { font-size: 19px; font-weight: 700; color: #ffffff; }
-QLabel#h2 { font-size: 15.5px; font-weight: 600; color: #bbf7d0; }
-QLabel#subtitle { font-size: 14px; color: #86efac; }
-QLabel#muted { color: #86a792; font-size: 13px; }
-QLabel#caption { color: #6b8c77; font-size: 12px; }
+QLabel#h1 { font-size: 19px; font-weight: 700; color: #F3FBF5; }
+QLabel#h2 { font-size: 15.5px; font-weight: 600; color: #A7BDAE; }
+QLabel#subtitle { font-size: 14px; color: #A7BDAE; }
+QLabel#muted { color: #6B8273; font-size: 13px; }
+QLabel#caption { color: #6B8273; font-size: 12px; }
 
 /* Badges */
 QLabel#badge {
-    background: #092615;
-    border: 1px solid #1b4d2b;
-    border-radius: 8px;
-    padding: 3px 8px;
-    color: #86efac;
-    font-size: 11.5px;
-    font-weight: 600;
-}
-QLabel#badgeOk {
-    background: #052e16;
-    border: 1px solid #00ff66;
-    border-radius: 8px;
-    padding: 3px 8px;
-    color: #00ff66;
+    background-color: rgba(0, 255, 133, 0.08);
+    border: 1px solid rgba(0, 255, 133, 0.22);
+    border-radius: 9999px;
+    padding: 3px 10px;
+    color: #A7BDAE;
     font-size: 11.5px;
     font-weight: 700;
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+}
+QLabel#badgeOk {
+    background-color: rgba(0, 255, 133, 0.14);
+    border: 1px solid #00FF85;
+    border-radius: 9999px;
+    padding: 3px 10px;
+    color: #00FF85;
+    font-size: 11.5px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
 }
 QLabel#badgeWarn {
-    background: #2b1f07;
-    border: 1px solid #854d0e;
-    border-radius: 8px;
-    padding: 3px 8px;
-    color: #fde047;
+    background-color: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 9999px;
+    padding: 3px 10px;
+    color: #FBBF24;
     font-size: 11.5px;
-    font-weight: 600;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
 }
 
-/* Code Blocks & Schematic Symbols (Phosphor Green Monospace) */
+/* Code Blocks & Schematic Symbols */
 QLabel#codeBlock {
-    background: #020503;
-    border: 1px solid rgba(0, 255, 102, 0.3);
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+    background-color: #040705;
+    border: 1px solid rgba(0, 255, 133, 0.22);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
     font-size: 12.5px;
-    color: #00ff66;
-    line-height: 1.4;
+    color: #00FF85;
+    line-height: 1.45;
 }
 
-/* Sleek Scrollbars */
-QScrollBar:vertical { background: #050a07; width: 10px; margin: 0; }
-QScrollBar::handle:vertical { background: #183824; min-height: 24px; border-radius: 5px; margin: 2px; }
-QScrollBar::handle:vertical:hover { background: #00ff66; }
+/* Sleek Minimalist Scrollbars */
+QScrollBar:vertical { background: transparent; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: rgba(0, 255, 133, 0.20); min-height: 24px; border-radius: 5px; margin: 2px; }
+QScrollBar::handle:vertical:hover { background: #00FF85; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-QScrollBar:horizontal { background: #050a07; height: 10px; margin: 0; }
-QScrollBar::handle:horizontal { background: #183824; min-width: 24px; border-radius: 5px; margin: 2px; }
-QScrollBar::handle:horizontal:hover { background: #00ff66; }
+QScrollBar:horizontal { background: transparent; height: 10px; margin: 0; }
+QScrollBar::handle:horizontal { background: rgba(0, 255, 133, 0.20); min-width: 24px; border-radius: 5px; margin: 2px; }
+QScrollBar::handle:horizontal:hover { background: #00FF85; }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 
 QProgressBar {
-    background: #07130b;
-    border: 1px solid #1a3824;
+    background: #0A0F0C;
+    border: 1px solid rgba(0, 255, 133, 0.16);
     border-radius: 6px;
     text-align: center;
+    color: #F3FBF5;
 }
 QProgressBar::chunk {
-    background: #00e65c;
+    background: #00FF85;
     border-radius: 5px;
 }
 
 QTreeWidget {
-    background: rgba(7, 13, 9, 0.9);
-    border: 1px solid #1a3a24;
-    border-radius: 10px;
+    background-color: rgba(10, 15, 12, 0.92);
+    border: 1px solid rgba(0, 255, 133, 0.14);
+    border-radius: 12px;
     outline: 0;
-    color: #e6f4ea;
+    color: #F3FBF5;
 }
-QTreeWidget::item { padding: 6px; border-radius: 4px; }
-QTreeWidget::item:hover { background: #112618; }
-QTreeWidget::item:selected { background: #0f3d20; color: #ffffff; border: 1px solid #22c55e; }
+QTreeWidget::item { padding: 6px; border-radius: 6px; }
+QTreeWidget::item:hover { background: #162119; color: #00FF85; }
+QTreeWidget::item:selected { background: #0c3822; color: #FFFFFF; border: 1px solid #00FF85; }
 
-QTabWidget::pane { border: 1px solid #1a3823; border-radius: 12px; background: rgba(7, 13, 9, 0.85); }
+QTabWidget::pane { border: 1px solid rgba(0, 255, 133, 0.14); border-radius: 14px; background: rgba(10, 15, 12, 0.88); }
 QTabBar::tab {
-    background: rgba(8, 15, 11, 0.8);
-    border: 1px solid #1a3823;
+    background: rgba(16, 23, 18, 0.8);
+    border: 1px solid rgba(0, 255, 133, 0.14);
     border-bottom: none;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
     padding: 8px 18px;
     margin-right: 4px;
-    color: #86efac;
+    color: #A7BDAE;
     font-weight: 600;
 }
-QTabBar::tab:selected { background: #092c18; color: #ffffff; border-color: #22c55e; }
-QTabBar::tab:hover:!selected { background: #12281a; color: #e6f4ea; }
+QTabBar::tab:selected { background: #0c3822; color: #00FF85; border-color: #00FF85; }
+QTabBar::tab:hover:!selected { background: #162119; color: #F3FBF5; }
+
+QDialog, QMessageBox {
+    background-color: #0A0F0C;
+    color: #F3FBF5;
+    border: 1px solid rgba(0, 255, 133, 0.20);
+    border-radius: 18px;
+}
+QMenu {
+    background-color: #0A0F0C;
+    border: 1px solid rgba(0, 255, 133, 0.20);
+    border-radius: 12px;
+    padding: 6px;
+}
+QMenu::item {
+    padding: 8px 18px;
+    border-radius: 8px;
+    color: #F3FBF5;
+}
+QMenu::item:selected {
+    background: #162119;
+    color: #00FF85;
+}
 """
 
 LIGHT_STYLE = """
 /* =========================================================================
-   CLEAN WHITE & EMERALD GREEN LIGHT THEME
-   Bright soft tech surfaces, matching signature green brand accents
+   AGENT ONE DESIGN SYSTEM — CRYSTALLINE MINT & BRAND GREEN (LIGHT)
+   Canvas: #F8FAF8 | Surfaces: #FFFFFF & #F0FDF4 | Brand Green: #10B981 / #2E9E5B
+   IMPORTANT: Sidebar stays dark (#101712) in light mode per reference design!
    ========================================================================= */
 QWidget {
-    background: #f7faf8;
-    color: #0f172a;
-    font-family: 'Segoe UI', 'Inter', -apple-system, system-ui, sans-serif;
-    font-size: 14px;
-}
-QLabel { background: transparent; }
-
-QPushButton {
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    padding: 9px 18px;
-    color: #0f172a;
-    font-weight: 600;
-}
-QPushButton:hover {
-    background: #f0fdf4;
-    border-color: #22c55e;
-    color: #15803d;
-}
-QPushButton:pressed { background: #dcfce7; }
-QPushButton:disabled { color: #94a3b8; background: #f1f5f9; border-color: #e2e8f0; }
-
-QPushButton[kind="primary"] {
-    background: #16a34a;
-    border: 1px solid #15803d;
-    color: #ffffff;
-    font-weight: 700;
-}
-QPushButton[kind="primary"]:hover {
-    background: #15803d;
-    border-color: #166534;
-}
-QPushButton[kind="primary"]:pressed { background: #14532d; }
-QPushButton[kind="primary"]:disabled { background: #cbd5e1; color: #64748b; }
-
-QPushButton[kind="secondary"] {
-    background: #ffffff;
-    border: 1px solid #bbf7d0;
-    color: #15803d;
-    font-weight: 600;
-}
-QPushButton[kind="secondary"]:hover {
-    background: #f0fdf4;
-    color: #166534;
-    border-color: #22c55e;
-}
-
-QPushButton[kind="danger"] {
-    background: #fee2e2;
-    border: 1px solid #fca5a5;
-    color: #b91c1c;
-}
-QPushButton[kind="danger"]:hover {
-    background: #fecaca;
-    border-color: #ef4444;
-}
-
-QPushButton[kind="nav"] {
     background: transparent;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 16px;
+    color: #0F172A;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    selection-background-color: #10B981;
+    selection-color: #FFFFFF;
+}
+
+QLabel {
+    background: transparent;
+    color: #0F172A;
+}
+
+/* Primary Pill CTA Button */
+QPushButton#primaryBtn, QPushButton[kind="primary"] {
+    background-color: #10B981;
+    border: 1px solid #059669;
+    border-radius: 9999px;
+    padding: 8px 18px;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 13.5px;
+    letter-spacing: -0.2px;
+}
+QPushButton#primaryBtn:hover, QPushButton[kind="primary"]:hover {
+    background: #059669;
+    border-color: #047857;
+    color: #FFFFFF;
+}
+QPushButton#primaryBtn:pressed, QPushButton[kind="primary"]:pressed {
+    background: #047857;
+}
+QPushButton#primaryBtn:disabled, QPushButton[kind="primary"]:disabled {
+    background: #CBD5E1;
+    color: #64748B;
+    border-color: #E2E8F0;
+}
+
+/* Secondary Button (Clean white pill) */
+QPushButton#secondaryBtn, QPushButton[kind="secondary"], QPushButton {
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 9999px;
+    padding: 8px 18px;
+    color: #0F172A;
+    font-weight: 600;
+    font-size: 13.5px;
+}
+QPushButton#secondaryBtn:hover, QPushButton[kind="secondary"]:hover, QPushButton:hover {
+    background: #F0FDF4;
+    border-color: #10B981;
+    color: #065F46;
+}
+QPushButton#secondaryBtn:pressed, QPushButton[kind="secondary"]:pressed, QPushButton:pressed {
+    background: #DCFCE7;
+}
+QPushButton#secondaryBtn:disabled, QPushButton[kind="secondary"]:disabled, QPushButton:disabled {
+    color: #94A3B8;
+    background: #F1F5F9;
+    border-color: #E2E8F0;
+}
+
+/* Danger Pill Button */
+QPushButton#dangerBtn, QPushButton[kind="danger"] {
+    background: #FEE2E2;
+    border: 1px solid #FCA5A5;
+    border-radius: 9999px;
+    padding: 8px 18px;
+    color: #B91C1C;
+    font-weight: 600;
+}
+QPushButton#dangerBtn:hover, QPushButton[kind="danger"]:hover {
+    background: #FECACA;
+    border-color: #EF4444;
+}
+
+/* Top Navigation Bar Buttons */
+QPushButton#navBtn, QPushButton[kind="nav"] {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    padding: 8px 18px;
     color: #475569;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13.5px;
 }
-QPushButton[kind="nav"]:hover {
-    background: #f0fdf4;
-    color: #15803d;
+QPushButton#navBtn:hover, QPushButton[kind="nav"]:hover {
+    background: #F0FDF4;
+    color: #065F46;
+    border-color: #DCEBD4;
 }
-QPushButton[kind="navActive"] {
-    background: #dcfce7;
-    border: 1px solid #22c55e;
-    border-radius: 8px;
-    padding: 8px 16px;
-    color: #14532d;
+QPushButton#navActiveBtn, QPushButton[kind="navActive"] {
+    background: #DCFCE7;
+    border: 1px solid #10B981;
+    border-radius: 9999px;
+    padding: 8px 18px;
+    color: #065F46;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 13.5px;
 }
 
-QPushButton[kind="chip"] {
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 16px;
-    padding: 6px 14px;
+/* Category Filter Chips */
+QPushButton#chipBtn, QPushButton[kind="chip"] {
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 9999px;
+    padding: 7px 16px;
     color: #475569;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
 }
-QPushButton[kind="chip"]:hover {
-    background: #f0fdf4;
-    color: #16a34a;
-    border-color: #86efac;
+QPushButton#chipBtn:hover, QPushButton[kind="chip"]:hover {
+    background: #F0FDF4;
+    color: #10B981;
+    border-color: #BBF7D0;
 }
-QPushButton[kind="chipActive"] {
-    background: #16a34a;
-    border: 1px solid #15803d;
-    border-radius: 16px;
-    padding: 6px 14px;
-    color: #ffffff;
+QPushButton#chipActiveBtn, QPushButton[kind="chipActive"] {
+    background: #10B981;
+    border: 1px solid #059669;
+    border-radius: 9999px;
+    padding: 7px 16px;
+    color: #FFFFFF;
     font-size: 13px;
     font-weight: 700;
 }
 
-QPushButton[kind="cardAction"] {
+/* Dashboard Action Cards */
+QPushButton#cardActionBtn, QPushButton[kind="cardAction"] {
     text-align: left;
-    border-radius: 14px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    padding: 16px;
-    color: #0f172a;
+    border-radius: 20px;
+    background: #FFFFFF;
+    border: 1px solid #E2EBE2;
+    padding: 22px;
+    color: #0F172A;
+    font-size: 14px;
+    font-weight: 600;
 }
-QPushButton[kind="cardAction"]:hover {
-    border-color: #22c55e;
-    background: #f0fdf4;
+QPushButton#cardActionBtn:hover, QPushButton[kind="cardAction"]:hover {
+    border-color: #10B981;
+    background: #F0FDF4;
+    color: #065F46;
 }
 
+/* Inputs & Form Elements */
 QLineEdit, QComboBox, QSpinBox {
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    padding: 9px 12px;
-    color: #0f172a;
-    selection-background-color: #22c55e;
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: #0F172A;
+    font-size: 14px;
 }
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
-    border-color: #16a34a;
-    background: #ffffff;
+    border-color: #10B981;
+    background: #FFFFFF;
 }
 QComboBox QAbstractItemView {
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    selection-background-color: #dcfce7;
-    selection-color: #14532d;
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 10px;
+    selection-background-color: #DCFCE7;
+    selection-color: #065F46;
+    outline: 0;
 }
 
+
+QScrollArea { background: transparent; border: none; }
+QScrollArea > QWidget > QWidget { background: transparent; }
+/* Lists */
 QListWidget {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 6px;
+    background: #FFFFFF;
+    border: 1px solid #E2EBE2;
+    border-radius: 16px;
+    padding: 8px;
     outline: 0;
 }
 QListWidget::item {
     padding: 10px 12px;
-    border-radius: 8px;
+    border-radius: 10px;
     margin-bottom: 4px;
-    color: #0f172a;
+    color: #0F172A;
 }
-QListWidget::item:hover { background: #f0fdf4; }
-QListWidget::item:selected { background: #dcfce7; color: #14532d; border: 1px solid #22c55e; }
+QListWidget::item:hover {
+    background: #F0FDF4;
+    color: #10B981;
+}
+QListWidget::item:selected {
+    background: #DCFCE7;
+    color: #065F46;
+    border: 1px solid #10B981;
+}
 
+/* Glassmorphic Cards & Panels */
 QFrame#card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
+    background-color: #FFFFFF;
+    border: 1px solid #E2EBE2;
+    border-radius: 20px;
 }
 QFrame#accentCard {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 14px;
+    background-color: #F0FDF4;
+    border: 1px solid #BBF7D0;
+    border-radius: 20px;
 }
 QFrame#tipCard {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 12px;
+    background-color: #FFFFFF;
+    border: 1px solid #E2EBE2;
+    border-radius: 18px;
+    padding: 14px;
 }
 QFrame#tipCard:hover {
-    border-color: #22c55e;
-    background: #f0fdf4;
-}
-QFrame#sidebarFrame {
-    background: #f8fafc;
-    border-right: 1px solid #e2e8f0;
+    border-color: #10B981;
+    background-color: #F0FDF4;
 }
 
-QFrame#userBubble {
-    background: #dcfce7;
-    border: 1px solid #86efac;
+/* CRITICAL: SIDEBAR REMAINS DARK (#101712) IN LIGHT MODE */
+QFrame#sidebarFrame {
+    background-color: #101712;
+    border-right: 1px solid #1C3A27;
+}
+QFrame#sidebarFrame QLabel {
+    color: #8E9690;
+}
+QFrame#sidebarFrame QLabel#caption {
+    color: #7FB894;
+}
+QFrame#sidebarFrame QListWidget {
+    background-color: #0A0F0C;
+    border: 1px solid #1C3A27;
     border-radius: 14px;
+    padding: 6px;
+    outline: 0;
+}
+QFrame#sidebarFrame QListWidget::item {
+    color: #8E9690;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+}
+QFrame#sidebarFrame QListWidget::item:hover {
+    background: #162019;
+    color: #E7FBEF;
+}
+QFrame#sidebarFrame QListWidget::item:selected {
+    background: #0c3822;
+    border: 1px solid #00FF66;
+    color: #FFFFFF;
+}
+QFrame#sidebarFrame QPushButton#primaryBtn, QFrame#sidebarFrame QPushButton[kind="primary"] {
+    background-color: #0c3822;
+    border: 1px solid rgba(0, 255, 102, 0.45);
+    border-radius: 9999px;
+    color: #FFFFFF;
+    font-weight: 700;
+    padding: 10px 16px;
+}
+QFrame#sidebarFrame QPushButton#primaryBtn:hover, QFrame#sidebarFrame QPushButton[kind="primary"]:hover {
+    background-color: #14532D;
+    border-color: #00FF66;
+    color: #FFFFFF;
+}
+QFrame#sidebarFrame QPushButton#secondaryBtn, QFrame#sidebarFrame QPushButton[kind="secondary"], QFrame#sidebarFrame QPushButton {
+    background-color: #162019;
+    border: 1px solid #1C3A27;
+    border-radius: 9999px;
+    color: #8E9690;
+}
+QFrame#sidebarFrame QPushButton#secondaryBtn:hover, QFrame#sidebarFrame QPushButton[kind="secondary"]:hover, QFrame#sidebarFrame QPushButton:hover {
+    background-color: #1C2920;
+    border-color: #00FF66;
+    color: #FFFFFF;
+}
+QFrame#sidebarFrame QPushButton#dangerBtn, QFrame#sidebarFrame QPushButton[kind="danger"] {
+    background-color: rgba(45, 18, 20, 0.9);
+    border: 1px solid #6E2328;
+    color: #FCA5A5;
+    border-radius: 9999px;
+}
+QFrame#sidebarFrame QPushButton#dangerBtn:hover, QFrame#sidebarFrame QPushButton[kind="danger"]:hover {
+    background-color: #50191E;
+    border-color: #EF4444;
+    color: #FFFFFF;
+}
+
+/* Chat Message Bubbles */
+QFrame#userBubble {
+    background-color: #0c3822;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-radius: 18px;
 }
 QFrame#asstCard {
-    background: #ffffff;
-    border: 1px solid #bbf7d0;
-    border-radius: 16px;
+    background-color: #FFFFFF;
+    border: 1px solid #E2EBE2;
+    border-radius: 18px;
 }
 QFrame#typingCard {
-    background: #f0fdf4;
-    border: 1px dashed #22c55e;
-    border-radius: 12px;
+    background-color: #F0FDF4;
+    border: 1px dashed #10B981;
+    border-radius: 16px;
 }
 
-QLabel#brand { font-size: 19px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px; }
-QLabel#title { font-size: 26px; font-weight: 800; color: #0f172a; }
-QLabel#h1 { font-size: 19px; font-weight: 700; color: #0f172a; }
+/* Typography & Labels */
+QLabel#brand { font-size: 19px; font-weight: 800; color: #0F172A; letter-spacing: -0.3px; }
+QLabel#title { font-size: 26px; font-weight: 800; color: #0F172A; letter-spacing: -0.4px; }
+QLabel#h1 { font-size: 19px; font-weight: 700; color: #0F172A; }
 QLabel#h2 { font-size: 15.5px; font-weight: 600; color: #166534; }
 QLabel#subtitle { font-size: 14px; color: #475569; }
-QLabel#muted { color: #64748b; font-size: 13px; }
-QLabel#caption { color: #64748b; font-size: 12px; }
+QLabel#muted { color: #64748B; font-size: 13px; }
+QLabel#caption { color: #64748B; font-size: 12px; }
 
+/* Badges */
 QLabel#badge {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 8px;
-    padding: 3px 8px;
-    color: #15803d;
-    font-size: 11.5px;
-    font-weight: 600;
-}
-QLabel#badgeOk {
-    background: #dcfce7;
-    border: 1px solid #22c55e;
-    border-radius: 8px;
-    padding: 3px 8px;
-    color: #14532d;
+    background-color: #F0FDF4;
+    border: 1px solid #DCEBD4;
+    border-radius: 9999px;
+    padding: 3px 10px;
+    color: #166534;
     font-size: 11.5px;
     font-weight: 700;
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+}
+QLabel#badgeOk {
+    background-color: #DCFCE7;
+    border: 1px solid #10B981;
+    border-radius: 9999px;
+    padding: 3px 10px;
+    color: #065F46;
+    font-size: 11.5px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
 }
 QLabel#badgeWarn {
-    background: #fefce8;
-    border: 1px solid #fef08a;
-    border-radius: 8px;
-    padding: 3px 8px;
-    color: #854d0e;
+    background-color: #FEFCE8;
+    border: 1px solid #FEF08A;
+    border-radius: 9999px;
+    padding: 3px 10px;
+    color: #854D0E;
     font-size: 11.5px;
-    font-weight: 600;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
 }
 
+/* Code Blocks & Schematic Symbols */
 QLabel#codeBlock {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+    background-color: #F0FDF4;
+    border: 1px solid #DCEBD4;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
     font-size: 12.5px;
-    color: #15803d;
-    line-height: 1.4;
+    color: #166534;
+    line-height: 1.45;
 }
 
-QScrollBar:vertical { background: #f8fafc; width: 10px; margin: 0; }
-QScrollBar::handle:vertical { background: #cbd5e1; min-height: 24px; border-radius: 5px; margin: 2px; }
-QScrollBar::handle:vertical:hover { background: #16a34a; }
+/* Sleek Minimalist Scrollbars */
+QScrollBar:vertical { background: transparent; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: #CBD5E1; min-height: 24px; border-radius: 5px; margin: 2px; }
+QScrollBar::handle:vertical:hover { background: #10B981; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-QScrollBar:horizontal { background: #f8fafc; height: 10px; margin: 0; }
-QScrollBar::handle:horizontal { background: #cbd5e1; min-width: 24px; border-radius: 5px; margin: 2px; }
-QScrollBar::handle:horizontal:hover { background: #16a34a; }
+QScrollBar:horizontal { background: transparent; height: 10px; margin: 0; }
+QScrollBar::handle:horizontal { background: #CBD5E1; min-width: 24px; border-radius: 5px; margin: 2px; }
+QScrollBar::handle:horizontal:hover { background: #10B981; }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 
-QProgressBar { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; }
-QProgressBar::chunk { background: #16a34a; border-radius: 5px; }
+QProgressBar { background: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 6px; text-align: center; color: #0F172A; }
+QProgressBar::chunk { background: #10B981; border-radius: 5px; }
 
-QTreeWidget { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; outline: 0; color: #334155; }
-QTreeWidget::item { padding: 6px; border-radius: 4px; }
-QTreeWidget::item:hover { background: #f0fdf4; }
-QTreeWidget::item:selected { background: #dcfce7; color: #14532d; border: 1px solid #22c55e; }
+QTreeWidget { background-color: #FFFFFF; border: 1px solid #E2EBE2; border-radius: 12px; outline: 0; color: #334155; }
+QTreeWidget::item { padding: 6px; border-radius: 6px; }
+QTreeWidget::item:hover { background: #F0FDF4; color: #10B981; }
+QTreeWidget::item:selected { background: #DCFCE7; color: #065F46; border: 1px solid #10B981; }
 
-QTabWidget::pane { border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; }
+QTabWidget::pane { border: 1px solid #E2EBE2; border-radius: 14px; background: #FFFFFF; }
 QTabBar::tab {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: #F8FAFC;
+    border: 1px solid #E2EBE2;
     border-bottom: none;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
     padding: 8px 18px;
     margin-right: 4px;
     color: #475569;
     font-weight: 600;
 }
-QTabBar::tab:selected { background: #16a34a; color: #ffffff; border-color: #15803d; }
-QTabBar::tab:hover:!selected { background: #f0fdf4; color: #15803d; }
+QTabBar::tab:selected { background: #10B981; color: #FFFFFF; border-color: #059669; }
+QTabBar::tab:hover:!selected { background: #F0FDF4; color: #10B981; }
+
+QDialog, QMessageBox {
+    background-color: #FFFFFF;
+    color: #0F172A;
+    border: 1px solid #E2EBE2;
+    border-radius: 18px;
+}
+QMenu {
+    background-color: #FFFFFF;
+    border: 1px solid #E2EBE2;
+    border-radius: 12px;
+    padding: 6px;
+}
+QMenu::item {
+    padding: 8px 18px;
+    border-radius: 8px;
+    color: #0F172A;
+}
+QMenu::item:selected {
+    background: #F0FDF4;
+    color: #10B981;
+}
 """
 
-STYLE = DARK_STYLE
+STYLE = LIGHT_STYLE if getattr(config, "APP_THEME", "dark") == "light" else DARK_STYLE
 
 
 def button(text, kind=None, slot=None):
@@ -652,6 +870,7 @@ def button(text, kind=None, slot=None):
     b.setCursor(Qt.CursorShape.PointingHandCursor)
     if kind:
         b.setProperty("kind", kind)
+        b.setObjectName(f"{kind}Btn")
     if slot:
         b.clicked.connect(slot)
     return b
@@ -678,11 +897,11 @@ def show_image(lbl, path, w, h):
 
 
 class SpaceBackgroundWidget(QWidget):
-    """Subtle interstellar space background with soft nebulae and starfield for dark mode."""
+    """Agent One signature background with 48px grid lines, top radial dark-green gradient, and glowing orbs."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.is_dark = True
+        self.is_dark = (getattr(config, "APP_THEME", "dark") != "light")
         self._cached_pixmap = None
         self._stars = self._generate_stars(130)
 
@@ -708,48 +927,96 @@ class SpaceBackgroundWidget(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        if not self.is_dark:
-            painter.fillRect(self.rect(), QColor("#f7faf8"))
+        w, h = self.width(), self.height()
+        if w <= 0 or h <= 0:
             return
 
-        w, h = self.width(), self.height()
         if self._cached_pixmap is None or self._cached_pixmap.size() != self.size():
             pm = QPixmap(self.size())
             p = QPainter(pm)
             p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-            # 1. Base obsidian void
-            p.fillRect(0, 0, w, h, QColor("#040705"))
+            if self.is_dark:
+                # Agent-One Dark Canvas
+                # 1. Base void: #060907
+                p.fillRect(0, 0, w, h, QColor("#060907"))
 
-            # 2. Soft Emerald Nebula 1 (Top Left)
-            rad1 = max(w, h) * 0.65
-            grad1 = QRadialGradient(w * 0.18, h * 0.18, rad1)
-            grad1.setColorAt(0.0, QColor(0, 255, 102, 22))
-            grad1.setColorAt(0.4, QColor(16, 185, 129, 12))
-            grad1.setColorAt(1.0, QColor(4, 7, 5, 0))
-            p.fillRect(0, 0, w, h, grad1)
+                # 2. Radial top dark-green gradient: radial-gradient(circle at 50% -10%, #061f12 0%, #060907 75%)
+                rad_top = max(w, h) * 0.75
+                top_grad = QRadialGradient(w * 0.5, -h * 0.1, rad_top)
+                top_grad.setColorAt(0.0, QColor("#061f12"))
+                top_grad.setColorAt(0.75, QColor("#060907"))
+                p.fillRect(0, 0, w, h, top_grad)
 
-            # 3. Soft Galaxy Nebula 2 (Bottom Right)
-            rad2 = max(w, h) * 0.55
-            grad2 = QRadialGradient(w * 0.82, h * 0.82, rad2)
-            grad2.setColorAt(0.0, QColor(34, 197, 94, 18))
-            grad2.setColorAt(0.5, QColor(6, 40, 20, 10))
-            grad2.setColorAt(1.0, QColor(4, 7, 5, 0))
-            p.fillRect(0, 0, w, h, grad2)
+                # 3. Soft blurred ambient emerald glow orbs
+                rad_orb1 = max(w, h) * 0.45
+                grad_orb1 = QRadialGradient(w * 0.2, h * 0.25, rad_orb1)
+                grad_orb1.setColorAt(0.0, QColor(0, 255, 133, 24))
+                grad_orb1.setColorAt(0.5, QColor(16, 185, 129, 10))
+                grad_orb1.setColorAt(1.0, QColor(6, 9, 7, 0))
+                p.fillRect(0, 0, w, h, grad_orb1)
 
-            # 4. Starfield
-            for rx, ry, sz, br in self._stars:
-                sx = int(rx * w)
-                sy = int(ry * h)
-                col = QColor(190, 255, 210, br) if br > 150 else QColor(220, 235, 225, br)
-                p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(col)
-                p.drawEllipse(sx, sy, int(sz), int(sz))
+                rad_orb2 = max(w, h) * 0.40
+                grad_orb2 = QRadialGradient(w * 0.85, h * 0.75, rad_orb2)
+                grad_orb2.setColorAt(0.0, QColor(57, 255, 20, 16))
+                grad_orb2.setColorAt(0.6, QColor(15, 92, 46, 8))
+                grad_orb2.setColorAt(1.0, QColor(6, 9, 7, 0))
+                p.fillRect(0, 0, w, h, grad_orb2)
+
+                # 4. 48px grid lines: rgba(0, 255, 133, 0.08)
+                grid_pen = QPen(QColor(0, 255, 133, 18))
+                grid_pen.setWidth(1)
+                p.setPen(grid_pen)
+                for gy in range(0, h, 48):
+                    p.drawLine(0, gy, w, gy)
+                for gx in range(0, w, 48):
+                    p.drawLine(gx, 0, gx, h)
+
+                # 5. Subtle bioluminescent stars / particles
+                for rx, ry, sz, br in self._stars:
+                    sx = int(rx * w)
+                    sy = int(ry * h)
+                    col = QColor(0, 255, 133, min(br, 180)) if br > 140 else QColor(167, 189, 174, min(br, 130))
+                    p.setPen(Qt.PenStyle.NoPen)
+                    p.setBrush(col)
+                    p.drawEllipse(sx, sy, int(sz), int(sz))
+
+            else:
+                # Agent-One Light Canvas
+                # 1. Base mint canvas: #F8FAF8
+                p.fillRect(0, 0, w, h, QColor("#F8FAF8"))
+
+                # 2. Radial top mint gradient: radial-gradient(circle at 50% -10%, #ecfdf5 0%, #f8faf8 60%, #ffffff 100%)
+                rad_top = max(w, h) * 0.75
+                top_grad = QRadialGradient(w * 0.5, -h * 0.1, rad_top)
+                top_grad.setColorAt(0.0, QColor("#ECFDF5"))
+                top_grad.setColorAt(0.6, QColor("#F8FAF8"))
+                top_grad.setColorAt(1.0, QColor("#FFFFFF"))
+                p.fillRect(0, 0, w, h, top_grad)
+
+                # 3. Soft ambient light glow orb
+                rad_orb = max(w, h) * 0.40
+                grad_orb = QRadialGradient(w * 0.15, h * 0.20, rad_orb)
+                grad_orb.setColorAt(0.0, QColor(16, 185, 129, 16))
+                grad_orb.setColorAt(1.0, QColor(248, 250, 248, 0))
+                p.fillRect(0, 0, w, h, grad_orb)
+
+                # 4. 48px grid lines: rgba(16, 185, 129, 0.045)
+                grid_pen = QPen(QColor(16, 185, 129, 12))
+                grid_pen.setWidth(1)
+                p.setPen(grid_pen)
+                for gy in range(0, h, 48):
+                    p.drawLine(0, gy, w, gy)
+                for gx in range(0, w, 48):
+                    p.drawLine(gx, 0, gx, h)
 
             p.end()
             self._cached_pixmap = pm
 
         painter.drawPixmap(0, 0, self._cached_pixmap)
+
+
+AgentOneBackgroundWidget = SpaceBackgroundWidget
 
 
 class QuestionCard(QPushButton):
@@ -1444,16 +1711,17 @@ class ChatMessageWidget(QWidget):
 
         if self.role == "user":
             row = QHBoxLayout()
+            row.setSpacing(10)
             row.addStretch()
 
             bubble = QFrame()
             bubble.setObjectName("userBubble")
             b_lay = QVBoxLayout(bubble)
-            b_lay.setContentsMargins(16, 12, 16, 12)
+            b_lay.setContentsMargins(18, 14, 18, 14)
             b_lay.setSpacing(6)
 
             head = QHBoxLayout()
-            head.addWidget(label("👤 You", "badge"))
+            head.addWidget(label("You", "badge"))
             head.addStretch()
             head.addWidget(label(self.created_at, "caption"))
             b_lay.addLayout(head)
@@ -1461,22 +1729,49 @@ class ChatMessageWidget(QWidget):
             self.txt_lbl = QLabel(self.content)
             self.txt_lbl.setWordWrap(True)
             self.txt_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            self.txt_lbl.setStyleSheet("font-size:14.5px; line-height:1.45;")
+            self.txt_lbl.setStyleSheet("font-size: 14.5px; color: #FFFFFF;")
             b_lay.addWidget(self.txt_lbl)
 
-            bubble.setMaximumWidth(720)
+            bubble.setMaximumWidth(740)
             row.addWidget(bubble)
+
+            # Circular User Avatar (32x32) per agent-one design
+            u_avatar = QLabel("👤")
+            u_avatar.setFixedSize(32, 32)
+            u_avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            u_avatar.setStyleSheet(
+                "background: rgba(0, 255, 133, 0.16); "
+                "border: 1px solid rgba(0, 255, 133, 0.35); "
+                "border-radius: 16px; "
+                "font-size: 15px; color: #00FF85;"
+            )
+            row.addWidget(u_avatar, alignment=Qt.AlignmentFlag.AlignTop)
+
             self.main_lay.addLayout(row)
         else:
             row = QHBoxLayout()
+            row.setSpacing(10)
+
+            # Circular Bot Avatar (32x32) per agent-one design
+            b_avatar = QLabel("⚡")
+            b_avatar.setFixedSize(32, 32)
+            b_avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            b_avatar.setStyleSheet(
+                "background: rgba(0, 255, 133, 0.12); "
+                "border: 1px solid rgba(0, 255, 133, 0.25); "
+                "border-radius: 16px; "
+                "font-size: 15px; color: #00FF85;"
+            )
+            row.addWidget(b_avatar, alignment=Qt.AlignmentFlag.AlignTop)
+
             self.card = QFrame()
             self.card.setObjectName("asstCard")
             self.c_lay = QVBoxLayout(self.card)
-            self.c_lay.setContentsMargins(20, 16, 20, 16)
+            self.c_lay.setContentsMargins(22, 18, 22, 18)
             self.c_lay.setSpacing(12)
 
             head = QHBoxLayout()
-            self.asst_badge = label("🤖 ElectroLearn AI", "badgeOk", wrap=False)
+            self.asst_badge = label("ElectroLearn AI", "badgeOk", wrap=False)
             head.addWidget(self.asst_badge)
             head.addStretch()
             head.addWidget(label(self.created_at, "caption"))
@@ -1493,7 +1788,7 @@ class ChatMessageWidget(QWidget):
             self.summary_lbl = QLabel(summary)
             self.summary_lbl.setWordWrap(True)
             self.summary_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            self.summary_lbl.setStyleSheet("font-size:14.5px; line-height:1.55;")
+            self.summary_lbl.setStyleSheet("font-size: 14.5px; line-height: 1.55;")
             self.c_lay.addWidget(self.summary_lbl)
 
             self.steps_box = QWidget()
@@ -1677,7 +1972,7 @@ class TopNavBar(QFrame):
         lay.setSpacing(8)
 
         brand_icon = label("⚡", wrap=False)
-        brand_icon.setStyleSheet("font-size:22px; color:#00ff66;")
+        brand_icon.setStyleSheet("font-size:22px; color:#00FF85;")
         brand_lbl = label("ElectroLearn AI", "brand", wrap=False)
         lay.addWidget(brand_icon)
         lay.addWidget(brand_lbl)
@@ -1693,8 +1988,9 @@ class TopNavBar(QFrame):
 
         lay.addStretch()
 
-        self.theme_btn = button("🌓 Theme", "secondary", slot=self.win.toggle_theme)
-        self.theme_btn.setToolTip("Toggle Matrix Dark / Clean Light Theme")
+        btn_txt = "🌓 Dark" if getattr(self.win, "is_dark_theme", True) else "☀️ Light"
+        self.theme_btn = button(btn_txt, "secondary", slot=self.win.toggle_theme)
+        self.theme_btn.setToolTip("Toggle Dark / Light Theme")
         lay.addWidget(self.theme_btn)
 
         self.settings_btn = button("⚙ Settings", "secondary", slot=lambda: SettingsDialog(self.win).exec())
@@ -1703,7 +1999,9 @@ class TopNavBar(QFrame):
     def set_active_tab(self, idx):
         buttons = [self.btn_dash, self.btn_chat, self.btn_lib, self.btn_manual]
         for i, b in enumerate(buttons):
-            b.setProperty("kind", "navActive" if i == idx else "nav")
+            k = "navActive" if i == idx else "nav"
+            b.setProperty("kind", k)
+            b.setObjectName(f"{k}Btn")
             b.style().unpolish(b)
             b.style().polish(b)
 
@@ -1758,9 +2056,9 @@ class MainView:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background:transparent;")
+        # scroll.setStyleSheet("background:transparent;")
         content = QWidget()
-        content.setStyleSheet("background:transparent;")
+        # content.setStyleSheet("background:transparent;")
         lay = QVBoxLayout(content)
         lay.setContentsMargins(32, 24, 32, 28)
         lay.setSpacing(20)
@@ -1802,24 +2100,28 @@ class MainView:
 
         act1 = QPushButton("📷  Upload Image\nSelect circuit photo from disk")
         act1.setProperty("kind", "cardAction")
+        act1.setObjectName("cardActionBtn")
         act1.setCursor(Qt.CursorShape.PointingHandCursor)
         act1.clicked.connect(self.win.upload_photo)
         actions_grid.addWidget(act1, 0, 0)
 
         act2 = QPushButton("🎥  Live Camera Scan\nPoint webcam at component")
         act2.setProperty("kind", "cardAction")
+        act2.setObjectName("cardActionBtn")
         act2.setCursor(Qt.CursorShape.PointingHandCursor)
         act2.clicked.connect(self.win.open_camera)
         actions_grid.addWidget(act2, 0, 1)
 
         act3 = QPushButton("🎬  Upload Video\nAnalyze hardware recording")
         act3.setProperty("kind", "cardAction")
+        act3.setObjectName("cardActionBtn")
         act3.setCursor(Qt.CursorShape.PointingHandCursor)
         act3.clicked.connect(self.win.upload_video)
         actions_grid.addWidget(act3, 0, 2)
 
         act4 = QPushButton("💬  Ask AI Assistant\nGeneral electronics or manuals")
         act4.setProperty("kind", "cardAction")
+        act4.setObjectName("cardActionBtn")
         act4.setCursor(Qt.CursorShape.PointingHandCursor)
         act4.clicked.connect(lambda: self.win.open_chat())
         actions_grid.addWidget(act4, 0, 3)
@@ -1955,7 +2257,6 @@ class MainView:
     # =========================================================================
     def _build_chat(self):
         p = QWidget()
-        p.setStyleSheet("background:transparent;")
         main_h_lay = QHBoxLayout(p)
         main_h_lay.setContentsMargins(0, 0, 0, 0)
         main_h_lay.setSpacing(0)
@@ -1970,16 +2271,18 @@ class MainView:
 
         s_top = QHBoxLayout()
         self.new_chat_btn = button("＋ New Chat", "primary", slot=self.win.new_chat)
+        self.new_chat_btn.setFixedHeight(40)
         self.new_chat_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         s_top.addWidget(self.new_chat_btn)
 
-        self.collapse_sidebar_btn = button("◀", slot=self.win.toggle_sidebar)
-        self.collapse_sidebar_btn.setFixedWidth(36)
+        self.collapse_sidebar_btn = button("◀", "secondary", slot=self.win.toggle_sidebar)
+        self.collapse_sidebar_btn.setFixedSize(40, 40)
         self.collapse_sidebar_btn.setToolTip("Collapse Sidebar")
         s_top.addWidget(self.collapse_sidebar_btn)
         s_lay.addLayout(s_top)
 
         self.export_recent_btn = button("📥 Export Recent Chats ▼", "secondary")
+        self.export_recent_btn.setFixedHeight(38)
         recent_menu = QMenu(self.export_recent_btn)
         act_p = recent_menu.addAction("Export Recent as PDF (.pdf)")
         act_p.triggered.connect(lambda: self.win.export_recent_chats("pdf"))
@@ -1997,13 +2300,14 @@ class MainView:
         s_lay.addWidget(self.chat_history_list, 1)
 
         self.sidebar_delete_btn = button("🗑 Delete Selected Chat", "danger", slot=self.win.delete_selected_conversation)
+        self.sidebar_delete_btn.setFixedHeight(38)
         s_lay.addWidget(self.sidebar_delete_btn)
 
         main_h_lay.addWidget(self.chat_sidebar)
 
         # Main Chat Area
         chat_area = QWidget()
-        chat_area.setStyleSheet("background:transparent;")
+        # chat_area.setStyleSheet("background:transparent;")
         c_lay = QVBoxLayout(chat_area)
         c_lay.setContentsMargins(24, 16, 24, 16)
         c_lay.setSpacing(10)
@@ -2034,10 +2338,10 @@ class MainView:
 
         self.chat_scroll = QScrollArea()
         self.chat_scroll.setWidgetResizable(True)
-        self.chat_scroll.setStyleSheet("background:transparent; border:none;")
+        # self.chat_scroll.setStyleSheet("background:transparent; border:none;")
 
         self.chat_thread_widget = QWidget()
-        self.chat_thread_widget.setStyleSheet("background:transparent;")
+        # self.chat_thread_widget.setStyleSheet("background:transparent;")
         self.chat_thread_lay = QVBoxLayout(self.chat_thread_widget)
         self.chat_thread_lay.setContentsMargins(10, 10, 10, 10)
         self.chat_thread_lay.setSpacing(14)
@@ -2059,25 +2363,28 @@ class MainView:
         self.typing_card.setVisible(False)
         c_lay.addWidget(self.typing_card)
 
-        # Fixed Bottom Input Bar
+        # Fixed Bottom Input Bar (agent-one Composer)
         bottom_box = QFrame()
         bottom_box.setObjectName("card")
         b_lay = QVBoxLayout(bottom_box)
-        b_lay.setContentsMargins(12, 10, 12, 10)
+        b_lay.setContentsMargins(14, 12, 14, 12)
         b_lay.setSpacing(8)
 
         input_row = QHBoxLayout()
-        input_row.setSpacing(8)
+        input_row.setSpacing(10)
         self.chat_input = QLineEdit()
-        self.chat_input.setPlaceholderText("💬 Ask anything! (e.g. 'What is an IC?', 'How do 555 timers oscillate?', or questions about manuals)...")
+        self.chat_input.setFixedHeight(40)
+        self.chat_input.setPlaceholderText("Ask anything about electronic components, circuits, or manuals...")
         self.chat_input.returnPressed.connect(self.win.send_chat_message)
         input_row.addWidget(self.chat_input, 1)
 
-        self.chat_speak_btn = button("🎤 Speak", slot=self.win.speak_chat)
+        self.chat_speak_btn = button("🎤 Speak", "secondary", slot=self.win.speak_chat)
+        self.chat_speak_btn.setFixedHeight(40)
         input_row.addWidget(self.chat_speak_btn)
 
-        self.chat_send_btn = button("Send", "primary", slot=self.win.send_chat_message)
-        self.chat_send_btn.setFixedWidth(80)
+        self.chat_send_btn = button("Send ↑", "primary", slot=self.win.send_chat_message)
+        self.chat_send_btn.setFixedHeight(40)
+        self.chat_send_btn.setMinimumWidth(94)
         input_row.addWidget(self.chat_send_btn)
         b_lay.addLayout(input_row)
 
@@ -2099,7 +2406,7 @@ class MainView:
     # =========================================================================
     def _build_library(self):
         page = QWidget()
-        page.setStyleSheet("background:transparent;")
+        # page.setStyleSheet("background:transparent;")
         lay = QVBoxLayout(page)
         lay.setContentsMargins(28, 20, 28, 24)
         lay.setSpacing(14)
@@ -2129,14 +2436,14 @@ class MainView:
         lay.addLayout(self.chip_bar)
 
         self.lib_stack = QStackedWidget()
-        self.lib_stack.setStyleSheet("background:transparent;")
+        # self.lib_stack.setStyleSheet("background:transparent;")
 
         self.cards_scroll = QScrollArea()
         self.cards_scroll.setWidgetResizable(True)
         self.cards_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.cards_scroll.setStyleSheet("background:transparent;")
+        # self.cards_scroll.setStyleSheet("background:transparent;")
         self.cards_container = QWidget()
-        self.cards_container.setStyleSheet("background:transparent;")
+        # self.cards_container.setStyleSheet("background:transparent;")
         self.cards_lay = QVBoxLayout(self.cards_container)
         self.cards_lay.setContentsMargins(0, 0, 0, 0)
         self.cards_lay.setSpacing(14)
@@ -2145,7 +2452,7 @@ class MainView:
         self.lib_stack.addWidget(self.cards_scroll)
 
         manuals_view = QWidget()
-        manuals_view.setStyleSheet("background:transparent;")
+        # manuals_view.setStyleSheet("background:transparent;")
         m_lay = QVBoxLayout(manuals_view)
         m_lay.setContentsMargins(0, 0, 0, 0)
         m_lay.setSpacing(10)
@@ -2174,7 +2481,7 @@ class MainView:
     # =========================================================================
     def _build_manual_help(self):
         page = QWidget()
-        page.setStyleSheet("background:transparent;")
+        # page.setStyleSheet("background:transparent;")
         lay = QVBoxLayout(page)
         lay.setContentsMargins(28, 20, 28, 24)
         lay.setSpacing(14)
@@ -2182,13 +2489,13 @@ class MainView:
         tabs = QTabWidget()
 
         guide_widget = QWidget()
-        guide_widget.setStyleSheet("background:transparent;")
+        # guide_widget.setStyleSheet("background:transparent;")
         g_scroll = QScrollArea()
         g_scroll.setWidgetResizable(True)
         g_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        g_scroll.setStyleSheet("background:transparent;")
+        # g_scroll.setStyleSheet("background:transparent;")
         g_content = QWidget()
-        g_content.setStyleSheet("background:transparent;")
+        # g_content.setStyleSheet("background:transparent;")
         g_lay = QVBoxLayout(g_content)
         g_lay.setContentsMargins(20, 16, 20, 20)
         g_lay.setSpacing(16)
@@ -2243,7 +2550,7 @@ class MainView:
 
         # Embedded Interactive PDF Manual Reader
         self.embedded_viewer_widget = QWidget()
-        self.embedded_viewer_widget.setStyleSheet("background:transparent;")
+        # self.embedded_viewer_widget.setStyleSheet("background:transparent;")
         ev_lay = QVBoxLayout(self.embedded_viewer_widget)
         ev_lay.setContentsMargins(10, 10, 10, 10)
         ev_lay.setSpacing(10)
