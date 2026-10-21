@@ -4,7 +4,7 @@ import time
 import random
 import cv2
 
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QPointF
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QPoint, QPointF
 from PyQt6.QtGui import (
     QAction, QImage, QPainter, QPixmap, QFont, QColor, QRadialGradient,
     QLinearGradient, QBrush, QPen
@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 import database as db
 import services.export as export_mod
 import services.components as comp_service
+import services.component_images as comp_img_service
 try:
     import pymupdf as fitz
 except ImportError:
@@ -1447,29 +1448,363 @@ class VoiceInputDialog(QDialog):
         super().closeEvent(event)
 
 
-class ImagePreviewDialog(QDialog):
-    """Full-size image dialog to inspect diagrams, schematics, and pinouts."""
-    def __init__(self, parent, image_path, title="Manual Illustration"):
+class ClickableImagePreview(QLabel):
+    """Clickable image preview label that displays smoothly and emits clicked(path)."""
+    clicked = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.image_path = None
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet("background: #040705; border: 1px solid #173822; border-radius: 12px;")
+        self.setToolTip("Click to open full-screen zoom & pan viewer")
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.image_path:
+            self.clicked.emit(self.image_path)
+        super().mousePressEvent(event)
+
+
+class InteractiveZoomCanvas(QWidget):
+    """High-performance smooth hardware canvas supporting mouse wheel zoom, pan drag,
+    and double-click toggle fit/200%."""
+    zoom_changed = pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMouseTracking(True)
+        self._pixmap = None
+        self._zoom = 1.0
+        self._pan = QPointF(0, 0)
+        self._is_dragging = False
+        self._last_mouse_pos = QPoint()
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        self.setStyleSheet("background: #040705; border-radius: 12px;")
+
+    def set_pixmap(self, pm_or_path):
+        if isinstance(pm_or_path, str):
+            self._pixmap = QPixmap(pm_or_path) if pm_or_path and os.path.isfile(pm_or_path) else None
+        else:
+            self._pixmap = pm_or_path
+        self.reset_zoom()
+
+    def reset_zoom(self):
+        if not self._pixmap or self._pixmap.isNull():
+            self._zoom = 1.0
+            self._pan = QPointF(0, 0)
+            self.update()
+            return
+
+        cw, ch = max(100, self.width()), max(100, self.height())
+        pw, ph = self._pixmap.width(), self._pixmap.height()
+        fit_zoom = min(cw / pw, ch / ph) * 0.96
+        self._zoom = max(0.05, fit_zoom)
+        self._pan = QPointF(0, 0)
+        self.zoom_changed.emit(int(self._zoom * 100))
+        self.update()
+
+    def zoom_by(self, factor):
+        self._zoom = max(0.08, min(12.0, self._zoom * factor))
+        self.zoom_changed.emit(int(self._zoom * 100))
+        self.update()
+
+    def set_zoom_level(self, zoom_val):
+        self._zoom = max(0.08, min(12.0, zoom_val))
+        self.zoom_changed.emit(int(self._zoom * 100))
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        p.fillRect(self.rect(), QColor("#040705"))
+
+        if not self._pixmap or self._pixmap.isNull():
+            p.setPen(QColor("#6B8273"))
+            p.setFont(QFont("Plus Jakarta Sans", 12))
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Image preview unavailable or failed to load.")
+            return
+
+        w = self._pixmap.width() * self._zoom
+        h = self._pixmap.height() * self._zoom
+        x = (self.width() - w) / 2.0 + self._pan.x()
+        y = (self.height() - h) / 2.0 + self._pan.y()
+        p.drawPixmap(int(x), int(y), int(w), int(h), self._pixmap)
+
+    def wheelEvent(self, event):
+        delta = event.angleDelta().y()
+        if delta > 0:
+            self.zoom_by(1.20)
+        elif delta < 0:
+            self.zoom_by(1.0 / 1.20)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._is_dragging = True
+            self._last_mouse_pos = event.pos()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+
+    def mouseMoveEvent(self, event):
+        if self._is_dragging:
+            delta = event.pos() - self._last_mouse_pos
+            self._pan += QPointF(delta.x(), delta.y())
+            self._last_mouse_pos = event.pos()
+            self.update()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._is_dragging = False
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+
+    def mouseDoubleClickEvent(self, event):
+        if self._zoom < 1.6:
+            self._zoom = 2.2
+            self._pan = QPointF(0, 0)
+        else:
+            self.reset_zoom()
+        self.zoom_changed.emit(int(self._zoom * 100))
+        self.update()
+
+
+class ZoomableLightboxDialog(QDialog):
+    """Full-screen interactive lightbox viewer with smooth zoom, pan, reset,
+    side-by-side comparison mode, and keyboard shortcuts (Esc to close, +/- to zoom)."""
+    def __init__(self, parent=None, image_path=None, title="Image Lightbox Viewer",
+                 compare_path=None, compare_title="Comparison Illustration"):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.resize(960, 720)
+        self.resize(1160, 820)
+        self.setMinimumSize(820, 600)
+
+        self.main_path = image_path
+        self.compare_path = compare_path
+        self.main_title = title
+        self.compare_title = compare_title
+        self.is_compare_mode = False
+
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(16, 16, 16, 16)
+        lay.setContentsMargins(18, 16, 18, 16)
         lay.setSpacing(12)
 
-        lbl = QLabel()
-        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl.setStyleSheet("background:#040705; border-radius:12px;")
-        pm = QPixmap(image_path) if image_path else QPixmap()
-        if not pm.isNull():
-            lbl.setPixmap(pm.scaled(920, 640, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-        else:
-            lbl.setText("Image could not be loaded.")
+        # Top Control Bar
+        top_bar = QHBoxLayout()
+        top_bar.setSpacing(10)
 
-        lay.addWidget(lbl, 1)
-        close_btn = button("Close", slot=self.accept)
-        close_btn.setFixedWidth(120)
-        lay.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.title_lbl = label(title, "h1", wrap=False)
+        top_bar.addWidget(self.title_lbl)
+        top_bar.addStretch()
+
+        # Zoom Controls
+        self.zoom_out_btn = button("－ Zoom Out", "secondary", slot=lambda: self.active_canvas.zoom_by(1.0 / 1.25))
+        self.zoom_in_btn = button("＋ Zoom In", "secondary", slot=lambda: self.active_canvas.zoom_by(1.25))
+        self.reset_btn = button("⟲ Reset (Fit)", "secondary", slot=self.reset_active_zoom)
+        self.zoom_badge = label("100%", "badgeOk", wrap=False)
+
+        top_bar.addWidget(self.zoom_out_btn)
+        top_bar.addWidget(self.zoom_badge)
+        top_bar.addWidget(self.zoom_in_btn)
+        top_bar.addWidget(self.reset_btn)
+
+        # Comparison Controls (if comparison image provided)
+        if self.compare_path and os.path.isfile(self.compare_path):
+            self.compare_btn = button("◫ Compare Side-by-Side", "secondary", slot=self.toggle_compare_mode)
+            top_bar.addWidget(self.compare_btn)
+
+        self.close_btn = button("✕ Close (Esc)", "primary", slot=self.accept)
+        self.close_btn.setMinimumWidth(110)
+        top_bar.addWidget(self.close_btn)
+        lay.addLayout(top_bar)
+
+        # Canvas Area (Stacked or Splitter)
+        self.canvas_container = QWidget()
+        self.c_container_lay = QHBoxLayout(self.canvas_container)
+        self.c_container_lay.setContentsMargins(0, 0, 0, 0)
+        self.c_container_lay.setSpacing(12)
+
+        # Left / Primary Canvas Card
+        self.c1_card = QFrame()
+        self.c1_card.setObjectName("card")
+        c1_lay = QVBoxLayout(self.c1_card)
+        c1_lay.setContentsMargins(8, 8, 8, 8)
+        c1_lay.setSpacing(6)
+        self.c1_badge = label(f"📷 {self.main_title}", "badgeOk", wrap=False)
+        c1_lay.addWidget(self.c1_badge)
+        self.canvas1 = InteractiveZoomCanvas(self)
+        self.canvas1.set_pixmap(self.main_path)
+        self.canvas1.zoom_changed.connect(lambda z: self.zoom_badge.setText(f"{z}%"))
+        c1_lay.addWidget(self.canvas1, 1)
+
+        # Right / Compare Canvas Card
+        self.c2_card = QFrame()
+        self.c2_card.setObjectName("card")
+        c2_lay = QVBoxLayout(self.c2_card)
+        c2_lay.setContentsMargins(8, 8, 8, 8)
+        c2_lay.setSpacing(6)
+        self.c2_badge = label(f"📘 {self.compare_title}", "badge", wrap=False)
+        c2_lay.addWidget(self.c2_badge)
+        self.canvas2 = InteractiveZoomCanvas(self)
+        self.canvas2.set_pixmap(self.compare_path)
+        c2_lay.addWidget(self.canvas2, 1)
+        self.c2_card.setVisible(False)
+
+        self.c_container_lay.addWidget(self.c1_card, 1)
+        self.c_container_lay.addWidget(self.c2_card, 1)
+        lay.addWidget(self.canvas_container, 1)
+
+        # Bottom Hint Bar
+        bot_bar = QHBoxLayout()
+        hint = label("💡 <i>Scroll mouse wheel to zoom · Click & drag to pan · Double-click to toggle 200% · Press Esc to exit</i>", "caption")
+        bot_bar.addWidget(hint)
+        bot_bar.addStretch()
+        lay.addLayout(bot_bar)
+
+        self.active_canvas = self.canvas1
+        QTimer.singleShot(60, self.canvas1.reset_zoom)
+
+    def reset_active_zoom(self):
+        self.canvas1.reset_zoom()
+        if self.canvas2.isVisible():
+            self.canvas2.reset_zoom()
+
+    def toggle_compare_mode(self):
+        self.is_compare_mode = not self.is_compare_mode
+        self.c2_card.setVisible(self.is_compare_mode)
+        self.compare_btn.setText("⬛ Single View" if self.is_compare_mode else "◫ Compare Side-by-Side")
+        QTimer.singleShot(50, lambda: (self.canvas1.reset_zoom(), self.canvas2.reset_zoom()))
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+        elif event.key() in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
+            self.active_canvas.zoom_by(1.25)
+        elif event.key() in (Qt.Key.Key_Minus, Qt.Key.Key_Underscore):
+            self.active_canvas.zoom_by(1.0 / 1.25)
+        elif event.key() == Qt.Key.Key_0:
+            self.reset_active_zoom()
+        elif event.key() == Qt.Key.Key_C and self.compare_path:
+            self.toggle_compare_mode()
+        else:
+            super().keyPressEvent(event)
+
+
+# Backward compatibility alias
+ImagePreviewDialog = ZoomableLightboxDialog
+
+
+class ManualPickerDialog(QDialog):
+    """Interactive modal dialog to select an active manual context or General Knowledge."""
+    def __init__(self, parent=None, active_manual_id=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select Manual Context")
+        self.resize(620, 540)
+        self.selected_manual_id = active_manual_id
+        self.win = parent
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(22, 20, 22, 20)
+        lay.setSpacing(14)
+
+        # Header
+        top_h = QHBoxLayout()
+        top_h.addWidget(label("📚 AI Assistant Manual Context", "h1"))
+        top_h.addStretch()
+        lay.addLayout(top_h)
+
+        sub = label(
+            "Choose which manual the AI Assistant should use to cite page numbers and diagrams, "
+            "or select General Knowledge for comprehensive electronics theory.", "subtitle"
+        )
+        lay.addWidget(sub)
+
+        # Search Bar
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("🔍 Filter manuals by name, model, or manufacturer...")
+        self.search_box.textChanged.connect(self._filter_items)
+        lay.addWidget(self.search_box)
+
+        # List Widget
+        self.list_widget = QListWidget()
+        self.list_widget.itemClicked.connect(self._on_item_clicked)
+        self.list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        lay.addWidget(self.list_widget, 1)
+
+        self._populate_list(active_manual_id)
+
+        # Bottom Button Row
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        upload_btn = button("➕ Upload New PDF...", "secondary", slot=self._upload_new)
+        btn_row.addWidget(upload_btn)
+
+        if active_manual_id:
+            clear_btn = button("✕ Clear Selection", "danger", slot=self._clear_selection)
+            btn_row.addWidget(clear_btn)
+
+        btn_row.addStretch()
+        cancel_btn = button("Cancel", slot=self.reject)
+        btn_row.addWidget(cancel_btn)
+
+        self.apply_btn = button("Apply Context", "primary", slot=self.accept)
+        btn_row.addWidget(self.apply_btn)
+        lay.addLayout(btn_row)
+
+    def _populate_list(self, active_manual_id):
+        self.list_widget.clear()
+
+        # Item 0: All Manuals / General Knowledge
+        is_all_active = (active_manual_id is None)
+        chk_all = "  ✓" if is_all_active else ""
+        item_all = QListWidgetItem(f"🌐 All Manuals / General Electronics Knowledge{chk_all}")
+        item_all.setData(Qt.ItemDataRole.UserRole, None)
+        item_all.setToolTip("Query across general electronics engineering theory and all uploaded manuals.")
+        if is_all_active:
+            item_all.setSelected(True)
+        self.list_widget.addItem(item_all)
+
+        manuals = db.list_manuals()
+        for m in manuals:
+            mid = m["id"]
+            mname = m["name"]
+            model = m.get("model") or "General"
+            maker = m.get("manufacturer") or "N/A"
+            pcount = m.get("page_count", 0)
+
+            is_active = (active_manual_id == mid)
+            chk = "  ✓ (ACTIVE)" if is_active else ""
+            txt = f"📘 {mname} · [{model}] {chk}\n    Manufacturer: {maker} | Pages: {pcount}"
+            item = QListWidgetItem(txt)
+            item.setData(Qt.ItemDataRole.UserRole, mid)
+            if is_active:
+                item.setSelected(True)
+            self.list_widget.addItem(item)
+
+    def _filter_items(self, text):
+        query = text.lower().strip()
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            mid = item.data(Qt.ItemDataRole.UserRole)
+            if mid is None:
+                item.setHidden(bool(query and "general" not in query and "all" not in query))
+            else:
+                item.setHidden(query not in item.text().lower())
+
+    def _on_item_clicked(self, item):
+        self.selected_manual_id = item.data(Qt.ItemDataRole.UserRole)
+
+    def _on_item_double_clicked(self, item):
+        self.selected_manual_id = item.data(Qt.ItemDataRole.UserRole)
+        self.accept()
+
+    def _clear_selection(self):
+        self.selected_manual_id = None
+        self.accept()
+
+    def _upload_new(self):
+        if self.win and hasattr(self.win, "add_manual"):
+            self.win.add_manual()
+            self._populate_list(self.selected_manual_id)
 
 
 class ImageViewerWidget(QLabel):
@@ -2118,6 +2453,47 @@ class ComponentCardWidget(QFrame):
             pin_lbl = label(comp_dict["pinout"], "codeBlock")
             d_lay.addWidget(pin_lbl)
 
+            # Visual Reference Gallery (Requirement 3: Real Photo, Pinout Diagram, Schematic Symbol)
+            d_lay.addWidget(label("🖼 COMPONENT VISUAL GALLERY (Click to Zoom & Inspect):", "h2", wrap=False))
+            self.gallery_box = QWidget()
+            self.gallery_widget = self.gallery_box
+            g_grid = QGridLayout(self.gallery_box)
+            g_grid.setContentsMargins(0, 4, 0, 8)
+            g_grid.setSpacing(12)
+
+            gallery_items = comp_img_service.get_component_gallery_images(comp_dict)
+            for idx, g_item in enumerate(gallery_items):
+                g_card = QFrame()
+                g_card.setObjectName("card")
+                g_card.setStyleSheet("background: rgba(10, 15, 12, 0.90); border: 1px solid rgba(0, 255, 133, 0.20); border-radius: 12px;")
+                gc_lay = QVBoxLayout(g_card)
+                gc_lay.setContentsMargins(10, 8, 10, 10)
+                gc_lay.setSpacing(6)
+
+                gh_row = QHBoxLayout()
+                gh_row.addWidget(label(g_item["title"], "badgeOk" if idx == 0 else "badge", wrap=False))
+                gh_row.addStretch()
+                exp_b = button("🔍 Zoom", "chip")
+                exp_b.setFixedHeight(24)
+                exp_b.clicked.connect(lambda _=False, ip=g_item["path"], it=f"{comp_dict.get('name')} · {g_item['title']}": ZoomableLightboxDialog(self.window(), ip, title=it).exec())
+                gh_row.addWidget(exp_b)
+                gc_lay.addLayout(gh_row)
+
+                thumb = ClickableImagePreview()
+                thumb.setFixedHeight(180)
+                thumb.image_path = g_item["path"]
+                if not show_image(thumb, g_item["path"], 360, 180):
+                    thumb.setText("⚠️ Visual illustration unavailable")
+                thumb.clicked.connect(lambda ip, it=f"{comp_dict.get('name')} · {g_item['title']}": ZoomableLightboxDialog(self.window(), ip, title=it).exec())
+                gc_lay.addWidget(thumb)
+
+                cap_l = label(g_item.get("caption", ""), "caption", align=Qt.AlignmentFlag.AlignCenter)
+                gc_lay.addWidget(cap_l)
+
+                g_grid.addWidget(g_card, idx // 3, idx % 3)
+
+            d_lay.addWidget(self.gallery_box)
+
         if comp_dict.get("key_specs"):
             d_lay.addWidget(label(f"⚡ <b>Key Specs:</b> {comp_dict['key_specs']}"))
 
@@ -2370,36 +2746,77 @@ class MainView:
 
         res_lay.addWidget(self.scanner_placeholder)
 
-        self.img_row = QHBoxLayout()
+        # Image View Header with Toggle (Side-by-side or Stacked)
+        self.dash_view_header = QWidget()
+        dvh_lay = QHBoxLayout(self.dash_view_header)
+        dvh_lay.setContentsMargins(0, 0, 0, 0)
+        dvh_lay.addWidget(label("VISUAL COMPARISON & INSPECTION", "h2", wrap=False))
+        dvh_lay.addStretch()
+        self.dash_layout_toggle_btn = button("☰ Stack Images (Large)", "secondary", slot=self.win.toggle_dash_images_layout)
+        self.dash_layout_toggle_btn.setFixedHeight(30)
+        dvh_lay.addWidget(self.dash_layout_toggle_btn)
+        res_lay.addWidget(self.dash_view_header)
+        self.dash_view_header.setVisible(False)
+
+        # Container for uploaded image and matched manual illustration
+        self.img_container = QWidget()
+        self.img_row = QHBoxLayout(self.img_container)
+        self.img_row.setContentsMargins(0, 0, 0, 0)
         self.img_row.setSpacing(16)
 
-        self.uploaded_box = QWidget()
+        # 1. Uploaded Component Image Card
+        self.uploaded_box = QFrame()
+        self.uploaded_box.setObjectName("card")
         up_lay = QVBoxLayout(self.uploaded_box)
-        up_lay.setContentsMargins(0, 0, 0, 0)
-        up_lay.setSpacing(4)
-        self.uploaded_caption = label("Uploaded Photo / Frame", "caption", align=Qt.AlignmentFlag.AlignCenter)
+        up_lay.setContentsMargins(14, 12, 14, 12)
+        up_lay.setSpacing(8)
+
+        up_head = QHBoxLayout()
+        up_head.addWidget(label("📷 Your Uploaded Photo", "badgeOk", wrap=False))
+        up_head.addStretch()
+        self.zoom_uploaded_btn = button("🔍 Expand & Zoom", "secondary", slot=self.win.open_dash_uploaded_lightbox)
+        self.zoom_uploaded_btn.setFixedHeight(28)
+        up_head.addWidget(self.zoom_uploaded_btn)
+        up_lay.addLayout(up_head)
+
+        self.uploaded_caption = label("Direct capture from camera/upload", "caption")
         up_lay.addWidget(self.uploaded_caption)
-        self.hw_image = label("", align=Qt.AlignmentFlag.AlignCenter)
-        self.hw_image.setStyleSheet("background:#040705; border:1px solid #173822; border-radius:12px;")
-        self.hw_image.setFixedHeight(220)
-        up_lay.addWidget(self.hw_image)
+
+        self.hw_image = ClickableImagePreview()
+        self.hw_image.setMinimumHeight(380)
+        self.hw_image.clicked.connect(lambda _: self.win.open_dash_uploaded_lightbox())
+        up_lay.addWidget(self.hw_image, 1)
+
         self.img_row.addWidget(self.uploaded_box, 1)
         self.uploaded_box.setVisible(False)
 
-        self.matched_box = QWidget()
+        # 2. Matched Manual Illustration Card
+        self.matched_box = QFrame()
+        self.matched_box.setObjectName("card")
         mat_lay = QVBoxLayout(self.matched_box)
-        mat_lay.setContentsMargins(0, 0, 0, 0)
-        mat_lay.setSpacing(4)
-        self.matched_caption = label("Matched Manual / Component Reference", "caption", align=Qt.AlignmentFlag.AlignCenter)
+        mat_lay.setContentsMargins(14, 12, 14, 12)
+        mat_lay.setSpacing(8)
+
+        mat_head = QHBoxLayout()
+        mat_head.addWidget(label("📘 Matched from Manual", "badge", wrap=False))
+        mat_head.addStretch()
+        self.zoom_matched_btn = button("🔍 Expand & Zoom", "secondary", slot=self.win.open_dash_matched_lightbox)
+        self.zoom_matched_btn.setFixedHeight(28)
+        mat_head.addWidget(self.zoom_matched_btn)
+        mat_lay.addLayout(mat_head)
+
+        self.matched_caption = label("Matched Manual / Component Reference", "caption")
         mat_lay.addWidget(self.matched_caption)
-        self.matched_hw_image = label("", align=Qt.AlignmentFlag.AlignCenter)
-        self.matched_hw_image.setStyleSheet("background:#040705; border:1px solid #173822; border-radius:12px;")
-        self.matched_hw_image.setFixedHeight(220)
-        mat_lay.addWidget(self.matched_hw_image)
+
+        self.matched_hw_image = ClickableImagePreview()
+        self.matched_hw_image.setMinimumHeight(380)
+        self.matched_hw_image.clicked.connect(lambda _: self.win.open_dash_matched_lightbox())
+        mat_lay.addWidget(self.matched_hw_image, 1)
+
         self.img_row.addWidget(self.matched_box, 1)
         self.matched_box.setVisible(False)
 
-        res_lay.addLayout(self.img_row)
+        res_lay.addWidget(self.img_container)
 
         specs_box = QWidget()
         specs_grid = QGridLayout(specs_box)
@@ -2621,7 +3038,7 @@ class MainView:
         composer_actions_row = QHBoxLayout()
         composer_actions_row.setSpacing(8)
 
-        self.chat_manual_selector_btn = button("📚 Manual: All / General Knowledge ▼", "secondary", slot=self.win.show_chat_manual_menu)
+        self.chat_manual_selector_btn = button("📚 Select a manual ▼", "secondary", slot=self.win.show_chat_manual_menu)
         self.chat_manual_selector_btn.setFixedHeight(34)
         composer_actions_row.addWidget(self.chat_manual_selector_btn)
 

@@ -4,10 +4,10 @@ import json
 import traceback
 import cv2
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QPoint, QPointF
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QDialog, QFileDialog, QFrame, QGridLayout,
-    QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMessageBox, QVBoxLayout,
+    QApplication, QBoxLayout, QCheckBox, QDialog, QFileDialog, QFrame, QGridLayout,
+    QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMenu, QMessageBox, QVBoxLayout,
     QWidget
 )
 
@@ -18,11 +18,13 @@ import services.rag as rag
 import services.voice as voice
 import services.export as export_mod
 import services.components as comp_service
+import services.component_images as comp_img_service
 import services.llm as llm_service
 from config import AppError
 from ui.view import (
     MainView, QuestionCard, MetaDialog, SettingsDialog, CameraDialog,
-    ImagePreviewDialog, VoiceInputDialog, UserManualDialog, ChatMessageWidget,
+    ImagePreviewDialog, ZoomableLightboxDialog, ManualPickerDialog, ClickableImagePreview,
+    VoiceInputDialog, UserManualDialog, ChatMessageWidget,
     ComponentCardWidget, DARK_STYLE, LIGHT_STYLE, show_image, label, button
 )
 try:
@@ -124,6 +126,12 @@ class MainWindow(QWidget):
         self.matched_box = self.view.matched_box
         self.matched_caption = self.view.matched_caption
         self.matched_hw_image = self.view.matched_hw_image
+        self.dash_view_header = getattr(self.view, "dash_view_header", None)
+        self.dash_layout_toggle_btn = getattr(self.view, "dash_layout_toggle_btn", None)
+        self.img_container = getattr(self.view, "img_container", None)
+        self.zoom_uploaded_btn = getattr(self.view, "zoom_uploaded_btn", None)
+        self.zoom_matched_btn = getattr(self.view, "zoom_matched_btn", None)
+        self.is_dash_stacked = False
 
         # Chat elements
         self.chat_sidebar = self.view.chat_sidebar
@@ -182,9 +190,9 @@ class MainWindow(QWidget):
 
         # Initialize Data & Active Manual
         manuals = db.list_manuals()
+        self.manual_id = None
         if manuals:
-            self.manual_id = manuals[0]["id"]
-            self.ev_load_manual(self.manual_id)
+            self.ev_load_manual(manuals[0]["id"])
 
         self.refresh_recent_scans()
         self.filter_library_cards()
@@ -325,6 +333,72 @@ class MainWindow(QWidget):
         self.run_task(lambda cb: manual_mod.analyze_video(path, cb), self.show_hardware,
                       "Analyzing video frames...")
 
+    def toggle_dash_images_layout(self):
+        """Toggle dashboard comparison layout between Side-by-Side and Vertical Stack."""
+        if not hasattr(self.view, "img_row"):
+            return
+        self.is_dash_stacked = not getattr(self, "is_dash_stacked", False)
+        if self.is_dash_stacked:
+            self.view.img_row.setDirection(QBoxLayout.Direction.TopToBottom)
+            self.hw_image.setMinimumHeight(420)
+            self.matched_hw_image.setMinimumHeight(420)
+            if self.dash_layout_toggle_btn:
+                self.dash_layout_toggle_btn.setText("⚏ Side-by-Side View")
+        else:
+            self.view.img_row.setDirection(QBoxLayout.Direction.LeftToRight)
+            self.hw_image.setMinimumHeight(380)
+            self.matched_hw_image.setMinimumHeight(380)
+            if self.dash_layout_toggle_btn:
+                self.dash_layout_toggle_btn.setText("☰ Stack Images (Large)")
+
+        # Re-render active images to match new dimensions
+        res = getattr(self, "hw_result", None)
+        if res:
+            w = 800 if self.is_dash_stacked else 560
+            h = 420 if self.is_dash_stacked else 380
+            preview = res.get("preview")
+            comp_img = getattr(self.matched_hw_image, "image_path", None)
+            if preview and os.path.isfile(preview):
+                show_image(self.hw_image, preview, w, h)
+            if comp_img and os.path.isfile(comp_img):
+                show_image(self.matched_hw_image, comp_img, w, h)
+
+    def open_dash_uploaded_lightbox(self):
+        """Open full-screen interactive lightbox for uploaded hardware photo."""
+        img_path = getattr(self.hw_image, "image_path", None)
+        if not img_path or not os.path.isfile(img_path):
+            QMessageBox.information(self, "Image Viewer", "No uploaded image available to view.")
+            return
+        comp_img = getattr(self.matched_hw_image, "image_path", None)
+        if comp_img and not os.path.isfile(comp_img):
+            comp_img = None
+        dlg = ZoomableLightboxDialog(
+            self,
+            img_path,
+            title="Your Uploaded Photo",
+            compare_path=comp_img,
+            compare_title="Matched Manual Illustration" if comp_img else None
+        )
+        dlg.exec()
+
+    def open_dash_matched_lightbox(self):
+        """Open full-screen interactive lightbox for matched manual illustration."""
+        img_path = getattr(self.matched_hw_image, "image_path", None)
+        if not img_path or not os.path.isfile(img_path):
+            QMessageBox.information(self, "Image Viewer", "No matched manual image available to view.")
+            return
+        up_img = getattr(self.hw_image, "image_path", None)
+        if up_img and not os.path.isfile(up_img):
+            up_img = None
+        dlg = ZoomableLightboxDialog(
+            self,
+            img_path,
+            title="Matched Manual Illustration",
+            compare_path=up_img,
+            compare_title="Your Uploaded Photo" if up_img else None
+        )
+        dlg.exec()
+
     # ---- Hardware & Component Result -----------------------------------------
     def show_hardware(self, res):
         """Display component identification findings and save to recent activity."""
@@ -333,11 +407,21 @@ class MainWindow(QWidget):
         match_info = res.get("match_info") or {}
         source = match_info.get("source")
         matched_img = match_info.get("matched_image_path")
+        preview_path = res.get("preview")
+
+        self.hw_image.image_path = preview_path
+        self.matched_hw_image.image_path = matched_img if (matched_img and os.path.isfile(matched_img)) else None
+
+        if hasattr(self, "dash_view_header") and self.dash_view_header:
+            self.dash_view_header.setVisible(True)
 
         if hasattr(self.view, "scanner_placeholder"):
             self.view.scanner_placeholder.setVisible(False)
         self.uploaded_box.setVisible(True)
         self.dash_match_badge.setText("Component Identified")
+
+        w = 800 if getattr(self, "is_dash_stacked", False) else 560
+        h = 420 if getattr(self, "is_dash_stacked", False) else 380
 
         if source in ("visual_image", "visual_image_similar") and matched_img and os.path.isfile(matched_img):
             pno = match_info.get("page", "")
@@ -345,12 +429,13 @@ class MainWindow(QWidget):
             self.uploaded_caption.setVisible(True)
             self.matched_caption.setText(f"Matched Manual Illustration (Page {pno} · {pct}% Match)")
             self.matched_box.setVisible(True)
-            show_image(self.hw_image, res["preview"], 380, 220)
-            show_image(self.matched_hw_image, matched_img, 380, 220)
+            if preview_path and os.path.isfile(preview_path):
+                show_image(self.hw_image, preview_path, w, h)
+            show_image(self.matched_hw_image, matched_img, w, h)
         else:
             self.matched_box.setVisible(False)
             self.uploaded_caption.setVisible(False)
-            if not show_image(self.hw_image, res["preview"], 760, 220):
+            if not preview_path or not os.path.isfile(preview_path) or not show_image(self.hw_image, preview_path, 800, 380):
                 self.hw_image.setText("(image preview unavailable)")
 
         for k, lbl in self.hw_values.items():
@@ -471,7 +556,11 @@ class MainWindow(QWidget):
         self.hw_values["product_name"].setText(name)
         self.hw_values["hardware_type"].setText(cat)
         if img_path and os.path.isfile(img_path):
-            show_image(self.hw_image, img_path, 760, 220)
+            self.hw_image.image_path = img_path
+            show_image(self.hw_image, img_path, 800, 380)
+            self.uploaded_box.setVisible(True)
+            if hasattr(self.view, "scanner_placeholder"):
+                self.view.scanner_placeholder.setVisible(False)
 
         comp_match = comp_service.find_component_match(name)
         if comp_match:
@@ -682,35 +771,10 @@ class MainWindow(QWidget):
         self.chat_thread_lay.insertWidget(0, welcome_card)
 
     def show_chat_manual_menu(self):
-        """Display popup menu to select an active manual or return to general knowledge."""
-        menu = QMenu(self.chat_manual_selector_btn)
-
-        act_all = menu.addAction("🌐 All / General Knowledge (No manual filter)")
-        act_all.triggered.connect(lambda: self.set_chat_manual(None))
-        menu.addSeparator()
-
-        manuals = db.list_manuals()
-        if manuals:
-            for m in manuals:
-                mid = m["id"]
-                mname = m["name"]
-                m_model = f" ({m['model']})" if m.get("model") else ""
-                check = " ✓" if self.manual_id == mid else ""
-                act = menu.addAction(f"📘 {mname}{m_model}{check}")
-                act.triggered.connect(lambda _=False, mid_val=mid: self.set_chat_manual(mid_val))
-            menu.addSeparator()
-
-        act_import = menu.addAction("➕ Upload New Manual PDF...")
-        act_import.triggered.connect(self.add_manual)
-
-        if self.manual_id:
-            menu.addSeparator()
-            act_view = menu.addAction("📖 View Currently Selected Manual...")
-            act_view.triggered.connect(self.view_current_manual)
-            act_clear = menu.addAction("❌ Clear Manual Filter (Back to General Knowledge)")
-            act_clear.triggered.connect(lambda: self.set_chat_manual(None))
-
-        menu.exec(self.chat_manual_selector_btn.mapToGlobal(QPointF(0, self.chat_manual_selector_btn.height()).toPoint()))
+        """Display modal manual picker dialog to select an active manual or return to general knowledge."""
+        dlg = ManualPickerDialog(self, active_manual_id=self.manual_id)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.set_chat_manual(dlg.selected_manual_id)
 
     def set_chat_manual(self, manual_id):
         """Set the active manual for the current conversation and persist to DB."""
@@ -728,12 +792,12 @@ class MainWindow(QWidget):
             m = db.get_manual(self.manual_id)
             mname = m["name"] if m else f"Manual #{self.manual_id}"
             short_name = mname if len(mname) <= 24 else mname[:21] + "..."
-            self.chat_manual_selector_btn.setText(f"📘 Manual: {short_name} ▼")
+            self.chat_manual_selector_btn.setText(f"📘 {short_name} ▼")
             self.chat_view_manual_btn.setVisible(True)
             self.chat_clear_manual_btn.setVisible(True)
             self.chat_manual_badge.setText(f"💬 Assistant ({provider}) · {mname}")
         else:
-            self.chat_manual_selector_btn.setText("📚 Manual: All / General Knowledge ▼")
+            self.chat_manual_selector_btn.setText("📚 Select a manual ▼")
             self.chat_view_manual_btn.setVisible(False)
             self.chat_clear_manual_btn.setVisible(False)
             self.chat_manual_badge.setText(f"💬 Electronics & Manuals Assistant ({provider})")

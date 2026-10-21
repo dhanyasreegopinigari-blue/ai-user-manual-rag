@@ -68,20 +68,25 @@ class TestNewUpgrades(unittest.TestCase):
     def test_manual_selector_below_composer(self):
         btn = self.win.chat_manual_selector_btn
         self.assertIsNotNone(btn)
-        self.assertIn("Manual", btn.text())
+
+        # Clear back to general knowledge (no manual selected)
+        self.win.clear_chat_manual()
+        self.assertIsNone(self.win.manual_id)
+        self.assertIn("Select a manual", btn.text())
+        self.assertTrue(self.win.chat_view_manual_btn.isHidden())
+        self.assertTrue(self.win.chat_clear_manual_btn.isHidden())
 
         # Select manual 1
         self.win.set_chat_manual(1)
         self.assertEqual(self.win.manual_id, 1)
+        self.assertIn("▼", btn.text())
         self.assertFalse(self.win.chat_view_manual_btn.isHidden())
         self.assertFalse(self.win.chat_clear_manual_btn.isHidden())
 
-        # Clear back to general knowledge
+        # Clear again
         self.win.clear_chat_manual()
         self.assertIsNone(self.win.manual_id)
-        self.assertIn("All / General Knowledge", btn.text())
-        self.assertTrue(self.win.chat_view_manual_btn.isHidden())
-        self.assertTrue(self.win.chat_clear_manual_btn.isHidden())
+        self.assertIn("Select a manual", btn.text())
 
     def test_manual_selector_persists_to_conversation(self):
         cid = db.create_conversation(manual_id=None, title="Test Scoped Chat")
@@ -142,6 +147,57 @@ class TestNewUpgrades(unittest.TestCase):
         self.assertTrue(self.win.view.scanner_placeholder.isHidden())
         self.assertFalse(self.win.uploaded_box.isHidden())
         self.assertEqual(self.win.dash_match_badge.text(), "Component Identified")
+
+    # 6. Dashboard Zoom & Stacking
+    def test_dashboard_large_images_and_layout_toggle(self):
+        # Images must have minimum height >= 380px
+        self.assertGreaterEqual(self.win.hw_image.minimumHeight(), 380)
+        self.assertGreaterEqual(self.win.matched_hw_image.minimumHeight(), 380)
+
+        # Stacking toggle
+        initial_stacked = getattr(self.win, "is_dash_stacked", False)
+        self.win.toggle_dash_images_layout()
+        self.assertNotEqual(initial_stacked, self.win.is_dash_stacked)
+        # Toggle back
+        self.win.toggle_dash_images_layout()
+        self.assertEqual(initial_stacked, self.win.is_dash_stacked)
+
+    # 7. ManualPickerDialog
+    def test_manual_picker_dialog(self):
+        from ui.view import ManualPickerDialog
+        dlg = ManualPickerDialog(self.win, active_manual_id=None)
+        self.assertGreater(dlg.list_widget.count(), 0)
+        # First item is General Knowledge
+        first_item = dlg.list_widget.item(0)
+        self.assertIn("General", first_item.text())
+        # Filter test
+        dlg.search_box.setText("NonExistentXYZManualFilter")
+        visible_count = sum(not dlg.list_widget.isRowHidden(i) for i in range(dlg.list_widget.count()))
+        self.assertEqual(visible_count, 0)
+        dlg.search_box.clear()
+        visible_count = sum(not dlg.list_widget.isRowHidden(i) for i in range(dlg.list_widget.count()))
+        self.assertGreater(visible_count, 0)
+        dlg.close()
+
+    # 8. Component Library Gallery & Images
+    def test_component_library_gallery_assets(self):
+        import services.component_images as comp_img_service
+        from ui.view import ComponentCardWidget
+        import services.components as comp_service
+        comps = comp_service.get_all_components()
+        self.assertGreater(len(comps), 0)
+        first_comp = comps[0]
+
+        # Ensure assets are generated
+        gallery = comp_img_service.get_component_gallery_images(first_comp["id"])
+        self.assertGreaterEqual(len(gallery), 3)
+        for item in gallery:
+            self.assertTrue(os.path.isfile(item["path"]), f"Missing asset at {item['path']}")
+
+        # Widget should render gallery items
+        card = ComponentCardWidget(first_comp)
+        self.assertIsNotNone(card.gallery_box)
+        self.assertFalse(card.gallery_box.isHidden())
 
 
 if __name__ == "__main__":
