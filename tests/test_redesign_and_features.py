@@ -43,14 +43,14 @@ class TestRedesignAndFeatures(unittest.TestCase):
         # 1. Test get all categories
         cats = comp_service.get_categories()
         self.assertIn("All", cats)
-        self.assertIn("Integrated Circuits", cats)
+        self.assertIn("ICs", cats)
         self.assertIn("Microcontrollers", cats)
         self.assertIn("Sensors", cats)
 
         # 2. Test filter by category
-        ics = comp_service.filter_components(category="Integrated Circuits")
+        ics = comp_service.filter_components(category="ICs")
         self.assertGreater(len(ics), 0)
-        self.assertTrue(all(c["category"] == "Integrated Circuits" for c in ics))
+        self.assertTrue(all(c["category"] == "ICs" for c in ics))
 
         # 3. Test filter by search query
         res = comp_service.filter_components(search_query="555")

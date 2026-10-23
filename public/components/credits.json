@@ -1,0 +1,301 @@
+{
+  "ne555": {
+    "photo": {
+      "title": "NE555 DIP-8 & SOIC Timer ICs",
+      "author": "Swift.Hg",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:NE555_DIP_%26_SOIC.jpg",
+      "local_file": "ne555/photo.png"
+    },
+    "pinout": {
+      "title": "NE555 Standard 8-Pin DIP Pinout",
+      "author": "Inductiveload",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:555_Pinout.svg",
+      "local_file": "ne555/pinout.png"
+    },
+    "schematic": {
+      "title": "NE555 Internal Block & Schematic Symbol",
+      "author": "Rob Kam",
+      "license": "CC BY 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:555_schematic_symbol.svg",
+      "local_file": "ne555/schematic.png"
+    }
+  },
+  "atmega328p": {
+    "photo": {
+      "title": "ATmega328P-PU 28-Pin DIP Microcontroller",
+      "author": "oomlout",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:ATMEGA328P-PU.jpg",
+      "local_file": "atmega328p/photo.png"
+    },
+    "pinout": {
+      "title": "ATmega328P Pin Mapping & Arduino Labels",
+      "author": "Cmglee (Wikimedia Commons)",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Atmega328-pinout.svg",
+      "local_file": "atmega328p/pinout.png"
+    },
+    "schematic": {
+      "title": "ATmega328P Architecture & Logic Symbol",
+      "author": "CCDBarcodeScanner",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:ATMEGA328P.jpg",
+      "local_file": "atmega328p/schematic.png"
+    }
+  },
+  "esp32": {
+    "photo": {
+      "title": "ESP-WROOM-32 Wi-Fi & Bluetooth Module",
+      "author": "Edwiyanto",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:ESP32.jpg",
+      "local_file": "esp32/photo.png"
+    },
+    "pinout": {
+      "title": "ESP32 GPIO & Peripheral Pin Diagram",
+      "author": "Ubahnverleih",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:ESP32_on_Lolin32_Lite_clone_board.jpg",
+      "local_file": "esp32/pinout.png"
+    },
+    "schematic": {
+      "title": "ESP32 Module Circuit & RF Layout",
+      "author": "Ubahnverleih",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:ESP32_on_Lolin32_Lite_clone_board_cropped.jpg",
+      "local_file": "esp32/schematic.png"
+    }
+  },
+  "lm7805": {
+    "photo": {
+      "title": "78xx Voltage Regulator TO-220 Package",
+      "author": "Retired electrician",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:7809_(OnSemi)_01.jpg",
+      "local_file": "lm7805/photo.png"
+    },
+    "pinout": {
+      "title": "LM7805 Input / Ground / Output Pinout",
+      "author": "Retired electrician",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:7809_(OnSemi)_02.jpg",
+      "local_file": "lm7805/pinout.png"
+    },
+    "schematic": {
+      "title": "LM7805 Voltage Regulator Application Circuit",
+      "author": "Raimond Spekking",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:D-Link_DES-1024R%2B_-_power_supply_unit_-_STMicroelectronics_L7812CV-92032.jpg",
+      "local_file": "lm7805/schematic.png"
+    }
+  },
+  "2n2222": {
+    "photo": {
+      "title": "2N2222 NPN BJT Transistor TO-92 Package",
+      "author": "Mister rf",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2N2222.jpg",
+      "local_file": "2n2222/photo.png"
+    },
+    "pinout": {
+      "title": "2N2222 E-B-C Pin Configuration",
+      "author": "Mister rf",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:ITT_Semiconductors_2N2222.jpg",
+      "local_file": "2n2222/pinout.png"
+    },
+    "schematic": {
+      "title": "NPN Bipolar Junction Transistor Symbol",
+      "author": "Mister rf",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:IPRS_BANEASA_2N2222.jpg",
+      "local_file": "2n2222/schematic.png"
+    }
+  },
+  "1n4007": {
+    "photo": {
+      "title": "1N4007 Silicon Rectifier Diode (DO-41)",
+      "author": "Zxelt",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Diode_1N4007.jpg",
+      "local_file": "1n4007/photo.png"
+    },
+    "pinout": {
+      "title": "1N4007 Cathode Silver Band & Anode Polarity",
+      "author": "Nevit Dilmen (talk)",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:1N4007_Diode_1480378_79_80_HDR_Enhancer_cr.jpg",
+      "local_file": "1n4007/pinout.png"
+    },
+    "schematic": {
+      "title": "Rectifier Diode Standard Circuit Symbol",
+      "author": "Cepheiden",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Dioden-Kennlinie_1N4001.svg",
+      "local_file": "1n4007/schematic.png"
+    }
+  },
+  "lm358": {
+    "photo": {
+      "title": "Texas Instruments LM358 Dual Op-Amp IC",
+      "author": "Mikhail Svarichevsky",
+      "license": "CC BY 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Ti-LM358-HD.jpg",
+      "local_file": "lm358/photo.png"
+    },
+    "pinout": {
+      "title": "LM358 Dual Op-Amp Pin Connections",
+      "author": "Wikimedia Commons",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:LM358_dual_opamp_pinout.png",
+      "local_file": "lm358/pinout.png"
+    },
+    "schematic": {
+      "title": "Dual Operational Amplifier Circuit Symbol",
+      "author": "Raimond Spekking",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Nedap_ESD1_-_Keyboard_controller_PCB_-_Philips_LM358D-8584.jpg",
+      "local_file": "lm358/schematic.png"
+    }
+  },
+  "resistor_guide": {
+    "photo": {
+      "title": "Defective (burnt) resistor - cross-section (14292860860)",
+      "author": "Mercado Viagens from Brasil",
+      "license": "CC BY 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Defective_(burnt)_resistor_-_cross-section_(14292860860).jpg",
+      "local_file": "resistor_guide/photo.png"
+    },
+    "pinout": {
+      "title": "Resistor 4-Band & 5-Band Color Code Chart",
+      "author": "Knarfili",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Resistor_Color_Code.svg",
+      "local_file": "resistor_guide/pinout.png"
+    },
+    "schematic": {
+      "title": "Standard IEEE & IEC Resistor Circuit Symbols",
+      "author": "K. Bolino (Kbolino)",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Resistor_symbol_America.svg",
+      "local_file": "resistor_guide/schematic.png"
+    }
+  },
+  "capacitor_guide": {
+    "photo": {
+      "title": "CHEMI-CON Aluminum Electrolytic Capacitor KZH series",
+      "author": "Zhao JingC",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:CHEMI-CON_Aluminum_Electrolytic_Capacitor_KZH_series.jpg",
+      "local_file": "capacitor_guide/photo.png"
+    },
+    "pinout": {
+      "title": "Frequency receiver development for the SATCOM signal analyzer (IA frequencyreceive00scho).pdf",
+      "author": "Schone, Carl L.;Ohlson, John E.",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Frequency_receiver_development_for_the_SATCOM_signal_analyzer_(IA_frequencyreceive00scho).pdf",
+      "local_file": "capacitor_guide/pinout.png"
+    },
+    "schematic": {
+      "title": "Polarized vs Non-Polarized Capacitor Symbols",
+      "author": "odder",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Capacitor_symbol.svg",
+      "local_file": "capacitor_guide/schematic.png"
+    }
+  },
+  "hcsr04": {
+    "photo": {
+      "title": "HC SR04 Ultrasonic Module",
+      "author": "Suyash Dwivedi",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:HC_SR04_Ultrasonic_Module.jpg",
+      "local_file": "hcsr04/photo.png"
+    },
+    "pinout": {
+      "title": "Design and implementation of a collision avoidance system for the NPS Autonomous Underwater Vehicle (AUV II) utilizing ultrasonic sensors. (IA designimplementa00floy).pdf",
+      "author": "Floyd, Charles Alan.;Kanayama, Yutaka.",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Design_and_implementation_of_a_collision_avoidance_system_for_the_NPS_Autonomous_Underwater_Vehicle_(AUV_II)_utilizing_ultrasonic_sensors._(IA_designimplementa00floy).pdf",
+      "local_file": "hcsr04/pinout.png"
+    },
+    "schematic": {
+      "title": "Sonar Principle EU",
+      "author": "Xabi22",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Sonar_Principle_EU.svg",
+      "local_file": "hcsr04/schematic.png"
+    }
+  },
+  "1n4148": {
+    "photo": {
+      "title": "1N4148 Small Signal Fast Switching Diode",
+      "author": "Vonvon",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Diode_1n4148.jpg",
+      "local_file": "1n4148/photo.png"
+    },
+    "pinout": {
+      "title": "Diode Cathode Black Band & Anode Polarity",
+      "author": "Wikimedia Commons",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:1N4007_Diode_1480378_79_80_HDR_Enhancer_cr.jpg",
+      "local_file": "1n4148/pinout.png"
+    },
+    "schematic": {
+      "title": "Diode Standard Circuit Symbol",
+      "author": "Cepheiden",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Dioden-Kennlinie_1N4001.svg",
+      "local_file": "1n4148/schematic.png"
+    }
+  },
+  "dht11": {
+    "photo": {
+      "title": "DHT11 Humidity & Temperature Sensor Module",
+      "author": "Edwiyanto",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Dht11.jpg",
+      "local_file": "dht11/photo.png"
+    },
+    "pinout": {
+      "title": "DHT11 Pinout Diagram (VCC, DATA, NC, GND)",
+      "author": "Edwiyanto",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Dht11.jpg",
+      "local_file": "dht11/pinout.png"
+    },
+    "schematic": {
+      "title": "DHT11 Pull-up Resistor Circuit Diagram",
+      "author": "Edwiyanto",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Arduino_uno_dht11.jpg",
+      "local_file": "dht11/schematic.png"
+    }
+  },
+  "arduino_uno": {
+    "photo": {
+      "title": "Arduino Uno R3 Development Board",
+      "author": "SparkFun Electronics from Boulder, USA",
+      "license": "CC BY 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Arduino_Uno_-_R3.jpg",
+      "local_file": "arduino_uno/photo.png"
+    },
+    "pinout": {
+      "title": "Arduino Uno Pinout & Headers Mapping",
+      "author": "Cmglee (Wikimedia Commons)",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Atmega328-pinout.svg",
+      "local_file": "arduino_uno/pinout.png"
+    },
+    "schematic": {
+      "title": "Arduino Uno R3 Reference Schematic & Logic Diagram",
+      "author": "Arduino LLC",
+      "license": "Creative Commons CC BY-SA",
+      "source": "https://commons.wikimedia.org/wiki/File:Arduino_Uno_-_R3.jpg",
+      "local_file": "arduino_uno/schematic.png"
+    }
+  }
+}

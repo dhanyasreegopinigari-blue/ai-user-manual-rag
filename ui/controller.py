@@ -11,7 +11,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtWidgets import (
     QInputDialog,
     QApplication, QCheckBox, QDialog, QFileDialog, QFrame, QGridLayout,
-    QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMessageBox, QVBoxLayout,
+    QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QVBoxLayout,
     QWidget
 )
 
@@ -76,6 +76,9 @@ class MainWindow(QWidget):
         self.hw_result = None
         self.is_dark_theme = True
         self.active_category = "All"
+        self.active_package_filter = "All Packages"
+        self.active_pin_filter = "All Pins"
+        self.active_sort = "Name (A-Z)" 
 
         # Embedded Manual Viewer state (Page 4)
         self.ev_doc = None
@@ -137,8 +140,8 @@ class MainWindow(QWidget):
 
         # Library elements
         self.lib_search = self.view.lib_search
-        self.lib_list = self.view.lib_list
-        self.lib_empty = self.view.lib_empty
+        self.lib_list = getattr(self.view, 'lib_list', None) or QListWidget()
+        self.lib_empty = getattr(self.view, 'lib_empty', None) or QLabel()
         self.cards_lay = self.view.cards_lay
 
         # Backward compatibility compatibility slots for old viewer/ask tests
@@ -638,43 +641,131 @@ class MainWindow(QWidget):
             for s in scans:
                 db.delete_component_scan(s["id"])
             self.refresh_recent_scans()
+        self.setup_library_filters()
+        self.filter_library_cards()
 
     # ---- Component Library Management ----------------------------------------
-    def on_category_chip_clicked(self, category):
-        self.active_category = category
-        for cat, btn in self.view.chip_buttons:
-            is_active = (cat == category)
-            btn.setProperty("kind", "chipActive" if is_active else "chip")
+    def setup_library_filters(self):
+        menu = getattr(self.view, 'lib_filter_menu', None)
+        if not menu:
+            return
+        menu.clear()
+
+        # Sort Submenu
+        sort_menu = menu.addMenu("Sort By")
+        for s in ["Name (A-Z)", "Name (Z-A)", "Category"]:
+            act = sort_menu.addAction(s)
+            act.setCheckable(True)
+            act.setChecked(getattr(self, 'active_sort', 'Name (A-Z)') == s)
+            act.triggered.connect(lambda _=False, val=s: self.set_sort_filter(val))
+
+        menu.addSeparator()
+
+        # Package Submenu
+        pkg_menu = menu.addMenu("Package Type")
+        for p in comp_service.get_package_types():
+            act = pkg_menu.addAction(p)
+            act.setCheckable(True)
+            act.setChecked(getattr(self, 'active_package_filter', 'All Packages') == p)
+            act.triggered.connect(lambda _=False, val=p: self.set_package_filter(val))
+
+        # Pin Count Submenu
+        pins_menu = menu.addMenu("Pin Count")
+        for pc in ["All Pins", "2-3 Pins", "4-8 Pins", "14+ Pins"]:
+            act = pins_menu.addAction(pc)
+            act.setCheckable(True)
+            act.setChecked(getattr(self, 'active_pin_filter', 'All Pins') == pc)
+            act.triggered.connect(lambda _=False, val=pc: self.set_pin_filter(val))
+
+        menu.addSeparator()
+        reset_act = menu.addAction("Reset All Filters")
+        reset_act.triggered.connect(self.reset_all_library_filters)
+
+    def set_sort_filter(self, val):
+        self.active_sort = val
+        self.setup_library_filters()
+        self.filter_library_cards()
+
+    def set_package_filter(self, val):
+        self.active_package_filter = val
+        self.setup_library_filters()
+        self.filter_library_cards()
+
+    def set_pin_filter(self, val):
+        self.active_pin_filter = val
+        self.setup_library_filters()
+        self.filter_library_cards()
+
+    def reset_all_library_filters(self):
+        self.active_category = "All"
+        self.active_package_filter = "All Packages"
+        self.active_pin_filter = "All Pins"
+        self.active_sort = "Name (A-Z)"
+        if hasattr(self.view, 'lib_search'):
+            self.view.lib_search.clear()
+        for cat, btn in getattr(self.view, 'chip_buttons', []):
+            is_active = (cat == "All")
+            btn.setProperty("kind", "catPillActive" if is_active else "catPill")
             btn.style().unpolish(btn)
             btn.style().polish(btn)
+        self.setup_library_filters()
+        self.filter_library_cards()
 
-        if category == "Hardware Manuals":
-            self.view.lib_stack.setCurrentIndex(1)
-            self.refresh_library()
-        else:
-            self.view.lib_stack.setCurrentIndex(0)
-            self.filter_library_cards()
+    def on_category_chip_clicked(self, category):
+        self.active_category = category
+        for cat, btn in getattr(self.view, 'chip_buttons', []):
+            is_active = (cat == category)
+            btn.setProperty("kind", "catPillActive" if is_active else "catPill")
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+        self.filter_library_cards()
 
     def filter_library_cards(self):
-        """Dynamically render component cards based on category and search query."""
-        search_q = self.lib_search.text().strip()
-        comps = comp_service.filter_components(self.active_category, search_q)
+        """Dynamically render component cards based on category, search query, package, and pins."""
+        search_q = self.lib_search.text().strip() if hasattr(self, 'lib_search') and self.lib_search else ""
+        pkg_f = getattr(self, 'active_package_filter', 'All Packages')
+        pin_f = getattr(self, 'active_pin_filter', 'All Pins')
+        sort_f = getattr(self, 'active_sort', 'Name (A-Z)')
 
-        # Clear existing cards
-        while self.cards_lay.count() > 1:
-            child = self.cards_lay.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+        comps = comp_service.filter_components(
+            category=self.active_category,
+            search_query=search_q,
+            package=pkg_f,
+            pin_filter=pin_f,
+            sort_by=sort_f
+        )
 
-        for c in comps:
-            card_widget = ComponentCardWidget(c, on_ask_cb=self.on_ask_component_from_library)
-            self.cards_lay.insertWidget(self.cards_lay.count() - 1, card_widget)
+        cards = [
+            ComponentCardWidget(c, on_ask_cb=self.on_ask_component_from_library, parent_win=self)
+            for c in comps
+        ]
+
+        if hasattr(self.view, 'lib_grid'):
+            self.view.lib_grid.set_cards(cards)
+
+        if hasattr(self.view, 'lib_status_lbl'):
+            count = len(cards)
+            filter_note = []
+            if self.active_category != "All":
+                filter_note.append(self.active_category)
+            if pkg_f != "All Packages":
+                filter_note.append(pkg_f)
+            if pin_f != "All Pins":
+                filter_note.append(pin_f)
+            note_str = f" in {', '.join(filter_note)}" if filter_note else ""
+            self.view.lib_status_lbl.setText(f"Showing {count} component{'s' if count != 1 else ''}{note_str}")
+
+        if hasattr(self.view, 'lib_no_results'):
+            self.view.lib_no_results.setVisible(len(cards) == 0)
 
     def on_ask_component_from_library(self, comp):
         """Triggered from Component Card 'Ask Assistant' button."""
-        prompt = f"Can you explain how to wire the {comp['name']}, its pinout functions, and safety tips?"
-        self.open_chat()
-        self.send_chat_message(prompt)
+        name = comp.get('display_name') or comp.get('name', 'Component')
+        prompt = f"Can you explain how to wire the {name}, its pinout functions, and safety tips?"
+        self.navigate_to(1)
+        if hasattr(self.view, 'chat_input'):
+            self.view.chat_input.setPlainText(prompt)
+            self.view.chat_input.setFocus()
 
     # ---- PDF Manuals Management -----------------------------------------------
     def refresh_library(self):
