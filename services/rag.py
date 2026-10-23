@@ -495,6 +495,8 @@ Use simple language suitable for a normal hardware user.
 When possible, associate each step with the relevant manual page.
 
 The page numbers appear in the context as [Page N] markers.
+
+Do not use emojis in your response. Present all explanations in clear professional technical English.
 """
 
 
@@ -1199,6 +1201,7 @@ IMPORTANT RULES:
   clearly readable labels.
 - If something cannot be determined from the image, say so.
 - Keep the answer simple and useful.
+- Do not use emojis in your response. Present all explanations in clear professional technical English.
 """
 
     prompt = f"""

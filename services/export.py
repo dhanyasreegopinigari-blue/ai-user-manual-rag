@@ -44,7 +44,7 @@ def format_answer_md(answer_data, question=""):
     if summary:
         lines.append(f"{summary}\n")
     if warning:
-        lines.append(f"> ⚠️ **Warning:** {warning}\n")
+        lines.append(f"> **Warning:** {warning}\n")
     if steps:
         lines.append("## Step-by-Step Instructions\n")
         for s in steps:
@@ -141,9 +141,9 @@ def format_conversation_md(messages, title="Conversation History", manual_name="
         role = m.get("role", "user")
         content = m.get("content", "")
         if role == "user":
-            lines.append(f"### 👤 User\n\n> {content}\n")
+            lines.append(f"### User\n\n> {content}\n")
         else:
-            lines.append("### 🤖 Assistant\n")
+            lines.append("### Assistant\n")
             data = m.get("data")
             if data and isinstance(data, dict):
                 atitle = data.get("title")
@@ -155,7 +155,7 @@ def format_conversation_md(messages, title="Conversation History", manual_name="
                 if summary:
                     lines.append(f"{summary}\n")
                 if warning:
-                    lines.append(f"> ⚠️ **Warning:** {warning}\n")
+                    lines.append(f"> **Warning:** {warning}\n")
                 if steps:
                     for s in steps:
                         num = s.get("number", "")
@@ -199,14 +199,14 @@ def format_conversation_html(messages, title="Conversation History", manual_name
         if role == "user":
             html += f"""
   <div class="msg-user">
-    <div class="msg-user-title">👤 User Question:</div>
+    <div class="msg-user-title">User Question:</div>
     <div>{content}</div>
   </div>"""
         else:
             data = m.get("data")
             html += f"""
   <div class="msg-asst">
-    <div class="msg-asst-title">🤖 Assistant Response:</div>"""
+    <div class="msg-asst-title">Assistant Response:</div>"""
             if data and isinstance(data, dict):
                 atitle = data.get("title")
                 summary = data.get("summary")

@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
 )
 
 import config
+from ui.icons import get_icon, get_pixmap
 import database as db
 import services.manual as manual_mod
 import services.rag as rag
@@ -139,7 +140,8 @@ class MainWindow(QWidget):
         self.q_grid_host = QWidget()
         self.q_grid = QGridLayout(self.q_grid_host)
         self.q_input = QLineEdit()
-        self.speak_btn = button("🎤 Speak")
+        self.speak_btn = button("Speak")
+        self.speak_btn.setIcon(get_icon("mic", "#cbd5e1", 16))
         self.full_check = QCheckBox()
         self.v_title = label()
         self.v_quick_input = QLineEdit()
@@ -172,6 +174,7 @@ class MainWindow(QWidget):
         self.refresh_recent_scans()
         self.filter_library_cards()
         self.refresh_library()
+        self.refresh_dashboard_overview()
         self.navigate_to(0)
 
     # ---- Theme Management ----------------------------------------------------
@@ -182,7 +185,14 @@ class MainWindow(QWidget):
         app = QApplication.instance()
         if app:
             app.setStyleSheet(theme)
-        self.top_bar.theme_btn.setText("🌓 Dark Mode" if self.is_dark_theme else "☀️ Light Mode")
+        if self.is_dark_theme:
+            self.top_bar.theme_btn.setText("Dark Mode")
+            self.top_bar.theme_btn.setIcon(get_icon("moon", "#00FF85", 16))
+        else:
+            self.top_bar.theme_btn.setText("Light Mode")
+            self.top_bar.theme_btn.setIcon(get_icon("sun", "#10B981", 16))
+        self.top_bar.set_active_tab(self.stack.currentIndex())
+        self.refresh_dashboard_overview()
 
     # ---- Navigation & Worker execution ----------------------------------------
     def navigate_to(self, page_index):
@@ -191,6 +201,7 @@ class MainWindow(QWidget):
         self.stack.setCurrentIndex(page_index)
         if page_index == 0:
             self.refresh_recent_scans()
+            self.refresh_dashboard_overview()
         elif page_index == 1:
             if not self.active_conv_id:
                 convs = db.list_conversations()
@@ -338,11 +349,11 @@ class MainWindow(QWidget):
 
         desc_text = f"<b>{name}</b> ({cat})"
         if comp_match:
-            desc_text += f"<br>💡 <b>Quick Guide:</b> {comp_match['simple_explanation']}<br>⚡ <b>Key Specs:</b> {comp_match.get('key_specs', 'N/A')}"
+            desc_text += f"<br><b>Quick Guide:</b> {comp_match['simple_explanation']}<br><b>Key Specs:</b> {comp_match.get('key_specs', 'N/A')}"
         else:
             v_desc = hw.get("visual_description")
             if v_desc:
-                desc_text += f"<br>🔍 {v_desc}"
+                desc_text += f"<br><b>Vision Notes:</b> {v_desc}"
 
         self.view.dash_desc_lbl.setText(desc_text)
         self.dash_ask_comp_btn.setEnabled(True)
@@ -369,7 +380,7 @@ class MainWindow(QWidget):
         if not exact:
             self.manual_combo.addItem("— choose an indexed manual —", None)
         for m in db.list_manuals():
-            mark = "✓ " if m["id"] in exact_ids else ("≈ " if m["id"] in similar_ids else "")
+            mark = "[Match] " if m["id"] in exact_ids else ("[Similar] " if m["id"] in similar_ids else "")
             self.manual_combo.addItem(f"{mark}{m['name']}", m["id"])
         pick = (exact_ids or [None])[0]
         if pick is not None:
@@ -377,9 +388,9 @@ class MainWindow(QWidget):
         self.manual_combo.blockSignals(False)
 
         if exact:
-            self.dash_match_badge.setText("✓ Verified Match")
+            self.dash_match_badge.setText("Verified Match")
             self.dash_match_badge.setProperty("kind", "badgeOk")
-            self.match_status.setText(f"✓ Matching Manual: {exact[0]['name']}")
+            self.match_status.setText(f"Matching Manual: {exact[0]['name']}")
             self.match_detail.setText("Step-by-step instructions available in assistant.")
         else:
             self.dash_match_badge.setText("Component Identified")
@@ -414,6 +425,163 @@ class MainWindow(QWidget):
         self.open_chat()
         self.send_chat_message(prompt)
 
+
+    # ---- Dynamic Dashboard Overview (Real DB Data) ---------------------------
+    def refresh_dashboard_overview(self):
+        """Populate 'Continue Where You Left Off' and 'Hardware Manuals Overview' with real DB data."""
+        if not hasattr(self.view, 'dash_chats_container') or not hasattr(self.view, 'dash_manuals_container'):
+            return
+
+        is_dark = getattr(self, 'is_dark_theme', True)
+
+        # 1. Continue Where You Left Off
+        while self.view.dash_chats_container.count():
+            item = self.view.dash_chats_container.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                sub = item.layout()
+                while sub.count():
+                    si = sub.takeAt(0)
+                    if si.widget():
+                        si.widget().deleteLater()
+
+        convs = db.list_conversations()
+        recent_convs = convs[:3]
+        if not recent_convs:
+            empty_box = QWidget()
+            e_lay = QVBoxLayout(empty_box)
+            e_lay.setContentsMargins(8, 12, 8, 12)
+            e_lay.setSpacing(8)
+            e_lbl = label("No recent conversations yet. Start a chat with the assistant!", "muted", align=Qt.AlignmentFlag.AlignCenter)
+            e_lay.addWidget(e_lbl)
+            new_btn = button("Start New Chat", "primary", slot=lambda: (self.new_chat(), self.navigate_to(1)))
+            new_btn.setIcon(get_icon("plus", "#ffffff", 14))
+            e_lay.addWidget(new_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+            self.view.dash_chats_container.addWidget(empty_box)
+        else:
+            for c in recent_convs:
+                row_frame = QFrame()
+                row_frame.setObjectName("subCard")
+                rf_lay = QHBoxLayout(row_frame)
+                rf_lay.setContentsMargins(12, 10, 12, 10)
+                rf_lay.setSpacing(10)
+
+                icon_lbl = QLabel()
+                icon_lbl.setPixmap(get_pixmap("message-square", "#38BDF8", 16))
+                rf_lay.addWidget(icon_lbl)
+
+                info_col = QVBoxLayout()
+                info_col.setSpacing(2)
+                title = c.get("title") or "Conversation"
+                if len(title) > 36:
+                    title = title[:33] + "..."
+                t_lbl = label(title, "subCardTitle", wrap=False)
+                info_col.addWidget(t_lbl)
+
+                dt = (c.get("updated_at") or c.get("created_at") or "")[:16].replace("T", " ")
+                m_ref = c.get("manual_name")
+                caption_text = dt
+                if m_ref:
+                    caption_text += f" · {m_ref[:20]}"
+                d_lbl = label(caption_text, "caption", wrap=False)
+                info_col.addWidget(d_lbl)
+                rf_lay.addLayout(info_col, 1)
+
+                cid = c["id"]
+                resume_btn = button("Resume", "secondary", slot=lambda checked=False, cid=cid: (self.load_conversation(cid), self.navigate_to(1)))
+                resume_btn.setIcon(get_icon("arrow-right", "#00FF85" if is_dark else "#10B981", 14))
+                resume_btn.setStyleSheet("padding: 5px 12px; font-size: 12px; border-radius: 8px;")
+                rf_lay.addWidget(resume_btn)
+
+                self.view.dash_chats_container.addWidget(row_frame)
+
+        # 2. Hardware Manuals Overview
+        while self.view.dash_manuals_container.count():
+            item = self.view.dash_manuals_container.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                sub = item.layout()
+                while sub.count():
+                    si = sub.takeAt(0)
+                    if si.widget():
+                        si.widget().deleteLater()
+
+        manuals = db.list_manuals()
+        if not manuals:
+            empty_box = QWidget()
+            e_lay = QVBoxLayout(empty_box)
+            e_lay.setContentsMargins(8, 12, 8, 12)
+            e_lay.setSpacing(8)
+            e_lbl = label("No hardware manuals indexed yet. Upload a PDF manual to enable grounded AI troubleshooting.", "muted", align=Qt.AlignmentFlag.AlignCenter)
+            e_lay.addWidget(e_lbl)
+            add_btn = button("Add Manual PDF", "primary", slot=self.add_manual)
+            add_btn.setIcon(get_icon("upload", "#ffffff", 14))
+            e_lay.addWidget(add_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+            self.view.dash_manuals_container.addWidget(empty_box)
+        else:
+            stats_row = QHBoxLayout()
+            stats_row.setSpacing(10)
+
+            total_pages = sum(m.get("page_count", 0) for m in manuals)
+
+            box_man = QFrame()
+            box_man.setObjectName("statBoxGreen")
+            bmlay = QVBoxLayout(box_man)
+            bmlay.setContentsMargins(10, 8, 10, 8)
+            bmlay.setSpacing(2)
+            bmlay.addWidget(label("INDEXED MANUALS", "caption", wrap=False))
+            num_mans_lbl = label(str(len(manuals)), "statGreenVal", wrap=False)
+            bmlay.addWidget(num_mans_lbl)
+            stats_row.addWidget(box_man, 1)
+
+            box_pages = QFrame()
+            box_pages.setObjectName("statBoxTeal")
+            bplay = QVBoxLayout(box_pages)
+            bplay.setContentsMargins(10, 8, 10, 8)
+            bplay.setSpacing(2)
+            bplay.addWidget(label("TOTAL PAGES", "caption", wrap=False))
+            num_pgs_lbl = label(str(total_pages), "statTealVal", wrap=False)
+            bplay.addWidget(num_pgs_lbl)
+            stats_row.addWidget(box_pages, 1)
+
+            self.view.dash_manuals_container.addLayout(stats_row)
+
+            for m in manuals[:2]:
+                m_row = QFrame()
+                m_row.setObjectName("subCard")
+                m_lay = QHBoxLayout(m_row)
+                m_lay.setContentsMargins(12, 10, 12, 10)
+                m_lay.setSpacing(10)
+
+                m_icon = QLabel()
+                m_icon.setPixmap(get_pixmap("book-open", "#10B981", 16))
+                m_lay.addWidget(m_icon)
+
+                m_info = QVBoxLayout()
+                m_info.setSpacing(2)
+                m_name = m.get("name") or "Manual"
+                if len(m_name) > 36:
+                    m_name = m_name[:33] + "..."
+                m_lbl = label(m_name, "subCardTitle", wrap=False)
+                m_info.addWidget(m_lbl)
+
+                extra = f"{m.get('page_count', 0)} pages"
+                if m.get('manufacturer'):
+                    extra += f" · {m.get('manufacturer')}"
+                e_lbl = label(extra, "caption", wrap=False)
+                m_info.addWidget(e_lbl)
+                m_lay.addLayout(m_info, 1)
+
+                mid = m["id"]
+                open_btn = button("Read", "secondary", slot=lambda checked=False, mid=mid: (self.ev_load_manual(mid), self.navigate_to(3)))
+                open_btn.setIcon(get_icon("book-open", "#10B981", 14))
+                open_btn.setStyleSheet("padding: 5px 12px; font-size: 12px; border-radius: 8px;")
+                m_lay.addWidget(open_btn)
+
+                self.view.dash_manuals_container.addWidget(m_row)
+
     # ---- Recent Scans Management ---------------------------------------------
     def refresh_recent_scans(self):
         """Populate recent scans list on the Dashboard."""
@@ -427,7 +595,8 @@ class MainWindow(QWidget):
                 conf = int(float(s.get("confidence") or 0.8) * 100)
             except Exception:
                 conf = 85
-            item = QListWidgetItem(f"⚡ {c_name}  ·  {cat}  ·  {conf}% match  ({ts})")
+            item = QListWidgetItem(f"{c_name}  ·  {cat}  ·  {conf}% match  ({ts})")
+            item.setIcon(get_icon("zap", "#00FF85", 16))
             item.setData(Qt.ItemDataRole.UserRole, s)
             self.dash_scans_list.addItem(item)
 
@@ -448,8 +617,8 @@ class MainWindow(QWidget):
         if comp_match:
             self.view.dash_desc_lbl.setText(
                 f"<b>{comp_match['name']}</b> ({comp_match['category']})<br>"
-                f"💡 {comp_match['simple_explanation']}<br>"
-                f"⚡ <b>Key Specs:</b> {comp_match.get('key_specs', '')}"
+                f"<b>Guide:</b> {comp_match['simple_explanation']}<br>"
+                f"<b>Key Specs:</b> {comp_match.get('key_specs', '')}"
             )
         else:
             self.view.dash_desc_lbl.setText(f"Identified component: <b>{name}</b> ({cat})")
@@ -506,7 +675,8 @@ class MainWindow(QWidget):
         self.lib_list.clear()
         manuals = db.list_manuals()
         for m in manuals:
-            item = QListWidgetItem(f"📖 {m['name']} — {m.get('manufacturer', '')} {m.get('model', '')}")
+            item = QListWidgetItem(f"{m['name']} — {m.get('manufacturer', '')} {m.get('model', '')}")
+            item.setIcon(get_icon("book-open", "#10B981", 16))
             item.setData(Qt.ItemDataRole.UserRole, m["id"])
             self.lib_list.addItem(item)
         self.lib_empty.setVisible(not manuals)
@@ -563,7 +733,8 @@ class MainWindow(QWidget):
         for c in convs:
             title = c.get("title") or "New Chat"
             date = (c.get("updated_at") or "")[:10]
-            item = QListWidgetItem(f"💬 {title}\n  {date}")
+            item = QListWidgetItem(f"{title}\n  {date}")
+            item.setIcon(get_icon("message-square", "#38BDF8", 16))
             item.setData(Qt.ItemDataRole.UserRole, c["id"])
             if c["id"] == self.active_conv_id:
                 item.setSelected(True)
@@ -585,7 +756,7 @@ class MainWindow(QWidget):
 
         m = db.get_manual(self.manual_id) if self.manual_id else None
         mname = m["name"] if m else "General Electronics Assistant"
-        self.chat_manual_badge.setText(f"📖 Reference: {mname}")
+        self.chat_manual_badge.setText(f"Reference: {mname}")
 
         self.refresh_history_sidebar()
 
@@ -608,6 +779,7 @@ class MainWindow(QWidget):
         self.active_conv_id = cid
         self.render_empty_chat_welcome()
         self.refresh_history_sidebar()
+        self.refresh_dashboard_overview()
         self.chat_input.setFocus()
 
     def render_empty_chat_welcome(self):
@@ -624,7 +796,7 @@ class MainWindow(QWidget):
 
         m = db.get_manual(self.manual_id) if self.manual_id else None
         mtitle = m["name"] if m else "Electronics Assistant"
-        w_lay.addWidget(label(f"👋 Welcome to {mtitle}", "h1"))
+        w_lay.addWidget(label(f"Welcome to {mtitle}", "h1"))
         w_lay.addWidget(label("Ask any question below or click a suggested topic to get verified pinouts, calculations, and circuit guidance.", "muted"))
 
         qs = [
@@ -635,7 +807,7 @@ class MainWindow(QWidget):
             "How does an ultrasonic distance sensor measure flight time?",
             "What safety precautions prevent electrostatic discharge (ESD)?"
         ]
-        w_lay.addWidget(label("✨ SUGGESTED QUESTIONS:", "caption", wrap=False))
+        w_lay.addWidget(label("SUGGESTED QUESTIONS", "caption", wrap=False))
 
         grid = QGridLayout()
         grid.setSpacing(8)
@@ -719,7 +891,7 @@ class MainWindow(QWidget):
         if conv and conv.get("manual_id"):
             self.manual_id = conv["manual_id"]
             mname = conv.get("manual_name") or "Manual"
-            self.chat_manual_badge.setText(f"📖 Reference: {mname}")
+            self.chat_manual_badge.setText(f"Reference: {mname}")
 
         while self.chat_thread_lay.count() > 1:
             child = self.chat_thread_lay.takeAt(0)
