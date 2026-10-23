@@ -149,6 +149,7 @@ def chat(
         "messages": messages,
         "stream": False,
         "think": False,
+        "keep_alive": "60m",
         "options": options
     }
 
@@ -177,6 +178,55 @@ def chat(
     print(repr(thinking))
 
     return strip_think(content)
+
+def chat_stream(model, prompt, system=None, history=None, callback=None, cancel_event=None, num_ctx=4096, temperature=0.1):
+    """Streams tokens from Ollama /api/chat. Calls callback(chunk_str) for each piece. Returns complete text."""
+    url = config.OLLAMA_URL.rstrip("/") + "/api/chat"
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    if history:
+        for item in history:
+            messages.append({"role": item.get("role", "user"), "content": item.get("content", "")})
+    messages.append({"role": "user", "content": prompt})
+
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+        "think": False,
+        "keep_alive": "60m",
+        "options": {
+            "temperature": temperature,
+            "num_ctx": num_ctx
+        }
+    }
+    accumulated = []
+    try:
+        r = requests.post(url, json=payload, stream=True, timeout=config.REQUEST_TIMEOUT)
+        if r.status_code != 200:
+            raise AppError(f"Ollama error ({r.status_code}): {r.text[:200]}")
+        for line in r.iter_lines():
+            if cancel_event and cancel_event.is_set():
+                break
+            if line:
+                try:
+                    data = json.loads(line.decode("utf-8"))
+                    token = data.get("message", {}).get("content", "")
+                    if token:
+                        accumulated.append(token)
+                        if callback:
+                            callback(token)
+                    if data.get("done", False):
+                        break
+                except Exception:
+                    pass
+    except requests.exceptions.RequestException as e:
+        if not accumulated:
+            raise AppError(f"Could not connect to Ollama: {e}")
+
+    full_text = "".join(accumulated)
+    return strip_think(full_text)
 
 
 def embed(texts, prefix="search_document: "):
@@ -368,13 +418,47 @@ def _search_index(manual_id, qvec, k):
 
 
 def search(manual_id, question, k=None):
-    """Top-k manual chunks for a question (SQLite rows, each with a 'score')."""
-    hits = _search_index(manual_id, embed([question], "search_query: "), k or config.TOP_K)
-    chunks = db.get_chunks([i for i, _ in hits])
-    scores = dict(hits)
-    for c in chunks:
-        c["score"] = scores.get(c["id"], 0.0)
-    return chunks
+    """Top-k manual chunks for a question.
+    If manual_id is None, searches across ALL indexed manuals with a balanced mix so no single manual dominates."""
+    limit = k or config.TOP_K
+    query_vector = embed([question], "search_query: ")
+
+    if manual_id is not None:
+        hits = _search_index(manual_id, query_vector, limit)
+        chunks = db.get_chunks([i for i, _ in hits])
+        scores = dict(hits)
+        for c in chunks:
+            c["score"] = scores.get(c["id"], 0.0)
+            c["manual_id"] = manual_id
+        return chunks
+
+    # Multi-manual balanced retrieval
+    manuals = db.list_manuals()
+    if not manuals:
+        return []
+
+    all_chunks = []
+    # Query each manual's FAISS index and FTS
+    for m in manuals:
+        mid = m["id"]
+        hits = _search_index(mid, query_vector, 3)
+        fts_hits = db.search_chunks_fts(mid, question, limit=2)
+        chunk_ids = [cid for cid, _ in hits] + [cid for cid, _ in fts_hits]
+        if not chunk_ids:
+            continue
+        m_chunks = db.get_chunks(list(dict.fromkeys(chunk_ids)))
+        scores = dict(hits)
+        for c in m_chunks:
+            c["score"] = scores.get(c["id"], 0.45)
+            c["manual_id"] = mid
+            c["manual_name"] = m["name"]
+        m_chunks.sort(key=lambda x: -x.get("score", 0.0))
+        # Keep top 2 from each manual to balance representation
+        all_chunks.extend(m_chunks[:2])
+
+    # Re-rank across manuals while preserving diversity
+    all_chunks.sort(key=lambda x: -x.get("score", 0.0))
+    return all_chunks[:limit]
 
 
 def search_all_manuals(query_text, top=3):
@@ -479,24 +563,22 @@ def generate_questions(manual_id, progress=None):
 # Grounded answering
 # =============================================================================
 
-SYSTEM_PROMPT = """You are an AI assistant for a hardware user manual.
+SYSTEM_PROMPT = """You are an expert hardware, circuit, and electronic components AI assistant.
 
-Answer the user's question ONLY using the provided manual context.
+Your task is to answer user questions accurately using the provided hardware manual excerpts.
 
-Do not invent procedures, specifications, warnings, or values.
-
-If the answer cannot be found in the supplied manual context,
-clearly say that the manual does not provide enough information.
-
-Give the answer as simple sequential steps.
-
-Use simple language suitable for a normal hardware user.
-
-When possible, associate each step with the relevant manual page.
-
-The page numbers appear in the context as [Page N] markers.
-
-Do not use emojis in your response. Present all explanations in clear professional technical English.
+CITATION & MULTI-MANUAL RULES:
+- Always cite sources for every factual claim, pinout, step, or specification, using the format [Manual Name, p.X] or [Manual Name, Page X].
+- If multiple manuals cover the topic, synthesize them together and clearly indicate which manual each point or specification comes from.
+- If the question is about repair, wiring, or troubleshooting, structure the response with:
+  1. Safety Warnings (if any)
+  2. Required Tools & Parts
+  3. Step-by-Step Procedure (with page citations for each step)
+  4. Expected Readings / Verifications
+  5. What to do if a step fails
+- If the provided manual context does NOT contain enough information to answer the question, you may provide a helpful explanation from general engineering knowledge, BUT you MUST explicitly state at the very beginning: "Note: This information is from general knowledge as it was not found in your indexed manuals."
+- Format your response cleanly using GitHub-flavored Markdown (bold, bullet lists, code blocks, tables).
+- Do not use emojis anywhere in your response. Present all explanations in clear professional technical English.
 """
 
 
@@ -654,34 +736,35 @@ def _answer_quick(manual_id, question, progress=None, history=None):
         }
 
 
-    # Use fewer and shorter chunks to reduce LLM processing time.
-    selected_chunks = chunks[:3]
+    # Balance and format context with clear source citations
+    selected_chunks = chunks[:4]
 
-    context = "\n\n=====\n\n".join(
-        chunk["chunk_text"][:1500]
-        for chunk in selected_chunks
-    )
-
-    # Collect valid page numbers from the retrieved context.
-    allowed = []
-
+    context_parts = []
     for chunk in selected_chunks:
-        allowed += [
-            int(page)
-            for page in re.findall(
-                r"\[Page (\d+)\]",
-                chunk["chunk_text"]
-            )
-        ]
+        mname = chunk.get("manual_name") or "Hardware Manual"
+        pnum = chunk.get("page_number", 1)
+        context_parts.append(f'[Source: "{mname}", Page {pnum}]\n{chunk["chunk_text"][:1200]}')
 
-        allowed.append(
-            chunk["page_number"]
-        )
+    context = "\n\n=====\n\n".join(context_parts)
 
-    # Remove duplicates while preserving order.
+    allowed = []
+    chunk_meta_map = {}
+    for chunk in selected_chunks:
+        mid = chunk.get("manual_id")
+        mname = chunk.get("manual_name") or "Manual"
+        pnum = chunk.get("page_number", 1)
+        allowed.append(pnum)
+        chunk_meta_map[pnum] = (mid, mname)
+        for page in re.findall(r"\[Page (\d+)\]", chunk["chunk_text"]):
+            p = int(page)
+            allowed.append(p)
+            if p not in chunk_meta_map:
+                chunk_meta_map[p] = (mid, mname)
+
     allowed = list(dict.fromkeys(allowed))
-
-    default_page = selected_chunks[0]["page_number"]
+    default_page = selected_chunks[0]["page_number"] if selected_chunks else 1
+    default_mid = selected_chunks[0].get("manual_id") if selected_chunks else manual_id
+    default_mname = selected_chunks[0].get("manual_name") if selected_chunks else "Manual" 
 
     cb("Writing the answer...")
 
@@ -752,21 +835,20 @@ def _answer_quick(manual_id, question, progress=None, history=None):
                 ).strip()
             })
 
-    # Attach real page images and text excerpts from the manual.
-    # Images are retrieved from the database, not generated by the LLM.
+    # Attach real page images, manual references, and text excerpts
     for i, step in enumerate(steps, 1):
         step["number"] = i
+        p = step.get("page") or default_page
+        smid, smname = chunk_meta_map.get(p, (default_mid, default_mname))
+        step["manual_id"] = smid
+        step["manual_name"] = smname
 
-        step["image"], step["image_kind"] = db.get_page_visual(
-            manual_id,
-            step["page"]
-        )
-
-        step["source"] = _page_excerpt(
-            manual_id,
-            step["page"],
-            step["text"]
-        )
+        if smid:
+            step["image"], step["image_kind"] = db.get_page_visual(smid, p)
+            step["source"] = _page_excerpt(smid, p, step["text"])
+        else:
+            step["image"], step["image_kind"] = None, None
+            step["source"] = "" 
 
     found = (
         bool(steps)

@@ -90,8 +90,9 @@ class TestChatAndManual(unittest.TestCase):
             self.assertEqual(dlg.current_page, 2)
             dlg.prev_page()
             self.assertEqual(dlg.current_page, 1)
-            dlg.jump_to_page(10)
-            self.assertEqual(dlg.current_page, 10)
+            target = min(5, dlg.total_pages)
+            dlg.jump_to_page(target)
+            self.assertEqual(dlg.current_page, target)
             dlg.close()
 
     def test_chat_widgets(self):

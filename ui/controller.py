@@ -3,9 +3,13 @@ import os
 import json
 import traceback
 import cv2
+import re
+import threading
+from datetime import datetime, timedelta
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtWidgets import (
+    QInputDialog,
     QApplication, QCheckBox, QDialog, QFileDialog, QFrame, QGridLayout,
     QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMessageBox, QVBoxLayout,
     QWidget
@@ -15,12 +19,14 @@ import config
 from ui.icons import get_icon, get_pixmap
 import database as db
 import services.manual as manual_mod
+import services.vision as vision_mod
 import services.rag as rag
 import services.voice as voice
 import services.export as export_mod
 import services.components as comp_service
 from config import AppError
 from ui.view import (
+    ManualScopeDialog, ManualsManagerDialog, ChatHistoryItemWidget, ChatTextEdit, ImageLightboxDialog,
     MainView, QuestionCard, MetaDialog, CameraDialog, ImagePreviewDialog,
     VoiceInputDialog, UserManualDialog, ChatMessageWidget, ComponentCardWidget,
     DARK_STYLE, LIGHT_STYLE, show_image, label, button
@@ -116,7 +122,7 @@ class MainWindow(QWidget):
 
         # Chat elements
         self.chat_sidebar = self.view.chat_sidebar
-        self.chat_history_list = self.view.chat_history_list
+        self.chat_history_list = getattr(self.view, "chat_history_list", None)
         self.chat_scroll = self.view.chat_scroll
         self.chat_thread_widget = self.view.chat_thread_widget
         self.chat_thread_lay = self.view.chat_thread_lay
@@ -166,10 +172,10 @@ class MainWindow(QWidget):
         self.v_summary = label()
 
         # Initialize Default Data & Active Manual
+        self.manual_id = None  # Default scope is ALL manuals
         manuals = db.list_manuals()
         if manuals:
-            self.manual_id = manuals[0]["id"]
-            self.ev_load_manual(self.manual_id)
+            self.ev_load_manual(manuals[0]["id"])
 
         self.refresh_recent_scans()
         self.filter_library_cards()
@@ -727,38 +733,181 @@ class MainWindow(QWidget):
         self.chat_sidebar.setVisible(vis)
         self.expand_sidebar_btn.setVisible(not vis)
 
-    def refresh_history_sidebar(self):
-        self.chat_history_list.clear()
-        convs = db.list_conversations()
-        for c in convs:
-            title = c.get("title") or "New Chat"
-            date = (c.get("updated_at") or "")[:10]
-            item = QListWidgetItem(f"{title}\n  {date}")
-            item.setIcon(get_icon("message-square", "#38BDF8", 16))
-            item.setData(Qt.ItemDataRole.UserRole, c["id"])
-            if c["id"] == self.active_conv_id:
-                item.setSelected(True)
-            self.chat_history_list.addItem(item)
+    def filter_chat_history(self, text):
+        self.refresh_history_sidebar()
 
-    def _on_history_item_clicked(self, item):
-        cid = item.data(Qt.ItemDataRole.UserRole)
-        if cid:
-            self.load_conversation(cid)
+    def refresh_history_sidebar(self):
+        """Group chats by date categories (PINNED, TODAY, YESTERDAY, 7 DAYS, OLDER) with slim styling."""
+        if not hasattr(self.view, 'sidebar_groups_lay'):
+            return
+
+        while self.view.sidebar_groups_lay.count() > 1:
+            child = self.view.sidebar_groups_lay.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+            elif child.layout():
+                sub = child.layout()
+                while sub.count():
+                    si = sub.takeAt(0)
+                    if si.widget():
+                        si.widget().deleteLater()
+
+        convs = db.list_conversations()
+        filter_text = self.view.chat_search.text().strip().lower() if hasattr(self.view, 'chat_search') else ""
+
+        if filter_text:
+            convs = [c for c in convs if filter_text in (c.get("title") or "").lower()]
+
+        self.view.chat_count_lbl.setText(f"{len(convs)} conversation{'s' if len(convs) != 1 else ''}")
+
+        now = datetime.now()
+        today = now.date()
+        yesterday = today - timedelta(days=1)
+        seven_days_ago = today - timedelta(days=7)
+
+        groups = {
+            "PINNED": [],
+            "TODAY": [],
+            "YESTERDAY": [],
+            "PREVIOUS 7 DAYS": [],
+            "OLDER": []
+        }
+
+        for c in convs:
+            if c.get("is_pinned"):
+                groups["PINNED"].append(c)
+                continue
+
+            dt_str = c.get("updated_at") or c.get("created_at") or ""
+            try:
+                c_date = datetime.fromisoformat(dt_str).date()
+            except Exception:
+                c_date = today
+
+            if c_date == today:
+                groups["TODAY"].append(c)
+            elif c_date == yesterday:
+                groups["YESTERDAY"].append(c)
+            elif c_date >= seven_days_ago:
+                groups["PREVIOUS 7 DAYS"].append(c)
+            else:
+                groups["OLDER"].append(c)
+
+        for group_name, items in groups.items():
+            if not items:
+                continue
+
+            hdr = label(group_name, "caption", wrap=False)
+            hdr.setObjectName("chatDateHeader")
+            self.view.sidebar_groups_lay.insertWidget(self.view.sidebar_groups_lay.count() - 1, hdr)
+
+            for c in items:
+                is_active = (c["id"] == self.active_conv_id)
+                dt_str = (c.get("updated_at") or c.get("created_at") or "")[:16].replace("T", " ")
+                item_widget = ChatHistoryItemWidget(
+                    c["id"],
+                    c.get("title") or "New Chat",
+                    dt_str,
+                    is_active=is_active,
+                    is_pinned=bool(c.get("is_pinned")),
+                    parent=self
+                )
+                item_widget.clicked.connect(self.load_conversation)
+                item_widget.pin_requested.connect(self.pin_chat)
+                item_widget.rename_requested.connect(self.rename_chat)
+                item_widget.delete_requested.connect(self.delete_chat)
+                self.view.sidebar_groups_lay.insertWidget(self.view.sidebar_groups_lay.count() - 1, item_widget)
+
+    def pin_chat(self, conv_id, is_pinned):
+        db.pin_conversation(conv_id, is_pinned)
+        self.refresh_history_sidebar()
+
+    def rename_chat(self, conv_id):
+        conv = db.get_conversation(conv_id)
+        current = conv.get("title", "") if conv else ""
+        new_title, ok = QInputDialog.getText(self, "Rename Chat", "Enter new conversation title:", text=current)
+        if ok and new_title.strip():
+            db.update_conversation_title(conv_id, new_title.strip())
+            self.refresh_history_sidebar()
+            self.refresh_dashboard_overview()
+
+    def delete_chat(self, conv_id):
+        if QMessageBox.question(self, "Delete Chat", "Are you sure you want to delete this chat?") == QMessageBox.StandardButton.Yes:
+            db.delete_conversation(conv_id)
+            if self.active_conv_id == conv_id:
+                convs = db.list_conversations()
+                if convs:
+                    self.load_conversation(convs[0]["id"])
+                else:
+                    self.new_chat()
+            else:
+                self.refresh_history_sidebar()
+            self.refresh_dashboard_overview()
+
+    # ---- Scope Controls & Multi-Manual Management ----------------------------
+    def update_scope_ui(self):
+        manuals = db.list_manuals()
+        if self.manual_id is None:
+            self.view.scope_chip_btn.setText(f"All manuals ({len(manuals)})")
+            self.view.scope_chip_btn.setProperty("kind", "chipActive")
+            self.chat_manual_badge.setText(f"Scope: All Manuals ({len(manuals)})")
+            self.view.scope_clear_btn.setVisible(False)
+        else:
+            m = db.get_manual(self.manual_id)
+            mname = m["name"] if m else "Manual"
+            self.view.scope_chip_btn.setText(f"{mname[:20]}")
+            self.view.scope_chip_btn.setProperty("kind", "chip")
+            self.chat_manual_badge.setText(f"Scope: {mname}")
+            self.view.scope_clear_btn.setVisible(True)
+        self.view.scope_chip_btn.style().unpolish(self.view.scope_chip_btn)
+        self.view.scope_chip_btn.style().polish(self.view.scope_chip_btn)
+
+    def open_scope_picker(self):
+        dlg = ManualScopeDialog(self, current_manual_id=self.manual_id)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.manual_id = dlg.selected_manual_id
+            if self.active_conv_id:
+                db.update_conversation_manual(self.active_conv_id, self.manual_id)
+            self.update_scope_ui()
+
+    def reset_scope_to_all(self):
+        self.manual_id = None
+        if self.active_conv_id:
+            db.update_conversation_manual(self.active_conv_id, None)
+        self.update_scope_ui()
+
+    def add_manual_multi(self):
+        paths, _ = QFileDialog.getOpenFileNames(self, "Choose PDF Manuals", "", "PDF files (*.pdf)")
+        if not paths:
+            return
+        def task_fn(progress_cb):
+            imported = []
+            for i, p in enumerate(paths, 1):
+                base = os.path.splitext(os.path.basename(p))[0]
+                progress_cb(f"Indexing manual {i}/{len(paths)}: {base[:30]}...")
+                mid = manual_mod.import_pdf(p, base, "", "", progress_cb)
+                imported.append(mid)
+            return imported
+        def on_done(ids):
+            self.refresh_library()
+            self.refresh_dashboard_overview()
+            self.update_scope_ui()
+            QMessageBox.information(self, "Manuals Added", f"Successfully indexed {len(ids)} manual(s)!")
+        self.run_task(task_fn, on_done, text="Importing manuals...")
+
+    def manage_manuals_modal(self):
+        dlg = ManualsManagerDialog(
+            self,
+            on_delete_cb=lambda mid: (manual_mod.delete_manual(mid), self.refresh_library(), self.refresh_dashboard_overview(), self.update_scope_ui()),
+            on_read_cb=lambda mid: (self.ev_load_manual(mid), self.navigate_to(3)),
+            on_add_cb=self.add_manual_multi
+        )
+        dlg.exec()
 
     def open_chat(self, manual_id=None, conv_id=None):
-        """Open chat page, ensuring active conversation is loaded."""
-        if manual_id:
+        """Open chat page, ensuring active conversation and scope are set."""
+        if manual_id is not None:
             self.manual_id = manual_id
-        elif not self.manual_id:
-            manuals = db.list_manuals()
-            if manuals:
-                self.manual_id = manuals[0]["id"]
-
-        m = db.get_manual(self.manual_id) if self.manual_id else None
-        mname = m["name"] if m else "General Electronics Assistant"
-        self.chat_manual_badge.setText(f"Reference: {mname}")
-
-        self.refresh_history_sidebar()
 
         if conv_id:
             self.load_conversation(conv_id)
@@ -771,6 +920,7 @@ class MainWindow(QWidget):
             else:
                 self.new_chat()
 
+        self.update_scope_ui()
         self.top_bar.set_active_tab(1)
         self.stack.setCurrentIndex(1)
 
@@ -780,6 +930,7 @@ class MainWindow(QWidget):
         self.render_empty_chat_welcome()
         self.refresh_history_sidebar()
         self.refresh_dashboard_overview()
+        self.update_scope_ui()
         self.chat_input.setFocus()
 
     def render_empty_chat_welcome(self):
@@ -795,17 +946,17 @@ class MainWindow(QWidget):
         w_lay.setSpacing(12)
 
         m = db.get_manual(self.manual_id) if self.manual_id else None
-        mtitle = m["name"] if m else "Electronics Assistant"
+        mtitle = m["name"] if m else "ElectroLearn AI Hardware Assistant"
         w_lay.addWidget(label(f"Welcome to {mtitle}", "h1"))
-        w_lay.addWidget(label("Ask any question below or click a suggested topic to get verified pinouts, calculations, and circuit guidance.", "muted"))
+        w_lay.addWidget(label("Ask any question across your hardware manuals, troubleshoot circuits, identify ICs, or click a suggested prompt below.", "muted"))
 
         qs = [
+            "Explain this pinout and connections",
+            "Help me troubleshoot my circuit problem",
+            "What safety precautions prevent damage to ICs?",
             "How do I determine resistor values from color bands?",
-            "What is the difference between NPN and PNP transistors?",
-            "How do I wire an NE555 timer in Astable mode?",
-            "What voltage regulator should I use to step down 12V to 5V?",
-            "How does an ultrasonic distance sensor measure flight time?",
-            "What safety precautions prevent electrostatic discharge (ESD)?"
+            "What is an NE555 timer and how does Astable mode work?",
+            "How does an ultrasonic distance sensor measure flight time?"
         ]
         w_lay.addWidget(label("SUGGESTED QUESTIONS", "caption", wrap=False))
 
@@ -820,7 +971,8 @@ class MainWindow(QWidget):
         self.chat_thread_lay.insertWidget(0, welcome_card)
 
     def send_chat_message(self, explicit_question=None):
-        question = (explicit_question or self.chat_input.text()).strip()
+        raw_text = explicit_question or self.chat_input.toPlainText()
+        question = raw_text.strip()
         if not question:
             return
 
@@ -830,7 +982,6 @@ class MainWindow(QWidget):
         if not self.active_conv_id:
             self.active_conv_id = db.create_conversation(self.manual_id, question[:35])
 
-        # Remove welcome card once real chat starts
         if self.chat_thread_lay.count() == 2:
             item = self.chat_thread_lay.itemAt(0)
             if item and item.widget() and item.widget().objectName() == "asstCard":
@@ -844,10 +995,9 @@ class MainWindow(QWidget):
         if conv and conv.get("title") == "New Chat":
             db.update_conversation_title(self.active_conv_id, question[:35])
 
-        QTimer.singleShot(50, lambda: self.chat_scroll.verticalScrollBar().setValue(
-            self.chat_scroll.verticalScrollBar().maximum()))
+        self.scroll_chat_to_bottom()
 
-        self.typing_lbl.setText("Reasoning answer & searching manuals...")
+        self.typing_lbl.setText("Searching manuals & synthesizing answer...")
         self.typing_card.setVisible(True)
         self.chat_send_btn.setEnabled(False)
         self.chat_speak_btn.setEnabled(False)
@@ -855,8 +1005,16 @@ class MainWindow(QWidget):
         history = db.get_chat_messages(self.active_conv_id)[-6:]
         mode = "full" if self.chat_full_check.isChecked() else "auto"
 
+        self._chat_cancel_event = threading.Event()
+
         def task_fn(progress_cb):
-            return rag.answer_question(self.manual_id, question, progress=progress_cb, mode=mode, history=history)
+            return rag.answer_question(
+                self.manual_id,
+                question,
+                progress=progress_cb,
+                mode=mode,
+                history=history
+            )
 
         def on_done(ans):
             self.typing_card.setVisible(False)
@@ -870,8 +1028,7 @@ class MainWindow(QWidget):
             self.chat_thread_lay.insertWidget(self.chat_thread_lay.count() - 1, asst_w)
 
             self.refresh_history_sidebar()
-            QTimer.singleShot(60, lambda: self.chat_scroll.verticalScrollBar().setValue(
-                self.chat_scroll.verticalScrollBar().maximum()))
+            self.scroll_chat_to_bottom()
 
         worker = Worker(task_fn)
         self._workers.append(worker)
@@ -881,17 +1038,24 @@ class MainWindow(QWidget):
             self.typing_card.setVisible(False),
             self.chat_send_btn.setEnabled(True),
             self.chat_speak_btn.setEnabled(True),
-            QMessageBox.warning(self, "Assistant Problem", err)
+            QMessageBox.warning(self, "Assistant Response", err)
         ))
         worker.start()
+
+    def stop_generating(self):
+        if hasattr(self, "_chat_cancel_event"):
+            self._chat_cancel_event.set()
+        self.view.typing_card.setVisible(False)
+        self.chat_send_btn.setEnabled(True)
+        self.chat_speak_btn.setEnabled(True)
 
     def load_conversation(self, conv_id):
         self.active_conv_id = conv_id
         conv = db.get_conversation(conv_id)
-        if conv and conv.get("manual_id"):
-            self.manual_id = conv["manual_id"]
-            mname = conv.get("manual_name") or "Manual"
-            self.chat_manual_badge.setText(f"Reference: {mname}")
+        if conv:
+            self.manual_id = conv.get("manual_id")
+
+        self.update_scope_ui()
 
         while self.chat_thread_lay.count() > 1:
             child = self.chat_thread_lay.takeAt(0)
@@ -903,54 +1067,166 @@ class MainWindow(QWidget):
             self.render_empty_chat_welcome()
         else:
             for m in msgs:
-                widget = ChatMessageWidget(
-                    m["role"],
-                    m["content"],
-                    data=m.get("data"),
-                    created_at=(m.get("created_at") or "")[-8:],
-                    parent_win=self
-                )
-                self.chat_thread_lay.insertWidget(self.chat_thread_lay.count() - 1, widget)
+                role = m["role"]
+                content = m["content"]
+                data = None
+                if m.get("data_json"):
+                    try:
+                        data = json.loads(m["data_json"])
+                    except Exception:
+                        pass
+                w = ChatMessageWidget(role, content, data=data, parent_win=self)
+                self.chat_thread_lay.insertWidget(self.chat_thread_lay.count() - 1, w)
 
         self.refresh_history_sidebar()
-        QTimer.singleShot(50, lambda: self.chat_scroll.verticalScrollBar().setValue(
-            self.chat_scroll.verticalScrollBar().maximum()))
+        self.scroll_chat_to_bottom()
 
-    def delete_selected_conversation(self):
-        item = self.chat_history_list.currentItem()
-        if not item:
-            QMessageBox.information(self, "Delete Chat", "Please select a conversation from the sidebar first.")
-            return
-
-        cid = item.data(Qt.ItemDataRole.UserRole)
-        if not cid:
-            return
-
-        if QMessageBox.question(self, "Delete Chat", "Delete this conversation history?") != QMessageBox.StandardButton.Yes:
-            return
-
-        db.delete_conversation(cid)
-        if cid == self.active_conv_id:
-            self.active_conv_id = None
-            convs = db.list_conversations()
-            if convs:
-                self.load_conversation(convs[0]["id"])
-            else:
-                self.new_chat()
+    # ---- Voice Input Handling (ChatGPT-Style) ---------------------------------
+    def toggle_voice_input(self):
+        if getattr(self, "_is_recording_voice", False):
+            self.stop_voice_input()
         else:
-            self.refresh_history_sidebar()
+            self.start_voice_input()
 
-    def speak_chat(self):
+    def start_voice_input(self):
         if not voice.is_available():
-            QMessageBox.information(self, "Voice", voice.UNAVAILABLE)
+            QMessageBox.warning(self, "Voice Input", "Microphone recording is unavailable.\\nPlease check your microphone settings.")
             return
 
-        dlg = VoiceInputDialog(self)
-        if dlg.exec() == QDialog.DialogCode.Accepted and getattr(dlg, "transcribed_text", None):
-            text = dlg.transcribed_text.strip()
-            if text:
-                self.chat_input.setText(text)
-                self.chat_input.setFocus()
+        self._is_recording_voice = True
+        self._voice_seconds = 0
+        self.view.voice_timer_lbl.setText("0:00")
+        self.view.voice_level_bar.setValue(0)
+        self.view.voice_bar.setVisible(True)
+
+        self.voice_recorder = voice.AudioRecorder(samplerate=16000)
+        self.voice_recorder.start(level_callback=self._on_voice_level)
+
+        if not hasattr(self, "_voice_qtimer"):
+            self._voice_qtimer = QTimer(self)
+            self._voice_qtimer.timeout.connect(self._on_voice_timer_tick)
+        self._voice_qtimer.start(100)
+
+    def _on_voice_level(self, level):
+        self.view.voice_level_bar.setValue(int(level))
+
+    def _on_voice_timer_tick(self):
+        if not getattr(self, "_is_recording_voice", False):
+            return
+        self._voice_seconds += 0.1
+        sec = int(self._voice_seconds)
+        self.view.voice_timer_lbl.setText(f"{sec // 60}:{sec % 60:02d}")
+
+        if self.voice_recorder and self.voice_recorder.should_auto_stop():
+            self.stop_voice_input()
+
+    def stop_voice_input(self):
+        if not getattr(self, "_is_recording_voice", False):
+            return
+        self._is_recording_voice = False
+        if hasattr(self, "_voice_qtimer"):
+            self._voice_qtimer.stop()
+
+        self.view.voice_bar.setVisible(False)
+        audio = self.voice_recorder.stop() if self.voice_recorder else None
+        if audio is None or len(audio) == 0:
+            return
+
+        lang_idx = self.view.voice_lang_combo.currentIndex()
+        lang_code = self.view.voice_lang_combo.itemData(lang_idx) or "en"
+
+        def task_fn(progress_cb):
+            progress_cb("Transcribing voice audio with Whisper...")
+            return voice.transcribe_audio(audio, progress=progress_cb)
+
+        def on_done(text):
+            current = self.view.chat_input.toPlainText()
+            separator = " " if current and not current.endswith(" ") else ""
+            self.view.chat_input.setText(current + separator + text)
+            self.view.chat_input.setFocus()
+
+        self.run_task(task_fn, on_done, text="Transcribing speech...")
+
+    def cancel_voice_input(self):
+        self._is_recording_voice = False
+        if hasattr(self, "_voice_qtimer"):
+            self._voice_qtimer.stop()
+        if self.voice_recorder:
+            self.voice_recorder.stop()
+        self.view.voice_bar.setVisible(False)
+
+    # ---- Chat Polish: Scroll, TTS, Citations & Photo Attach -------------------
+    def _on_chat_scroll_moved(self, val):
+        bar = self.view.chat_scroll.verticalScrollBar()
+        if bar.maximum() - val > 120:
+            self.view.scroll_bottom_btn.show()
+            self.view.scroll_bottom_btn.move(
+                self.view.chat_scroll.width() - 56,
+                self.view.chat_scroll.height() - 56
+            )
+        else:
+            self.view.scroll_bottom_btn.hide()
+
+    def scroll_chat_to_bottom(self):
+        QTimer.singleShot(60, lambda: (
+            self.view.chat_scroll.verticalScrollBar().setValue(
+                self.view.chat_scroll.verticalScrollBar().maximum()
+            ),
+            self.view.scroll_bottom_btn.hide()
+        ))
+
+    def edit_user_message(self, content):
+        self.view.chat_input.setText(content)
+        self.view.chat_input.setFocus()
+
+    def regenerate_last_answer(self):
+        if not self.active_conv_id:
+            return
+        msgs = db.get_chat_messages(self.active_conv_id)
+        user_msgs = [m for m in msgs if m["role"] == "user"]
+        if user_msgs:
+            last_q = user_msgs[-1]["content"]
+            self.send_chat_message(last_q)
+
+    def read_aloud_answer(self, text):
+        try:
+            from PyQt6.QtTextToSpeech import QTextToSpeech
+            if not hasattr(self, "_tts"):
+                self._tts = QTextToSpeech(self)
+            clean_text = re.sub(r"<[^>]+>", "", text)
+            clean_text = re.sub(r"\\[[^\\]]+\\]", "", clean_text)
+            self._tts.say(clean_text)
+        except Exception as e:
+            print(f"[TTS] Read aloud error: {e}")
+
+    def open_user_manual(self, page_number=1, manual_id=None):
+        mid = manual_id or self.manual_id
+        if not mid:
+            manuals = db.list_manuals()
+            if manuals:
+                mid = manuals[0]["id"]
+        if mid:
+            dlg = UserManualDialog(self, manual_id=mid, initial_page=int(page_number))
+            dlg.exec()
+
+    def attach_photo_to_chat(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose component photo", "", "Images (*.png *.jpg *.jpeg *.webp)")
+        if not path:
+            return
+        self.run_task(
+            lambda cb: vision_mod.identify_hardware(path, cb),
+            lambda res: self._on_photo_attached_to_chat(path, res),
+            text="Analyzing component photo..."
+        )
+
+    def _on_photo_attached_to_chat(self, path, res):
+        hw = res.get("hardware") or {}
+        name = hw.get("product_name") or "Electronic Component"
+        desc = hw.get("visual_description") or ""
+        prompt = f"I uploaded an image of a {name}. {desc}. How do I wire, use, or troubleshoot it?"
+        self.view.chat_input.setText(prompt)
+        self.view.chat_input.setFocus()
+
 
     # ---- Embedded PDF Manual Viewer in Page 4 ---------------------------------
     def ev_load_manual(self, manual_id, page=1):

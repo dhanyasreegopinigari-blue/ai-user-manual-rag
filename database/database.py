@@ -88,6 +88,11 @@ def init_db():
     conn = _connect()
     try:
         conn.executescript(SCHEMA)
+        try:
+            conn.execute("ALTER TABLE conversations ADD COLUMN is_pinned INTEGER DEFAULT 0")
+            conn.commit()
+        except Exception:
+            pass
         # Backfill any existing manual_chunks into FTS5
         conn.execute("""
             INSERT INTO manual_chunks_fts (chunk_id, manual_id, chunk_text, section)
@@ -190,19 +195,28 @@ def delete_manual_rows(manual_id):
 
 
 def search_chunks_fts(manual_id, query_text, limit=10):
-    """Keyword search using SQLite FTS5. Returns [(chunk_id, bm25_rank)] sorted best first."""
+    """Keyword search using SQLite FTS5. Returns [(chunk_id, bm25_rank)] sorted best first.
+    If manual_id is None, searches across all manuals."""
     tokens = re.findall(r"[A-Za-z0-9_]+", query_text)
     if not tokens:
         return []
     fts_query = " OR ".join(f'"{t}"' for t in tokens)
     conn = _connect()
     try:
-        rows = conn.execute(
-            "SELECT chunk_id, rank FROM manual_chunks_fts "
-            "WHERE manual_id=? AND manual_chunks_fts MATCH ? "
-            "ORDER BY rank LIMIT ?",
-            (manual_id, fts_query, limit)
-        ).fetchall()
+        if manual_id is not None:
+            rows = conn.execute(
+                "SELECT chunk_id, rank FROM manual_chunks_fts "
+                "WHERE manual_id=? AND manual_chunks_fts MATCH ? "
+                "ORDER BY rank LIMIT ?",
+                (manual_id, fts_query, limit)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT chunk_id, rank FROM manual_chunks_fts "
+                "WHERE manual_chunks_fts MATCH ? "
+                "ORDER BY rank LIMIT ?",
+                (fts_query, limit)
+            ).fetchall()
         return [(int(r["chunk_id"]), float(r["rank"])) for r in rows]
     except (sqlite3.OperationalError, sqlite3.DatabaseError):
         return []
@@ -229,7 +243,7 @@ def get_chunks(ids):
     if not ids:
         return []
     marks = ",".join("?" * len(ids))
-    by_id = {r["id"]: r for r in query(f"SELECT * FROM manual_chunks WHERE id IN ({marks})", tuple(ids))}
+    by_id = {r["id"]: dict(r) for r in query(f"SELECT c.*, m.name as manual_name FROM manual_chunks c LEFT JOIN manuals m ON c.manual_id = m.id WHERE c.id IN ({marks})", tuple(ids))}
     return [by_id[i] for i in ids if i in by_id]
 
 
@@ -292,7 +306,7 @@ def list_conversations():
                (SELECT COUNT(*) FROM chat_messages WHERE conversation_id=c.id) as message_count
         FROM conversations c
         LEFT JOIN manuals m ON c.manual_id = m.id
-        ORDER BY c.updated_at DESC, c.id DESC
+        ORDER BY c.is_pinned DESC, c.updated_at DESC, c.id DESC
         """
     )
 
@@ -408,3 +422,6 @@ def list_component_scans(limit=10):
 def delete_component_scan(scan_id):
     execute("DELETE FROM component_scans WHERE id=?", (scan_id,))
 
+
+def pin_conversation(conv_id, is_pinned=1):
+    execute("UPDATE conversations SET is_pinned=? WHERE id=?", (1 if is_pinned else 0, conv_id))

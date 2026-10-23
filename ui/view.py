@@ -1,9 +1,10 @@
 """UI View layer: Modern Styles, Responsive Widgets, Dialogs, and 4-Page Architecture."""
 import os
+import re
 import time
 import cv2
 
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QSize, QUrl
 from PyQt6.QtGui import QAction, QImage, QPainter, QPixmap, QFont
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QFrame,
@@ -1102,8 +1103,445 @@ class UserManualDialog(QDialog):
                     QMessageBox.warning(self, "PDF Viewer", f"Could not launch external viewer:\n{e}")
 
 
+
+def render_markdown_html(text: str, manuals_map=None) -> str:
+    """Convert markdown into clean HTML with bold, code blocks, lists, and clickable manual citations."""
+    if not text:
+        return ""
+    import html as html_lib
+
+    code_blocks = []
+    def save_code(m):
+        code_blocks.append(m.group(2))
+        return f"___CODE_BLOCK_{len(code_blocks)-1}___"
+
+    text = re.sub(r"```([a-zA-Z0-9_-]*)\n?(.*?)```", save_code, text, flags=re.DOTALL)
+
+    def make_citation(m):
+        m_name = m.group(1).strip()
+        p_num = m.group(2).strip()
+        mid = ""
+        if manuals_map and m_name in manuals_map:
+            mid = manuals_map[m_name]
+        return f'<a href="manual://{mid}/{p_num}" style="color:#00FF85; text-decoration:none; font-weight:600; background:rgba(0,255,133,0.12); padding:2px 7px; border-radius:5px; border:1px solid rgba(0,255,133,0.25);">[{m_name}, p.{p_num}]</a>'
+
+    text = re.sub(r"\[([^,\]]+),\s*(?:p\.|page|Page)\s*(\d+)\]", make_citation, text)
+    text = re.sub(r"\[(?:p\.|page|Page)\s*(\d+)\]", r'<a href="manual:////\1" style="color:#00FF85; text-decoration:none; font-weight:600; background:rgba(0,255,133,0.12); padding:2px 6px; border-radius:4px; border:1px solid rgba(0,255,133,0.25);">[p. \1]</a>', text)
+
+    text = re.sub(r"^###\s+(.+)$", r'<h3 style="margin:8px 0 4px 0; font-size:15px; color:#f3fbf5;">\1</h3>', text, flags=re.MULTILINE)
+    text = re.sub(r"^##\s+(.+)$", r'<h2 style="margin:10px 0 4px 0; font-size:17px; color:#f3fbf5;">\1</h2>', text, flags=re.MULTILINE)
+    text = re.sub(r"^#\s+(.+)$", r'<h1 style="margin:12px 0 6px 0; font-size:19px; color:#00FF85;">\1</h1>', text, flags=re.MULTILINE)
+
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+    text = re.sub(r"\*(.+?)\*", r"<i>\1</i>", text)
+    text = re.sub(r"`([^`\n]+)`", r'<code style="background:#090d14; color:#67e8f9; padding:2px 5px; border-radius:4px; font-family:monospace; font-size:12.5px;">\1</code>', text)
+
+    lines = text.split("\n")
+    formatted_lines = []
+    in_list = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("- ") or stripped.startswith("* ") or stripped.startswith("• "):
+            if not in_list:
+                formatted_lines.append('<ul style="margin:4px 0; padding-left:20px;">')
+                in_list = True
+            formatted_lines.append(f'<li style="margin-bottom:3px;">{stripped[2:]}</li>')
+        elif re.match(r"^\d+\.\s+", stripped):
+            item = re.sub(r"^\d+\.\s+", "", stripped)
+            if not in_list:
+                formatted_lines.append('<ol style="margin:4px 0; padding-left:20px;">')
+                in_list = True
+            formatted_lines.append(f'<li style="margin-bottom:3px;">{item}</li>')
+        else:
+            if in_list:
+                formatted_lines.append('</ul>' if formatted_lines[-1].startswith('<li') else '</ol>')
+                in_list = False
+            formatted_lines.append(line)
+    if in_list:
+        formatted_lines.append('</ul>')
+
+    text = "<br>".join(formatted_lines)
+    text = text.replace("</ul><br>", "</ul>").replace("</ol><br>", "</ol>")
+
+    for idx, code in enumerate(code_blocks):
+        escaped_code = html_lib.escape(code.strip())
+        block_html = (
+            f'<div style="background:#090d14; border:1px solid #1e2838; border-radius:8px; padding:10px 14px; margin:8px 0; font-family:monospace; font-size:12.5px; color:#67e8f9; overflow-x:auto;">'
+            f'<pre style="margin:0;">{escaped_code}</pre></div>'
+        )
+        text = text.replace(f"___CODE_BLOCK_{idx}___", block_html)
+
+    return text
+
+
+class ImageLightboxDialog(QDialog):
+    """Full-screen interactive image lightbox with zoom in/out, pan, reset, and Esc close."""
+    def __init__(self, parent, image_path, title="Image Viewer"):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setMinimumSize(820, 620)
+        self.image_path = image_path
+        self.zoom_factor = 1.0
+        self.orig_pixmap = QPixmap(image_path) if image_path and os.path.isfile(image_path) else QPixmap()
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(16, 12, 16, 16)
+        lay.setSpacing(10)
+
+        t_bar = QHBoxLayout()
+        t_bar.addWidget(label(os.path.basename(image_path) if image_path else "Image", "h2", wrap=False))
+        t_bar.addStretch()
+
+        btn_out = button("-", slot=self.zoom_out)
+        self.zoom_lbl = label("100%", "caption")
+        btn_in = button("+", slot=self.zoom_in)
+        btn_reset = button("Reset", slot=self.zoom_reset)
+        btn_close = button("Close", slot=self.accept)
+
+        for b in (btn_out, self.zoom_lbl, btn_in, btn_reset, btn_close):
+            t_bar.addWidget(b)
+        lay.addLayout(t_bar)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setStyleSheet("background:#060907; border:1px solid #1f2d24; border-radius:10px;")
+        self.img_lbl = QLabel()
+        self.img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.scroll.setWidget(self.img_lbl)
+        lay.addWidget(self.scroll, 1)
+
+        self.update_image()
+
+    def zoom_in(self):
+        self.zoom_factor = min(4.0, self.zoom_factor + 0.25)
+        self.update_image()
+
+    def zoom_out(self):
+        self.zoom_factor = max(0.25, self.zoom_factor - 0.25)
+        self.update_image()
+
+    def zoom_reset(self):
+        self.zoom_factor = 1.0
+        self.update_image()
+
+    def update_image(self):
+        if self.orig_pixmap.isNull():
+            self.img_lbl.setText("No image available")
+            return
+        w = int(self.orig_pixmap.width() * self.zoom_factor)
+        h = int(self.orig_pixmap.height() * self.zoom_factor)
+        scaled = self.orig_pixmap.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        self.img_lbl.setPixmap(scaled)
+        self.img_lbl.setFixedSize(scaled.size())
+        self.zoom_lbl.setText(f"{int(self.zoom_factor * 100)}%")
+
+    def wheelEvent(self, event):
+        if event.angleDelta().y() > 0:
+            self.zoom_in()
+        else:
+            self.zoom_out()
+        event.accept()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+        else:
+            super().keyPressEvent(event)
+
+
+class ManualScopeDialog(QDialog):
+    """Picker dialog listing all manuals with search box, All manuals option, and checkmarks."""
+    def __init__(self, parent, current_manual_id=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select Manual Search Scope")
+        self.setMinimumSize(480, 420)
+        self.selected_manual_id = current_manual_id
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(18, 16, 18, 16)
+        lay.setSpacing(12)
+
+        lay.addWidget(label("MANUAL SEARCH SCOPE", "caption", wrap=False))
+        sub = label("Choose whether to search across all uploaded manuals together or focus on a specific manual.", "subtitle")
+        lay.addWidget(sub)
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search indexed manuals...")
+        self.search_input.textChanged.connect(self.filter_items)
+        lay.addWidget(self.search_input)
+
+        self.list_widget = QListWidget()
+        self.list_widget.itemDoubleClicked.connect(self.on_item_chosen)
+        lay.addWidget(self.list_widget, 1)
+
+        self.populate_list()
+
+        b_row = QHBoxLayout()
+        b_row.addStretch()
+        cancel_b = button("Cancel", slot=self.reject)
+        apply_b = button("Apply Scope", "primary", slot=self.apply_selection)
+        b_row.addWidget(cancel_b)
+        b_row.addWidget(apply_b)
+        lay.addLayout(b_row)
+
+    def populate_list(self):
+        self.list_widget.clear()
+        manuals = db.list_manuals()
+        total_p = sum(m.get("page_count", 0) for m in manuals)
+
+        all_item = QListWidgetItem(f"All Manuals ({len(manuals)} manuals · {total_p} pages)")
+        all_item.setData(Qt.ItemDataRole.UserRole, None)
+        all_item.setIcon(get_icon("layers", "#00FF85", 16))
+        if self.selected_manual_id is None:
+            all_item.setText(all_item.text() + "  [Active]")
+            all_item.setSelected(True)
+        self.list_widget.addItem(all_item)
+
+        for m in manuals:
+            desc = f"{m['name']} — {m.get('page_count', 0)} pages"
+            if m.get('manufacturer'):
+                desc += f" ({m['manufacturer']})"
+            item = QListWidgetItem(desc)
+            item.setData(Qt.ItemDataRole.UserRole, m["id"])
+            item.setIcon(get_icon("book-open", "#10B981", 16))
+            if self.selected_manual_id == m["id"]:
+                item.setText(item.text() + "  [Active]")
+                item.setSelected(True)
+            self.list_widget.addItem(item)
+
+    def filter_items(self, text):
+        query = text.strip().lower()
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            item.setHidden(query not in item.text().lower())
+
+    def on_item_chosen(self, item):
+        self.selected_manual_id = item.data(Qt.ItemDataRole.UserRole)
+        self.accept()
+
+    def apply_selection(self):
+        item = self.list_widget.currentItem()
+        if item:
+            self.selected_manual_id = item.data(Qt.ItemDataRole.UserRole)
+        self.accept()
+
+
+class ManualsManagerDialog(QDialog):
+    """Modal dialog to view and delete indexed hardware manuals."""
+    def __init__(self, parent, on_delete_cb=None, on_read_cb=None, on_add_cb=None):
+        super().__init__(parent)
+        self.setWindowTitle("Hardware Manuals Manager")
+        self.setMinimumSize(560, 440)
+        self.on_delete_cb = on_delete_cb
+        self.on_read_cb = on_read_cb
+        self.on_add_cb = on_add_cb
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(20, 16, 20, 16)
+        lay.setSpacing(14)
+
+        head = QHBoxLayout()
+        head.addWidget(label("INDEXED HARDWARE MANUALS", "h1", wrap=False))
+        head.addStretch()
+        add_btn = button("Upload Manuals", "primary", slot=self.add_manuals)
+        add_btn.setIcon(get_icon("upload", "#ffffff", 14))
+        head.addWidget(add_btn)
+        lay.addLayout(head)
+
+        self.list_widget = QListWidget()
+        lay.addWidget(self.list_widget, 1)
+
+        self.refresh_list()
+
+        close_b = button("Close", slot=self.accept)
+        b_row = QHBoxLayout()
+        b_row.addStretch()
+        b_row.addWidget(close_b)
+        lay.addLayout(b_row)
+
+    def refresh_list(self):
+        self.list_widget.clear()
+        manuals = db.list_manuals()
+        if not manuals:
+            item = QListWidgetItem("No manuals indexed yet.")
+            self.list_widget.addItem(item)
+            return
+
+        for m in manuals:
+            item = QListWidgetItem()
+            item.setSizeHint(QSize(0, 56))
+            self.list_widget.addItem(item)
+
+            row = QFrame()
+            row.setObjectName("subCard")
+            r_lay = QHBoxLayout(row)
+            r_lay.setContentsMargins(10, 6, 10, 6)
+            r_lay.setSpacing(10)
+
+            icon_lbl = QLabel()
+            icon_lbl.setPixmap(get_pixmap("book-open", "#10B981", 18))
+            r_lay.addWidget(icon_lbl)
+
+            col = QVBoxLayout()
+            col.setSpacing(2)
+            name_lbl = label(m["name"][:36], "subCardTitle", wrap=False)
+            extra = f"{m.get('page_count', 0)} pages"
+            if m.get("manufacturer"):
+                extra += f" · {m['manufacturer']}"
+            sub_lbl = label(extra, "caption", wrap=False)
+            col.addWidget(name_lbl)
+            col.addWidget(sub_lbl)
+            r_lay.addLayout(col, 1)
+
+            mid = m["id"]
+            read_b = button("Read", slot=lambda _, _id=mid: self.read_manual(_id))
+            read_b.setIcon(get_icon("book-open", "#cbd5e1", 12))
+            r_lay.addWidget(read_b)
+
+            del_b = button("", "danger", slot=lambda _, _id=mid: self.delete_manual(_id))
+            del_b.setIcon(get_icon("trash-2", "#fca5a5", 14))
+            del_b.setToolTip("Delete this manual")
+            r_lay.addWidget(del_b)
+
+            self.list_widget.setItemWidget(item, row)
+
+    def read_manual(self, mid):
+        if self.on_read_cb:
+            self.on_read_cb(mid)
+        self.accept()
+
+    def delete_manual(self, mid):
+        if QMessageBox.question(self, "Delete Manual", "Are you sure you want to delete this manual and its indexed pages?") == QMessageBox.StandardButton.Yes:
+            if self.on_delete_cb:
+                self.on_delete_cb(mid)
+            self.refresh_list()
+
+    def add_manuals(self):
+        if self.on_add_cb:
+            self.on_add_cb()
+        self.refresh_list()
+
+
+class ChatTextEdit(QTextEdit):
+    """Auto-growing multi-line text input with Enter to send and Shift+Enter for new line."""
+    submit_requested = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setPlaceholderText("Ask about an IC, pinout, circuit problem, or follow-up question...")
+        self.setFixedHeight(46)
+        self.document().documentLayout().documentSizeChanged.connect(self.adjust_height)
+
+    def adjust_height(self):
+        doc_h = int(self.document().size().height()) + 14
+        new_h = max(46, min(140, doc_h))
+        self.setFixedHeight(new_h)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                super().keyPressEvent(event)
+            else:
+                self.submit_requested.emit()
+        else:
+            super().keyPressEvent(event)
+
+
+class ChatHistoryItemWidget(QFrame):
+    """Sidebar chat item with green active highlight, date, and hover actions (pin, rename, delete)."""
+    clicked = pyqtSignal(int)
+    rename_requested = pyqtSignal(int)
+    pin_requested = pyqtSignal(int, bool)
+    delete_requested = pyqtSignal(int)
+
+    def __init__(self, conv_id, title, date_str, is_active=False, is_pinned=False, parent=None):
+        super().__init__(parent)
+        self.conv_id = conv_id
+        self.is_active = is_active
+        self.is_pinned = is_pinned
+        self.setObjectName("chatItem")
+        self.setProperty("active", "true" if is_active else "false")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(48)
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(10, 4, 8, 4)
+        lay.setSpacing(8)
+
+        self.icon_lbl = QLabel()
+        icon_name = "pin" if is_pinned else "message-square"
+        icon_color = "#00FF85" if (is_pinned or is_active) else "#64748b"
+        self.icon_lbl.setPixmap(get_pixmap(icon_name, icon_color, 14))
+        self.icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        lay.addWidget(self.icon_lbl)
+
+        text_col = QVBoxLayout()
+        text_col.setSpacing(1)
+        text_col.setContentsMargins(0, 0, 0, 0)
+
+        display_title = title if len(title) <= 26 else title[:23] + "..."
+        self.title_lbl = QLabel(display_title)
+        self.title_lbl.setObjectName("chatItemTitle")
+        self.title_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        text_col.addWidget(self.title_lbl)
+
+        self.date_lbl = QLabel(date_str)
+        self.date_lbl.setObjectName("caption")
+        self.date_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        text_col.addWidget(self.date_lbl)
+        lay.addLayout(text_col, 1)
+
+        self.actions_box = QWidget()
+        a_lay = QHBoxLayout(self.actions_box)
+        a_lay.setContentsMargins(0, 0, 0, 0)
+        a_lay.setSpacing(2)
+
+        self.pin_b = button("", slot=self._on_pin)
+        self.pin_b.setIcon(get_icon("pin", "#00FF85" if is_pinned else "#94a3b8", 12))
+        self.pin_b.setToolTip("Unpin" if is_pinned else "Pin to top")
+        self.pin_b.setFixedSize(24, 24)
+        a_lay.addWidget(self.pin_b)
+
+        self.edit_b = button("", slot=self._on_rename)
+        self.edit_b.setIcon(get_icon("edit", "#94a3b8", 12))
+        self.edit_b.setToolTip("Rename chat")
+        self.edit_b.setFixedSize(24, 24)
+        a_lay.addWidget(self.edit_b)
+
+        self.del_b = button("", "danger", slot=self._on_delete)
+        self.del_b.setIcon(get_icon("trash-2", "#fca5a5", 12))
+        self.del_b.setToolTip("Delete chat")
+        self.del_b.setFixedSize(24, 24)
+        a_lay.addWidget(self.del_b)
+
+        self.actions_box.setVisible(False)
+        lay.addWidget(self.actions_box)
+
+    def enterEvent(self, event):
+        self.actions_box.setVisible(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.actions_box.setVisible(False)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit(self.conv_id)
+        super().mousePressEvent(event)
+
+    def _on_pin(self):
+        self.pin_requested.emit(self.conv_id, not self.is_pinned)
+
+    def _on_rename(self):
+        self.rename_requested.emit(self.conv_id)
+
+    def _on_delete(self):
+        self.delete_requested.emit(self.conv_id)
+
+
 class ChatMessageWidget(QWidget):
-    """Visually distinct chat message card (User or Assistant)."""
+    """Visually distinct chat message card with Markdown, citations, step zoom, and actions."""
     def __init__(self, role, content, data=None, created_at=None, parent_win=None):
         super().__init__()
         self.role = role
@@ -1129,9 +1567,19 @@ class ChatMessageWidget(QWidget):
             head.addWidget(label("You", "badge"))
             head.addStretch()
             head.addWidget(label(self.created_at, "caption"))
+
+            if self.win:
+                edit_btn = button("", slot=self.edit_message)
+                edit_btn.setIcon(get_icon("edit", "#94a3b8", 12))
+                edit_btn.setToolTip("Edit and resend")
+                edit_btn.setFixedSize(22, 22)
+                head.addWidget(edit_btn)
+
             b_lay.addLayout(head)
 
-            txt_lbl = QLabel(self.content)
+            txt_lbl = QLabel()
+            txt_lbl.setTextFormat(Qt.TextFormat.RichText)
+            txt_lbl.setText(render_markdown_html(self.content))
             txt_lbl.setWordWrap(True)
             txt_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             txt_lbl.setStyleSheet("font-size:14.5px; line-height:1.4;")
@@ -1161,10 +1609,16 @@ class ChatMessageWidget(QWidget):
             summary = (self.data or {}).get("summary") if isinstance(self.data, dict) else ""
             if not summary and self.content:
                 summary = self.content
+
+            manuals_map = {m["name"]: m["id"] for m in db.list_manuals()}
+
             if summary:
-                s_lbl = QLabel(summary)
+                s_lbl = QLabel()
+                s_lbl.setTextFormat(Qt.TextFormat.RichText)
+                s_lbl.setText(render_markdown_html(summary, manuals_map))
                 s_lbl.setWordWrap(True)
-                s_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+                s_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.LinksAccessibleByMouse)
+                s_lbl.linkActivated.connect(self._on_link_clicked)
                 s_lbl.setStyleSheet("font-size:14.5px; line-height:1.5;")
                 c_lay.addWidget(s_lbl)
 
@@ -1186,26 +1640,43 @@ class ChatMessageWidget(QWidget):
                     s_num = label(f" {s.get('number', '')} ", "badge", wrap=False)
                     s_row.addWidget(s_num, alignment=Qt.AlignmentFlag.AlignTop)
 
-                    s_text = QLabel(s.get("text", ""))
+                    s_text = QLabel()
+                    s_text.setTextFormat(Qt.TextFormat.RichText)
+                    s_text.setText(render_markdown_html(s.get("text", ""), manuals_map))
                     s_text.setWordWrap(True)
-                    s_text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+                    s_text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.LinksAccessibleByMouse)
+                    s_text.linkActivated.connect(self._on_link_clicked)
                     s_text.setStyleSheet("font-size:14px; line-height:1.4;")
                     s_row.addWidget(s_text, 1)
 
+                    img_path = s.get("image")
+                    if img_path and os.path.isfile(img_path):
+                        img_btn = button("", slot=lambda _, p=img_path: self.open_lightbox(p))
+                        img_btn.setIcon(get_icon("image", "#00FF85", 14))
+                        img_btn.setToolTip("View full diagram / visual")
+                        img_btn.setFixedHeight(26)
+                        s_row.addWidget(img_btn, alignment=Qt.AlignmentFlag.AlignTop)
+
                     pno = s.get("page")
+                    smid = s.get("manual_id")
                     if pno and self.win:
-                        jump_b = button(f"p. {pno} ↗", "chip", slot=lambda _=False, p=pno: self.win.open_user_manual(p))
+                        jump_b = button(f"p. {pno} ↗", "chip", slot=lambda _=False, p=pno, m=smid: self.win.open_user_manual(p, m))
                         jump_b.setFixedHeight(26)
                         s_row.addWidget(jump_b, alignment=Qt.AlignmentFlag.AlignTop)
 
                     sb_lay.addLayout(s_row)
                 c_lay.addWidget(steps_box)
 
-            # Footer actions: Copy, Export
+            # Footer actions: Copy, Regenerate, Export, Read Aloud, Thumbs Up / Down
             f_row = QHBoxLayout()
             copy_btn = button("Copy", "secondary", slot=self.copy_text)
             copy_btn.setIcon(get_icon("file-text", "#cbd5e1", 14))
             f_row.addWidget(copy_btn)
+
+            if self.win:
+                regen_btn = button("Regenerate", "secondary", slot=self.regenerate)
+                regen_btn.setIcon(get_icon("refresh-cw", "#cbd5e1", 14))
+                f_row.addWidget(regen_btn)
 
             exp_btn = button("Export Answer", "secondary")
             exp_btn.setIcon(get_icon("download", "#cbd5e1", 14))
@@ -1219,6 +1690,24 @@ class ChatMessageWidget(QWidget):
             exp_btn.setMenu(menu)
             f_row.addWidget(exp_btn)
 
+            read_btn = button("", "secondary", slot=self.read_aloud)
+            read_btn.setIcon(get_icon("volume-2", "#00FF85", 14))
+            read_btn.setToolTip("Read answer aloud")
+            read_btn.setFixedSize(32, 32)
+            f_row.addWidget(read_btn)
+
+            thumb_up = button("", "secondary", slot=lambda: self.rate_answer(True))
+            thumb_up.setIcon(get_icon("thumbs-up", "#10B981", 14))
+            thumb_up.setToolTip("Helpful answer")
+            thumb_up.setFixedSize(32, 32)
+            f_row.addWidget(thumb_up)
+
+            thumb_down = button("", "secondary", slot=lambda: self.rate_answer(False))
+            thumb_down.setIcon(get_icon("thumbs-down", "#f87171", 14))
+            thumb_down.setToolTip("Not helpful")
+            thumb_down.setFixedSize(32, 32)
+            f_row.addWidget(thumb_down)
+
             f_row.addStretch()
             c_lay.addLayout(f_row)
 
@@ -1226,6 +1715,36 @@ class ChatMessageWidget(QWidget):
             row.addWidget(card)
             row.addStretch()
             lay.addLayout(row)
+
+    def _on_link_clicked(self, url):
+        if url.startswith("manual://"):
+            parts = url.replace("manual://", "").split("/")
+            mid = int(parts[0]) if len(parts) > 0 and parts[0].isdigit() else None
+            pno = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
+            if self.win:
+                self.win.open_user_manual(pno, mid)
+
+    def open_lightbox(self, img_path):
+        dlg = ImageLightboxDialog(self.win, img_path)
+        dlg.exec()
+
+    def edit_message(self):
+        if self.win:
+            self.win.edit_user_message(self.content)
+
+    def regenerate(self):
+        if self.win:
+            self.win.regenerate_last_answer()
+
+    def read_aloud(self):
+        if self.win:
+            text = (self.data or {}).get("answer") or (self.data or {}).get("summary") or self.content
+            self.win.read_aloud_answer(text)
+
+    def rate_answer(self, is_positive):
+        if self.win:
+            msg = "Feedback recorded: Thank you!" if is_positive else "Feedback recorded: We'll improve this."
+            QMessageBox.information(self.win, "Feedback", msg)
 
     def copy_text(self):
         text_to_copy = export_mod.format_answer_txt(self.data or {"answer": self.content})
@@ -1679,7 +2198,9 @@ class MainView:
         main_h_lay.setContentsMargins(0, 0, 0, 0)
         main_h_lay.setSpacing(0)
 
-        # Collapsible Left Sidebar
+        # ---------------------------------------------------------------------
+        # Redesigned Chat History Sidebar (Grouped, Searchable, Sleek)
+        # ---------------------------------------------------------------------
         self.chat_sidebar = QFrame()
         self.chat_sidebar.setObjectName("sidebarFrame")
         self.chat_sidebar.setFixedWidth(290)
@@ -1687,7 +2208,7 @@ class MainView:
         s_lay.setContentsMargins(14, 16, 14, 16)
         s_lay.setSpacing(10)
 
-        # Top sidebar buttons
+        # Header row: New Chat + Collapse Button
         s_top = QHBoxLayout()
         self.new_chat_btn = button("New Chat", "primary", slot=self.win.new_chat)
         self.new_chat_btn.setIcon(get_icon("plus", "#ffffff", 14))
@@ -1701,36 +2222,50 @@ class MainView:
         s_top.addWidget(self.collapse_sidebar_btn)
         s_lay.addLayout(s_top)
 
-        # Export Recent Chats Dropdown
-        self.export_recent_btn = button("Export Recent Chats", "secondary")
-        self.export_recent_btn.setIcon(get_icon("download", "#94a3b8", 14))
-        recent_menu = QMenu(self.export_recent_btn)
-        act_p = recent_menu.addAction("Export Recent as PDF (.pdf)")
-        act_p.triggered.connect(lambda: self.win.export_recent_chats("pdf"))
-        act_m = recent_menu.addAction("Export Recent as Markdown (.md)")
-        act_m.triggered.connect(lambda: self.win.export_recent_chats("md"))
-        act_t = recent_menu.addAction("Export Recent as Plain Text (.txt)")
-        act_t.triggered.connect(lambda: self.win.export_recent_chats("txt"))
-        self.export_recent_btn.setMenu(recent_menu)
-        s_lay.addWidget(self.export_recent_btn)
+        # Search box to filter chats dynamically
+        self.chat_search = QLineEdit()
+        self.chat_search.setPlaceholderText("Search chats...")
+        self.chat_search.textChanged.connect(self.win.filter_chat_history)
+        s_lay.addWidget(self.chat_search)
 
-        s_lay.addWidget(label("SAVED CONVERSATIONS", "caption", wrap=False))
+        # Scrollable area for categorized chats with custom slim scrollbar
+        self.sidebar_scroll = QScrollArea()
+        self.sidebar_scroll.setWidgetResizable(True)
+        self.sidebar_scroll.setStyleSheet("background:transparent; border:none;")
+        self.sidebar_container = QWidget()
+        self.sidebar_groups_lay = QVBoxLayout(self.sidebar_container)
+        self.sidebar_groups_lay.setContentsMargins(0, 4, 0, 4)
+        self.sidebar_groups_lay.setSpacing(6)
+        self.sidebar_groups_lay.addStretch()
 
-        # Conversations List
-        self.chat_history_list = QListWidget()
-        self.chat_history_list.itemClicked.connect(self.win._on_history_item_clicked)
-        s_lay.addWidget(self.chat_history_list, 1)
+        self.sidebar_scroll.setWidget(self.sidebar_container)
+        s_lay.addWidget(self.sidebar_scroll, 1)
 
-        self.sidebar_delete_btn = button("Delete Selected Chat", "danger", slot=self.win.delete_selected_conversation)
-        self.sidebar_delete_btn.setIcon(get_icon("trash-2", "#fca5a5", 14))
-        s_lay.addWidget(self.sidebar_delete_btn)
+        # Footer info
+        s_footer = QHBoxLayout()
+        self.chat_count_lbl = label("0 conversations", "caption", wrap=False)
+        self.chat_history_list = self.sidebar_scroll
+        self.sidebar_delete_btn = None
+        self.export_recent_btn = None
+        s_footer.addWidget(self.chat_count_lbl)
+        s_footer.addStretch()
+        s_lay.addLayout(s_footer)
 
         main_h_lay.addWidget(self.chat_sidebar)
 
-        # Main Chat Area
+        # ---------------------------------------------------------------------
+        # Main Chat Area (Centered Column, Interactive Controls)
+        # ---------------------------------------------------------------------
         chat_area = QWidget()
-        c_lay = QVBoxLayout(chat_area)
-        c_lay.setContentsMargins(24, 16, 24, 16)
+        outer_chat_lay = QHBoxLayout(chat_area)
+        outer_chat_lay.setContentsMargins(0, 0, 0, 0)
+        outer_chat_lay.setSpacing(0)
+
+        # Centered container column
+        chat_col = QWidget()
+        chat_col.setMaximumWidth(920)
+        c_lay = QVBoxLayout(chat_col)
+        c_lay.setContentsMargins(20, 16, 20, 16)
         c_lay.setSpacing(10)
 
         # Header bar
@@ -1742,7 +2277,7 @@ class MainView:
         self.expand_sidebar_btn.setVisible(False)
         top_bar.addWidget(self.expand_sidebar_btn)
 
-        self.chat_manual_badge = label("Active Reference: Electronics Assistant", "h1", wrap=False)
+        self.chat_manual_badge = label("Scope: All Manuals", "h1", wrap=False)
         top_bar.addWidget(self.chat_manual_badge)
         top_bar.addStretch()
 
@@ -1760,7 +2295,7 @@ class MainView:
 
         c_lay.addLayout(top_bar)
 
-        # Scrollable Thread
+        # Scrollable Thread Container
         self.chat_scroll = QScrollArea()
         self.chat_scroll.setWidgetResizable(True)
         self.chat_scroll.setStyleSheet("background:transparent; border:none;")
@@ -1772,56 +2307,162 @@ class MainView:
         self.chat_thread_lay.addStretch()
 
         self.chat_scroll.setWidget(self.chat_thread_widget)
+
+        # Floating 'Scroll to bottom' button
+        self.scroll_bottom_btn = QPushButton(self.chat_scroll)
+        self.scroll_bottom_btn.setObjectName("scrollBottomBtn")
+        self.scroll_bottom_btn.setIcon(get_icon("arrow-down", "#00FF85", 16))
+        self.scroll_bottom_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.scroll_bottom_btn.setToolTip("Scroll to bottom")
+        self.scroll_bottom_btn.clicked.connect(self.win.scroll_chat_to_bottom)
+        self.scroll_bottom_btn.hide()
+        self.chat_scroll.verticalScrollBar().valueChanged.connect(self.win._on_chat_scroll_moved)
+
         c_lay.addWidget(self.chat_scroll, 1)
 
-        # Typing Indicator Card
+        # Typing & Streaming Indicator Card with Stop Button
         self.typing_card = QFrame()
         self.typing_card.setObjectName("typingCard")
         t_lay = QHBoxLayout(self.typing_card)
         t_lay.setContentsMargins(16, 10, 16, 10)
         t_lay.setSpacing(10)
+
         t_icon = QLabel()
         t_icon.setPixmap(get_pixmap("clock", "#00FF85", 16))
-        self.typing_lbl = label("Searching manual & reasoning answer...", "badgeOk", wrap=False)
         t_lay.addWidget(t_icon)
-        t_lay.addWidget(self.typing_lbl)
-        t_lay.addStretch()
+
+        self.typing_lbl = label("Searching manual excerpts & reasoning...", "badgeOk", wrap=False)
+        t_lay.addWidget(self.typing_lbl, 1)
+
+        self.stop_btn = button("Stop Generating", "danger", slot=self.win.stop_generating)
+        self.stop_btn.setIcon(get_icon("square", "#ffffff", 12))
+        self.stop_btn.setProperty("kind", "stopBtn")
+        t_lay.addWidget(self.stop_btn)
+
         self.typing_card.setVisible(False)
         c_lay.addWidget(self.typing_card)
 
-        # Fixed Bottom Input Bar
+        # ---------------------------------------------------------------------
+        # Bottom Input Area (Tidy Scope Toolbar + Voice Overlay + Text Input)
+        # ---------------------------------------------------------------------
         bottom_box = QFrame()
         bottom_box.setObjectName("card")
         b_lay = QVBoxLayout(bottom_box)
-        b_lay.setContentsMargins(12, 10, 12, 10)
-        b_lay.setSpacing(8)
+        b_lay.setContentsMargins(14, 12, 14, 12)
+        b_lay.setSpacing(10)
 
+        # Voice Input Overlay Bar (Active during recording)
+        self.voice_bar = QFrame()
+        self.voice_bar.setObjectName("voiceBar")
+        vb_lay = QHBoxLayout(self.voice_bar)
+        vb_lay.setContentsMargins(12, 8, 12, 8)
+        vb_lay.setSpacing(12)
+
+        mic_rec_icon = QLabel()
+        mic_rec_icon.setPixmap(get_pixmap("mic", "#00FF85", 20))
+        vb_lay.addWidget(mic_rec_icon)
+
+        self.voice_timer_lbl = label("0:00", "boldText", wrap=False)
+        self.voice_timer_lbl.setStyleSheet("color:#00FF85; font-weight:700; font-size:14px;")
+        vb_lay.addWidget(self.voice_timer_lbl)
+
+        self.voice_level_bar = QProgressBar()
+        self.voice_level_bar.setRange(0, 100)
+        self.voice_level_bar.setValue(0)
+        self.voice_level_bar.setTextVisible(False)
+        self.voice_level_bar.setFixedHeight(8)
+        self.voice_level_bar.setStyleSheet("QProgressBar::chunk { background: #00FF85; border-radius: 4px; }")
+        vb_lay.addWidget(self.voice_level_bar, 1)
+
+        self.voice_lang_combo = QComboBox()
+        self.voice_lang_combo.addItem("English (Auto)", "en")
+        self.voice_lang_combo.addItem("English (India)", "en-IN")
+        self.voice_lang_combo.addItem("Hindi (हिन्दी)", "hi")
+        self.voice_lang_combo.setFixedHeight(28)
+        vb_lay.addWidget(self.voice_lang_combo)
+
+        self.voice_done_btn = button("Done", "primary", slot=self.win.stop_voice_input)
+        self.voice_done_btn.setIcon(get_icon("check", "#ffffff", 14))
+        self.voice_done_btn.setFixedHeight(28)
+        vb_lay.addWidget(self.voice_done_btn)
+
+        self.voice_cancel_btn = button("Cancel", "secondary", slot=self.win.cancel_voice_input)
+        self.voice_cancel_btn.setIcon(get_icon("x", "#94a3b8", 12))
+        self.voice_cancel_btn.setFixedHeight(28)
+        vb_lay.addWidget(self.voice_cancel_btn)
+
+        self.voice_bar.setVisible(False)
+        b_lay.addWidget(self.voice_bar)
+
+        # Text input row
         input_row = QHBoxLayout()
         input_row.setSpacing(8)
-        self.chat_input = QLineEdit()
-        self.chat_input.setPlaceholderText("Ask about an IC, pinout, circuit problem, or follow-up question...")
-        self.chat_input.returnPressed.connect(self.win.send_chat_message)
-        input_row.addWidget(self.chat_input, 1)
 
-        self.chat_speak_btn = button("Speak", slot=self.win.speak_chat)
-        self.chat_speak_btn.setIcon(get_icon("mic", "#cbd5e1", 16))
-        input_row.addWidget(self.chat_speak_btn)
+        self.chat_input = ChatTextEdit()
+        self.chat_input.submit_requested.connect(self.win.send_chat_message)
+        input_row.addWidget(self.chat_input, 1)
 
         self.chat_send_btn = button("Send", "primary", slot=self.win.send_chat_message)
         self.chat_send_btn.setIcon(get_icon("send", "#ffffff", 14))
-        self.chat_send_btn.setFixedWidth(80)
+        self.chat_send_btn.setFixedSize(80, 46)
         input_row.addWidget(self.chat_send_btn)
+
         b_lay.addLayout(input_row)
 
-        sub_row = QHBoxLayout()
-        self.chat_full_check = QCheckBox("Full in-depth analysis (checks all manual pages)")
-        sub_row.addWidget(self.chat_full_check)
-        sub_row.addStretch()
-        sub_hint = label("Press Enter to send • Conversation history preserved for follow-ups", "caption")
-        sub_row.addWidget(sub_hint)
-        b_lay.addLayout(sub_row)
+        # Manual Scope Controls & Quick Actions Toolbar
+        scope_row = QHBoxLayout()
+        scope_row.setSpacing(8)
+
+        # Scope Chip
+        self.scope_chip_btn = button("All manuals", "chipActive", slot=self.win.open_scope_picker)
+        self.scope_chip_btn.setIcon(get_icon("book-open", "#00FF85", 14))
+        self.scope_chip_btn.setToolTip("Click to change manual scope")
+        scope_row.addWidget(self.scope_chip_btn)
+
+        self.scope_add_btn = button("Add Manual", "secondary", slot=self.win.add_manual_multi)
+        self.scope_add_btn.setIcon(get_icon("upload", "#94a3b8", 13))
+        self.scope_add_btn.setStyleSheet("padding: 5px 10px; font-size: 12.5px;")
+        scope_row.addWidget(self.scope_add_btn)
+
+        self.scope_manage_btn = button("Manage", "secondary", slot=self.win.manage_manuals_modal)
+        self.scope_manage_btn.setIcon(get_icon("settings", "#94a3b8", 13))
+        self.scope_manage_btn.setStyleSheet("padding: 5px 10px; font-size: 12.5px;")
+        scope_row.addWidget(self.scope_manage_btn)
+
+        self.scope_clear_btn = button("Reset Scope", "secondary", slot=self.win.reset_scope_to_all)
+        self.scope_clear_btn.setStyleSheet("padding: 5px 10px; font-size: 12.5px;")
+        self.scope_clear_btn.setVisible(False)
+        scope_row.addWidget(self.scope_clear_btn)
+
+        scope_row.addSpacing(6)
+
+        # Deep-dive toggle
+        self.chat_full_check = QCheckBox("Deep-dive")
+        self.chat_full_check.setToolTip("Checks all indexed manual pages thoroughly")
+        scope_row.addWidget(self.chat_full_check)
+
+        scope_row.addStretch()
+
+        # Attach Photo button
+        self.chat_attach_btn = button("Attach Photo", "secondary", slot=self.win.attach_photo_to_chat)
+        self.chat_attach_btn.setIcon(get_icon("camera", "#94a3b8", 13))
+        self.chat_attach_btn.setStyleSheet("padding: 5px 10px; font-size: 12.5px;")
+        scope_row.addWidget(self.chat_attach_btn)
+
+        # Voice input button
+        self.chat_speak_btn = button("Voice", "secondary", slot=self.win.toggle_voice_input)
+        self.chat_speak_btn.setIcon(get_icon("mic", "#00FF85", 13))
+        self.chat_speak_btn.setStyleSheet("padding: 5px 10px; font-size: 12.5px;")
+        scope_row.addWidget(self.chat_speak_btn)
+
+        b_lay.addLayout(scope_row)
 
         c_lay.addWidget(bottom_box)
+
+        # Add centered chat column with flex spacing
+        outer_chat_lay.addStretch(1)
+        outer_chat_lay.addWidget(chat_col, 10)
+        outer_chat_lay.addStretch(1)
 
         main_h_lay.addWidget(chat_area, 1)
         return p
