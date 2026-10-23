@@ -847,14 +847,18 @@ class MainWindow(QWidget):
 
         while self.view.sidebar_groups_lay.count() > 1:
             child = self.view.sidebar_groups_lay.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            w = child.widget()
+            if w:
+                w.setParent(None)
+                w.deleteLater()
             elif child.layout():
                 sub = child.layout()
                 while sub.count():
                     si = sub.takeAt(0)
-                    if si.widget():
-                        si.widget().deleteLater()
+                    sw = si.widget()
+                    if sw:
+                        sw.setParent(None)
+                        sw.deleteLater()
 
         convs = db.list_conversations()
         filter_text = self.view.chat_search.text().strip().lower() if hasattr(self.view, 'chat_search') else ""
