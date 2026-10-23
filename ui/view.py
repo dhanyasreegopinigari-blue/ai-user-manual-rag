@@ -5,10 +5,10 @@ import time
 import cv2
 
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QSize, QUrl
-from PyQt6.QtGui import QAction, QImage, QPainter, QPixmap, QFont
+from PyQt6.QtGui import QAction, QImage, QPainter, QPixmap, QFont, QColor, QIcon
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QFrame,
-    QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMenu, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy,
     QSpinBox, QSplitter, QStackedWidget, QTabWidget, QTextEdit, QTreeWidget,
     QTreeWidgetItem, QVBoxLayout, QWidget
@@ -28,15 +28,48 @@ from ui.icons import get_icon, get_pixmap
 DARK_STYLE = """
 QWidget { background:#0d121a; color:#e6edf6; font-family:'Segoe UI','Inter',system-ui,sans-serif; font-size:14px; }
 QLabel { background:transparent; }
-QPushButton { background:#1b2332; border:1px solid #2a374c; border-radius:10px; padding:9px 16px; color:#e6edf6; font-weight:500; }
-QPushButton:hover { background:#253043; border-color:#3d4e68; }
-QPushButton:pressed { background:#161c28; }
-QPushButton:disabled { color:#5f6b80; background:#141a24; border-color:#1e2634; }
+QPushButton {
+    background: #111a14;
+    border: 1px solid rgba(0, 255, 133, 0.16);
+    border-radius: 10px;
+    padding: 8px 16px;
+    min-height: 20px;
+    color: #e6edf6;
+    font-weight: 500;
+}
+QPushButton:hover {
+    background: #18281d;
+    border-color: #00FF85;
+}
+QPushButton:pressed {
+    background: #0d1510;
+}
+QPushButton:disabled {
+    color: #526357;
+    background: #0d120f;
+    border-color: #1a241e;
+}
 
-QPushButton[kind="primary"] { background:#3b82f6; border:none; color:#ffffff; font-weight:600; }
-QPushButton[kind="primary"]:hover { background:#60a5fa; }
-QPushButton[kind="primary"]:pressed { background:#2563eb; }
-QPushButton[kind="primary"]:disabled { background:#1e293b; color:#64748b; }
+QPushButton[kind="primary"] {
+    background: #00FF85;
+    border: 1px solid #00FF85;
+    border-radius: 10px;
+    color: #060907;
+    font-weight: 700;
+    padding: 8px 18px;
+}
+QPushButton[kind="primary"]:hover {
+    background: #39FF14;
+    border-color: #39FF14;
+}
+QPushButton[kind="primary"]:pressed {
+    background: #00cc6a;
+}
+QPushButton[kind="primary"]:disabled {
+    background: #142419;
+    color: #4a6352;
+    border-color: #1b3022;
+}
 
 QPushButton[kind="secondary"] { background:#161f2c; border:1px solid #2d3b52; color:#cbd5e1; font-weight:500; }
 QPushButton[kind="secondary"]:hover { background:#222f42; color:#ffffff; border-color:#475975; }
@@ -72,6 +105,59 @@ QFrame#sidebarFrame { background:#0f1520; border-right:1px solid #202b3c; }
 
 QFrame#userBubble { background:#1b3558; border:1px solid #2b4f7e; border-radius:14px; }
 QFrame#asstCard { background:#131c28; border:1px solid #233145; border-radius:16px; }
+
+/* Manuals Page & Viewer Styling */
+QFrame#dropZone {
+    background: #090e0b;
+    border: 2px dashed rgba(0, 255, 133, 0.35);
+    border-radius: 14px;
+}
+QFrame#dropZone:hover {
+    background: #0e1712;
+    border-color: #00FF85;
+}
+QFrame#manualCard {
+    background: #0d1410;
+    border: 1px solid rgba(0, 255, 133, 0.14);
+    border-radius: 14px;
+}
+QFrame#manualCard:hover {
+    background: #121c16;
+    border-color: #00FF85;
+}
+QFrame#manualRow {
+    background: #0d1410;
+    border: 1px solid rgba(0, 255, 133, 0.12);
+    border-radius: 10px;
+    padding: 6px 12px;
+}
+QFrame#manualRow:hover {
+    background: #121c16;
+    border-color: #00FF85;
+}
+QFrame#statCard {
+    background: #0b110e;
+    border: 1px solid rgba(0, 255, 133, 0.15);
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+QCheckBox#toggleChat {
+    color: #8ca394;
+    font-size: 12px;
+    spacing: 6px;
+}
+QCheckBox#toggleChat::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 255, 133, 0.3);
+    background: #090e0b;
+}
+QCheckBox#toggleChat::indicator:checked {
+    background: #00FF85;
+    border-color: #00FF85;
+}
+
 
 /* Component Library Cards & Pills */
 QFrame#compCard {
@@ -2220,13 +2306,20 @@ class TopNavBar(QFrame):
         self.btn_lib = button("Component Library", "nav", slot=lambda: self.win.navigate_to(2))
         self.btn_lib.setIcon(get_icon("cpu", "#94a3b8", 16))
 
-        self.btn_manual = button("User Manual & Help", "nav", slot=lambda: self.win.navigate_to(3))
+        self.btn_manual = button("Manuals", "nav", slot=lambda: self.win.navigate_to(3))
         self.btn_manual.setIcon(get_icon("book-open", "#94a3b8", 16))
 
-        for b in (self.btn_dash, self.btn_chat, self.btn_lib, self.btn_manual):
+        self.nav_buttons = [self.btn_dash, self.btn_chat, self.btn_lib, self.btn_manual]
+        for b in self.nav_buttons:
             lay.addWidget(b)
 
         lay.addStretch()
+
+        # Help drawer button
+        self.help_btn = button("Help", "secondary", slot=lambda: self.win.open_help_drawer())
+        self.help_btn.setIcon(get_icon("help-circle", "#00FF85", 16))
+        self.help_btn.setToolTip("App User Guide & Interactive Tour")
+        lay.addWidget(self.help_btn)
 
         # Theme toggle & Settings
         self.theme_btn = button("Dark Mode", "secondary", slot=self.win.toggle_theme)
@@ -2256,6 +2349,1121 @@ class TopNavBar(QFrame):
             b.style().polish(b)
 
 
+class HelpDrawerDialog(QDialog):
+    """Slide-in modal drawer explaining how to use ElectroLearn AI and take the guided tour."""
+    def __init__(self, win):
+        super().__init__(win)
+        self.win = win
+        self.setWindowTitle("ElectroLearn AI — Help & User Tour")
+        self.setMinimumSize(540, 680)
+        self.resize(580, 720)
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+
+        # Header
+        head = QFrame()
+        head.setStyleSheet("background: #0a0f0c; border-bottom: 1px solid rgba(0,255,133,0.15); padding: 16px 20px;")
+        h_lay = QHBoxLayout(head)
+        h_lay.setContentsMargins(0, 0, 0, 0)
+
+        title_icon = QLabel()
+        title_icon.setPixmap(get_pixmap("help-circle", "#00FF85", 22))
+        h_lay.addWidget(title_icon)
+
+        t_col = QVBoxLayout()
+        t_title = QLabel("Help & User Guide")
+        t_title.setStyleSheet("font-size: 18px; font-weight: 800; color: #F3FBF5;")
+        t_sub = QLabel("Learn how to capture, identify, search, and troubleshoot")
+        t_sub.setStyleSheet("font-size: 12.5px; color: #6B8273;")
+        t_col.addWidget(t_title)
+        t_col.addWidget(t_sub)
+        h_lay.addLayout(t_col, 1)
+
+        close_btn = QPushButton()
+        close_btn.setIcon(get_icon("x", "#cbd5e1", 16))
+        close_btn.setFixedSize(32, 32)
+        close_btn.clicked.connect(self.accept)
+        close_btn.setStyleSheet("background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;")
+        h_lay.addWidget(close_btn)
+        lay.addWidget(head)
+
+        # Body
+        body = QWidget()
+        b_lay = QVBoxLayout(body)
+        b_lay.setContentsMargins(20, 16, 20, 16)
+        b_lay.setSpacing(14)
+
+        # Quick Tour Banner
+        tour_card = QFrame()
+        tour_card.setStyleSheet("background: #0e1a13; border: 1.5px solid #00FF85; border-radius: 12px; padding: 14px;")
+        tc_lay = QHBoxLayout(tour_card)
+        tc_lay.setContentsMargins(0, 0, 0, 0)
+
+        tc_text = QVBoxLayout()
+        tc_t = QLabel("New to the platform?")
+        tc_t.setStyleSheet("font-weight: 700; font-size: 14px; color: #00FF85;")
+        tc_d = QLabel("Take an interactive guided tour through all 4 primary application screens.")
+        tc_d.setStyleSheet("font-size: 12px; color: #cbd5e1;")
+        tc_d.setWordWrap(True)
+        tc_text.addWidget(tc_t)
+        tc_text.addWidget(tc_d)
+        tc_lay.addLayout(tc_text, 1)
+
+        self.tour_btn = QPushButton("Take the tour")
+        self.tour_btn.setProperty("kind", "primary")
+        self.tour_btn.setIcon(get_icon("play", "#060907", 14))
+        self.tour_btn.clicked.connect(self._start_tour)
+        tc_lay.addWidget(self.tour_btn)
+        b_lay.addWidget(tour_card)
+
+        # Search help topics
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search help topics...")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.addAction(get_icon("search", "#6B8273", 16), QLineEdit.ActionPosition.LeadingPosition)
+        self.search_input.textChanged.connect(self._filter_topics)
+        b_lay.addWidget(self.search_input)
+
+        # Scrollable Topics
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_content = QWidget()
+        self.topics_lay = QVBoxLayout(scroll_content)
+        self.topics_lay.setContentsMargins(0, 0, 0, 0)
+        self.topics_lay.setSpacing(10)
+
+        self.topic_cards = []
+        guides = [
+            ("1. Dashboard & Identification",
+             "• Click 'Upload Image' or 'Live Cam' on the Dashboard to inspect electronic components.\n"
+             "• The system detects markings, part numbers, package formats, and queries datasheets.\n"
+             "• Click on matched illustrations to open the high-res zoomable Lightbox."),
+
+            ("2. AI Assistant & Voice Dictation",
+             "• Ask repair, pinout, wiring, and replacement questions.\n"
+             "• Click the mic button to speak with real-time waveform visualization and automatic silence detection.\n"
+             "• Answers automatically cite manuals (e.g. [Manual, p.12])—click any citation to open that exact page in the reader."),
+
+            ("3. Component Library & Pinouts",
+             "• Browse curated electronic components across 8 categories (ICs, Diodes, Sensors, etc.).\n"
+             "• Click any card to inspect realistic photographs, pin connections, schematic symbols, and key specs."),
+
+            ("4. Hardware Manuals & PDF Reader",
+             "• Upload and index manufacturer service manuals and hardware datasheets with drag-and-drop.\n"
+             "• Use the interactive PDF reader with page thumbnails, text search, bookmarks, dark reading mode, and extracted figure galleries.\n"
+             "• Use the 'Include in AI search' toggle to customize which manuals the AI assistant searches."),
+
+            ("5. Safety & Bench Testing Rules",
+             "• Pin 1 Orientation: Pin 1 is always to the left of the U-notch or adjacent to the embossed dot.\n"
+             "• Polarity: Rectifier diodes have a silver band at the cathode. Electrolytic capacitors have a negative (-) stripe and must NEVER be wired in reverse.\n"
+             "• Always de-energize circuits before measuring component resistance or diode drops.")
+        ]
+
+        for title, text_desc in guides:
+            card = QFrame()
+            card.setObjectName("card")
+            card.setStyleSheet("background: #0d1410; border: 1px solid rgba(0,255,133,0.12); border-radius: 10px; padding: 12px;")
+            c_lay = QVBoxLayout(card)
+            c_lay.setContentsMargins(4, 4, 4, 4)
+            c_lay.setSpacing(6)
+
+            t_lbl = QLabel(title)
+            t_lbl.setStyleSheet("font-size: 14px; font-weight: 700; color: #F3FBF5;")
+            d_lbl = QLabel(text_desc)
+            d_lbl.setStyleSheet("font-size: 12.5px; color: #8ca394; line-height: 1.5;")
+            d_lbl.setWordWrap(True)
+
+            c_lay.addWidget(t_lbl)
+            c_lay.addWidget(d_lbl)
+            self.topics_lay.addWidget(card)
+            self.topic_cards.append((title.lower() + " " + text_desc.lower(), card))
+
+        self.topics_lay.addStretch()
+        scroll.setWidget(scroll_content)
+        b_lay.addWidget(scroll, 1)
+
+        lay.addWidget(body, 1)
+
+    def _filter_topics(self, q=None):
+        query_text = (q if q is not None else self.search_input.text()).strip().lower()
+        for text_corpus, card in self.topic_cards:
+            card.setVisible(query_text in text_corpus if query_text else True)
+
+    def _start_tour(self):
+        self.accept()
+        if hasattr(self.win, "start_guided_tour"):
+            self.win.start_guided_tour()
+
+
+class ManualDropZone(QFrame):
+    """Drag-and-drop file upload target with multi-PDF batch indexing and progress bar."""
+    def __init__(self, on_files_dropped=None, on_browse_clicked=None, parent=None):
+        super().__init__(parent)
+        self.setObjectName("dropZone")
+        self.setAcceptDrops(True)
+        self.on_files_dropped = on_files_dropped
+        self.on_browse_clicked = on_browse_clicked
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(24, 20, 24, 20)
+        lay.setSpacing(10)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        icon_lbl = QLabel()
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl.setPixmap(get_pixmap("upload", "#00FF85", 34))
+        lay.addWidget(icon_lbl)
+
+        title_lbl = QLabel("Drag & drop PDF hardware manuals here, or click to browse")
+        title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_lbl.setStyleSheet("font-size: 15px; font-weight: 700; color: #F3FBF5;")
+        lay.addWidget(title_lbl)
+
+        sub_lbl = QLabel("Supports multiple PDF files simultaneously. Automatic text extraction, page snapshots, and FAISS indexing.")
+        sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sub_lbl.setStyleSheet("font-size: 12px; color: #6B8273;")
+        lay.addWidget(sub_lbl)
+
+        # Progress widgets (hidden until upload runs)
+        self.progress_box = QWidget()
+        p_lay = QVBoxLayout(self.progress_box)
+        p_lay.setContentsMargins(0, 4, 0, 0)
+        p_lay.setSpacing(6)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setFixedHeight(8)
+        self.progress_bar.setTextVisible(False)
+        p_lay.addWidget(self.progress_bar)
+
+        self.status_lbl = QLabel("Uploading and indexing...")
+        self.status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_lbl.setStyleSheet("font-size: 11.5px; color: #00FF85; font-weight: 600;")
+        p_lay.addWidget(self.status_lbl)
+
+        self.progress_box.setVisible(False)
+        lay.addWidget(self.progress_box)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.on_browse_clicked:
+            self.on_browse_clicked()
+        super().mousePressEvent(event)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            urls = event.mimeData().urls()
+            if any(u.toLocalFile().lower().endswith('.pdf') for u in urls):
+                event.acceptProposedAction()
+                return
+        event.ignore()
+
+    def dropEvent(self, event):
+        files = []
+        for url in event.mimeData().urls():
+            path = url.toLocalFile()
+            if path.lower().endswith('.pdf') and os.path.isfile(path):
+                files.append(path)
+        if files and self.on_files_dropped:
+            self.on_files_dropped(files)
+        event.acceptProposedAction()
+
+    def show_progress(self, current, total, msg=""):
+        self.progress_box.setVisible(True)
+        pct = int((current / max(1, total)) * 100)
+        self.progress_bar.setValue(pct)
+        self.status_lbl.setText(msg or f"Processing file {current} of {total} ({pct}%)...")
+
+    def hide_progress(self):
+        self.progress_box.setVisible(False)
+
+
+class ManualItemWidget(QFrame):
+    """Modern manual entry card supporting Grid and List view, AI toggle, and instant actions."""
+    def __init__(self, manual, view_mode="grid", on_view_cb=None, on_ask_cb=None, on_toggle_cb=None, on_delete_cb=None, on_rename_cb=None, on_download_cb=None, parent=None):
+        super().__init__(parent)
+        self.manual = manual
+        self.mid = manual["id"]
+        self.view_mode = view_mode
+        self.on_view_cb = on_view_cb
+        self.on_ask_cb = on_ask_cb
+        self.on_toggle_cb = on_toggle_cb
+        self.on_delete_cb = on_delete_cb
+        self.on_rename_cb = on_rename_cb
+        self.on_download_cb = on_download_cb
+
+        self.setObjectName("manualCard" if view_mode == "grid" else "manualRow")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        if view_mode == "grid":
+            self._build_grid_layout()
+        else:
+            self._build_list_layout()
+
+    def _build_grid_layout(self):
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(14, 14, 14, 14)
+        lay.setSpacing(10)
+
+        # Top row: Checkbox, status badge, and AI Search Toggle
+        top_row = QHBoxLayout()
+        top_row.setSpacing(8)
+
+        self.select_check = QCheckBox()
+        self.select_check.setToolTip("Select for bulk action")
+        top_row.addWidget(self.select_check)
+
+        # Status badge
+        status_lbl = QLabel("Indexed")
+        status_lbl.setStyleSheet("background: rgba(0,255,133,0.12); color: #00FF85; border: 1px solid rgba(0,255,133,0.25); border-radius: 6px; padding: 2px 7px; font-size: 11px; font-weight: 600;")
+        top_row.addWidget(status_lbl)
+        top_row.addStretch()
+
+        # AI Chat Search Toggle
+        self.chat_toggle = QCheckBox("AI Search")
+        self.chat_toggle.setObjectName("toggleChat")
+        self.chat_toggle.setChecked(bool(self.manual.get("enabled_for_chat", 1)))
+        self.chat_toggle.setToolTip("Include this manual in AI Assistant search queries")
+        self.chat_toggle.toggled.connect(lambda val: self.on_toggle_cb(self.mid, val) if self.on_toggle_cb else None)
+        top_row.addWidget(self.chat_toggle)
+        lay.addLayout(top_row)
+
+        # Preview Thumbnail / Icon Box
+        preview_box = QFrame()
+        preview_box.setFixedHeight(120)
+        preview_box.setStyleSheet("background: #070b09; border-radius: 8px;")
+        pb_lay = QVBoxLayout(preview_box)
+        pb_lay.setContentsMargins(4, 4, 4, 4)
+        pb_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        thumb_lbl = QLabel()
+        thumb_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        page_img = self.manual.get("page_image")
+        if page_img and os.path.isfile(page_img):
+            pix = QPixmap(page_img)
+            if not pix.isNull():
+                thumb_lbl.setPixmap(pix.scaled(QSize(180, 110), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            else:
+                thumb_lbl.setPixmap(get_pixmap("book-open", "#00FF85", 36))
+        else:
+            thumb_lbl.setPixmap(get_pixmap("book-open", "#00FF85", 36))
+        pb_lay.addWidget(thumb_lbl)
+        preview_box.mousePressEvent = lambda e: self.on_view_cb(self.mid) if self.on_view_cb else None
+        lay.addWidget(preview_box)
+
+        # Title & Subtitle
+        name_str = self.manual.get("name") or "Hardware Manual"
+        title_lbl = QLabel(f"<b>{name_str}</b>")
+        title_lbl.setStyleSheet("font-size: 14.5px; font-weight: 700; color: #F3FBF5;")
+        title_lbl.setWordWrap(True)
+        lay.addWidget(title_lbl)
+
+        sub_parts = []
+        if self.manual.get("manufacturer"):
+            sub_parts.append(self.manual["manufacturer"])
+        if self.manual.get("model"):
+            sub_parts.append(self.manual["model"])
+        if sub_parts:
+            sub_lbl = QLabel(" • ".join(sub_parts))
+            sub_lbl.setStyleSheet("font-size: 12px; color: #6B8273;")
+            lay.addWidget(sub_lbl)
+
+        # Metadata badges row: Pages, Size, Date
+        meta_row = QHBoxLayout()
+        meta_row.setSpacing(6)
+
+        p_count = self.manual.get("page_count", 0)
+        meta_row.addWidget(QLabel(f'<span style="background:rgba(255,255,255,0.05); color:#cbd5e1; padding:2px 6px; border-radius:4px; font-size:11px;">{p_count} pgs</span>'))
+
+        sz_bytes = self.manual.get("file_size", 0)
+        sz_mb = f"{sz_bytes / (1024*1024):.1f} MB" if sz_bytes else "—"
+        meta_row.addWidget(QLabel(f'<span style="background:rgba(255,255,255,0.05); color:#cbd5e1; padding:2px 6px; border-radius:4px; font-size:11px;">{sz_mb}</span>'))
+
+        meta_row.addStretch()
+        lay.addLayout(meta_row)
+
+        # Tags row if any
+        tags = self.manual.get("tags")
+        if tags:
+            tag_row = QHBoxLayout()
+            tag_row.setSpacing(4)
+            for t in tags.split(",")[:3]:
+                if t.strip():
+                    t_badge = QLabel(t.strip())
+                    t_badge.setStyleSheet("background: rgba(0,255,133,0.08); color: #00FF85; border: 1px solid rgba(0,255,133,0.18); border-radius: 4px; padding: 1px 5px; font-size: 10px;")
+                    tag_row.addWidget(t_badge)
+            tag_row.addStretch()
+            lay.addLayout(tag_row)
+
+        # Action Buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(6)
+
+        view_b = QPushButton("View")
+        view_b.setIcon(get_icon("book-open", "#060907", 13))
+        view_b.setProperty("kind", "primary")
+        view_b.clicked.connect(lambda: self.on_view_cb(self.mid) if self.on_view_cb else None)
+        btn_row.addWidget(view_b, 1)
+
+        ask_b = QPushButton("Ask")
+        ask_b.setIcon(get_icon("message-square", "#cbd5e1", 13))
+        ask_b.setProperty("kind", "secondary")
+        ask_b.clicked.connect(lambda: self.on_ask_cb(self.mid) if self.on_ask_cb else None)
+        btn_row.addWidget(ask_b)
+
+        # More menu (Rename, Download, Delete)
+        more_b = QPushButton()
+        more_b.setIcon(get_icon("settings", "#6B8273", 14))
+        more_b.setFixedSize(34, 34)
+        more_b.setProperty("kind", "secondary")
+        menu = QMenu(more_b)
+        act_ren = menu.addAction("Rename Manual")
+        act_ren.triggered.connect(lambda: self.on_rename_cb(self.manual) if self.on_rename_cb else None)
+        act_down = menu.addAction("Download PDF Copy")
+        act_down.triggered.connect(lambda: self.on_download_cb(self.manual) if self.on_download_cb else None)
+        menu.addSeparator()
+        act_del = menu.addAction("Delete Manual")
+        act_del.triggered.connect(lambda: self.on_delete_cb(self.mid) if self.on_delete_cb else None)
+        more_b.setMenu(menu)
+        btn_row.addWidget(more_b)
+
+        lay.addLayout(btn_row)
+
+    def _build_list_layout(self):
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(14, 10, 14, 10)
+        lay.setSpacing(14)
+
+        self.select_check = QCheckBox()
+        lay.addWidget(self.select_check)
+
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(get_pixmap("book-open", "#00FF85", 22))
+        lay.addWidget(icon_lbl)
+
+        # Name and maker
+        text_col = QVBoxLayout()
+        text_col.setSpacing(2)
+        name_str = self.manual.get("name") or "Hardware Manual"
+        t_lbl = QLabel(f"<b>{name_str}</b>")
+        t_lbl.setStyleSheet("font-size: 14px; color: #F3FBF5;")
+        text_col.addWidget(t_lbl)
+
+        sub_parts = []
+        if self.manual.get("manufacturer"):
+            sub_parts.append(self.manual["manufacturer"])
+        if self.manual.get("model"):
+            sub_parts.append(self.manual["model"])
+        p_count = self.manual.get("page_count", 0)
+        sz_bytes = self.manual.get("file_size", 0)
+        sz_mb = f"{sz_bytes / (1024*1024):.1f} MB" if sz_bytes else "—"
+        sub_parts.append(f"{p_count} pages")
+        sub_parts.append(sz_mb)
+
+        s_lbl = QLabel(" • ".join(sub_parts))
+        s_lbl.setStyleSheet("font-size: 12px; color: #6B8273;")
+        text_col.addWidget(s_lbl)
+        lay.addLayout(text_col, 2)
+
+        # AI Search Toggle
+        self.chat_toggle = QCheckBox("AI Search")
+        self.chat_toggle.setObjectName("toggleChat")
+        self.chat_toggle.setChecked(bool(self.manual.get("enabled_for_chat", 1)))
+        self.chat_toggle.toggled.connect(lambda val: self.on_toggle_cb(self.mid, val) if self.on_toggle_cb else None)
+        lay.addWidget(self.chat_toggle)
+
+        # Actions
+        view_b = QPushButton("View")
+        view_b.setIcon(get_icon("book-open", "#060907", 13))
+        view_b.setProperty("kind", "primary")
+        view_b.clicked.connect(lambda: self.on_view_cb(self.mid) if self.on_view_cb else None)
+        lay.addWidget(view_b)
+
+        ask_b = QPushButton("Ask")
+        ask_b.setIcon(get_icon("message-square", "#cbd5e1", 13))
+        ask_b.setProperty("kind", "secondary")
+        ask_b.clicked.connect(lambda: self.on_ask_cb(self.mid) if self.on_ask_cb else None)
+        lay.addWidget(ask_b)
+
+        del_b = QPushButton()
+        del_b.setIcon(get_icon("trash-2", "#fca5a5", 14))
+        del_b.setProperty("kind", "danger")
+        del_b.setFixedSize(34, 34)
+        del_b.clicked.connect(lambda: self.on_delete_cb(self.mid) if self.on_delete_cb else None)
+        lay.addWidget(del_b)
+
+class InteractiveManualViewer(QWidget):
+    """Full-featured interactive PDF manual reader with PyMuPDF rendering, dark mode, thumbnails, search, and notes."""
+    def __init__(self, win, on_back_cb=None, parent=None):
+        super().__init__(parent)
+        self.win = win
+        self.on_back_cb = on_back_cb
+
+        # State
+        self.manual_id = None
+        self.manual_info = None
+        self.doc = None
+        self.total_pages = 0
+        self.current_page = 1
+        self.zoom = 1.25
+        self.rotation = 0
+        self.dark_mode = True
+        self.search_matches = []
+        self.current_match_idx = -1
+        self.search_query = ""
+        self.thumbnail_buttons = {}
+
+        self._build_ui()
+
+    def _build_ui(self):
+        root_lay = QVBoxLayout(self)
+        root_lay.setContentsMargins(0, 0, 0, 0)
+        root_lay.setSpacing(0)
+
+        # 1. Top Control Bar
+        ctrl_bar = QFrame()
+        ctrl_bar.setStyleSheet("background: #0a0f0c; border-bottom: 1px solid rgba(0,255,133,0.15); padding: 8px 16px;")
+        cb_lay = QHBoxLayout(ctrl_bar)
+        cb_lay.setContentsMargins(0, 0, 0, 0)
+        cb_lay.setSpacing(8)
+
+        # Back button
+        self.back_btn = QPushButton("All Manuals")
+        self.back_btn.setIcon(get_icon("chevron-left", "#00FF85", 14))
+        self.back_btn.setProperty("kind", "secondary")
+        self.back_btn.clicked.connect(self._go_back)
+        cb_lay.addWidget(self.back_btn)
+
+        # Manual Title Label
+        self.title_lbl = QLabel("Manual Viewer")
+        self.title_lbl.setStyleSheet("font-size: 14px; font-weight: 700; color: #F3FBF5; margin-left: 6px;")
+        cb_lay.addWidget(self.title_lbl)
+        cb_lay.addStretch()
+
+        # Page Navigation
+        self.prev_btn = QPushButton()
+        self.prev_btn.setIcon(get_icon("chevron-left", "#cbd5e1", 14))
+        self.prev_btn.setFixedSize(32, 32)
+        self.prev_btn.setToolTip("Previous Page (Left Arrow)")
+        self.prev_btn.clicked.connect(self.prev_page)
+        cb_lay.addWidget(self.prev_btn)
+
+        self.next_btn = QPushButton()
+        self.next_btn.setIcon(get_icon("chevron-right", "#cbd5e1", 14))
+        self.next_btn.setFixedSize(32, 32)
+        self.next_btn.setToolTip("Next Page (Right Arrow)")
+        self.next_btn.clicked.connect(self.next_page)
+        cb_lay.addWidget(self.next_btn)
+
+        cb_lay.addWidget(QLabel('<span style="color:#6B8273; font-size:12px;">Page</span>'))
+        self.page_spin = QSpinBox()
+        self.page_spin.setRange(1, 1)
+        self.page_spin.setValue(1)
+        self.page_spin.setFixedWidth(64)
+        self.page_spin.valueChanged.connect(self.jump_to_page)
+        cb_lay.addWidget(self.page_spin)
+
+        self.total_lbl = QLabel("of 0")
+        self.total_lbl.setStyleSheet("color:#6B8273; font-size:12px;")
+        cb_lay.addWidget(self.total_lbl)
+
+        cb_lay.addSpacing(8)
+
+        # Zoom Controls
+        self.zoom_out_btn = QPushButton()
+        self.zoom_out_btn.setIcon(get_icon("zoom-out", "#cbd5e1", 14))
+        self.zoom_out_btn.setFixedSize(32, 32)
+        self.zoom_out_btn.setToolTip("Zoom Out")
+        self.zoom_out_btn.clicked.connect(self.zoom_out)
+        cb_lay.addWidget(self.zoom_out_btn)
+
+        self.zoom_lbl = QLabel("125%")
+        self.zoom_lbl.setStyleSheet("color:#cbd5e1; font-size:12px; font-weight:600;")
+        cb_lay.addWidget(self.zoom_lbl)
+
+        self.zoom_in_btn = QPushButton()
+        self.zoom_in_btn.setIcon(get_icon("zoom-in", "#cbd5e1", 14))
+        self.zoom_in_btn.setFixedSize(32, 32)
+        self.zoom_in_btn.setToolTip("Zoom In")
+        self.zoom_in_btn.clicked.connect(self.zoom_in)
+        cb_lay.addWidget(self.zoom_in_btn)
+
+        self.fit_width_btn = QPushButton("Fit Width")
+        self.fit_width_btn.setProperty("kind", "secondary")
+        self.fit_width_btn.clicked.connect(self.fit_width)
+        cb_lay.addWidget(self.fit_width_btn)
+
+        cb_lay.addSpacing(8)
+
+        # Page Tools: Dark Reading Mode, Rotate, Fullscreen, Bookmark
+        self.dark_mode_btn = QPushButton()
+        self.dark_mode_btn.setIcon(get_icon("moon", "#00FF85", 14))
+        self.dark_mode_btn.setFixedSize(32, 32)
+        self.dark_mode_btn.setToolTip("Toggle Dark Reading Mode")
+        self.dark_mode_btn.clicked.connect(self.toggle_dark_reading_mode)
+        cb_lay.addWidget(self.dark_mode_btn)
+
+        self.rotate_btn = QPushButton()
+        self.rotate_btn.setIcon(get_icon("rotate-cw", "#cbd5e1", 14))
+        self.rotate_btn.setFixedSize(32, 32)
+        self.rotate_btn.setToolTip("Rotate Page 90°")
+        self.rotate_btn.clicked.connect(self.rotate_clockwise)
+        cb_lay.addWidget(self.rotate_btn)
+
+        self.bookmark_btn = QPushButton()
+        self.bookmark_btn.setIcon(get_icon("bookmark", "#cbd5e1", 14))
+        self.bookmark_btn.setFixedSize(32, 32)
+        self.bookmark_btn.setToolTip("Bookmark Current Page")
+        self.bookmark_btn.clicked.connect(self.add_bookmark_prompt)
+        cb_lay.addWidget(self.bookmark_btn)
+
+        self.ext_btn = QPushButton()
+        self.ext_btn.setIcon(get_icon("external-link", "#cbd5e1", 14))
+        self.ext_btn.setFixedSize(32, 32)
+        self.ext_btn.setToolTip("Open in External PDF Viewer")
+        self.ext_btn.clicked.connect(self.open_external)
+        cb_lay.addWidget(self.ext_btn)
+
+        cb_lay.addSpacing(12)
+
+        # AI Assistant Actions
+        self.ask_manual_btn = QPushButton("Ask About Manual")
+        self.ask_manual_btn.setIcon(get_icon("message-square", "#cbd5e1", 13))
+        self.ask_manual_btn.setProperty("kind", "secondary")
+        self.ask_manual_btn.clicked.connect(self.ask_about_this_manual)
+        cb_lay.addWidget(self.ask_manual_btn)
+
+        self.ask_page_btn = QPushButton("Ask About Page")
+        self.ask_page_btn.setIcon(get_icon("message-square", "#ffffff", 13))
+        self.ask_page_btn.setProperty("kind", "primary")
+        self.ask_page_btn.clicked.connect(self.ask_about_this_page)
+        cb_lay.addWidget(self.ask_page_btn)
+
+        root_lay.addWidget(ctrl_bar)
+
+        # 2. Main Horizontal Splitter: Left Sidebar Tabs | Document Canvas
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setHandleWidth(4)
+
+        # Left Sidebar Tabs
+        self.tabs = QTabWidget()
+        self.tabs.setFixedWidth(310)
+
+        # Tab 1: Thumbnails
+        thumb_widget = QWidget()
+        t_lay = QVBoxLayout(thumb_widget)
+        t_lay.setContentsMargins(6, 6, 6, 6)
+        self.thumb_scroll = QScrollArea()
+        self.thumb_scroll.setWidgetResizable(True)
+        self.thumb_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.thumb_container = QWidget()
+        self.thumb_lay = QVBoxLayout(self.thumb_container)
+        self.thumb_lay.setContentsMargins(4, 4, 4, 4)
+        self.thumb_lay.setSpacing(8)
+        self.thumb_lay.addStretch()
+        self.thumb_scroll.setWidget(self.thumb_container)
+        t_lay.addWidget(self.thumb_scroll)
+        self.tabs.addTab(thumb_widget, "Pages")
+
+        # Tab 2: Outline
+        toc_widget = QWidget()
+        toc_lay = QVBoxLayout(toc_widget)
+        toc_lay.setContentsMargins(4, 4, 4, 4)
+        self.toc_tree = QTreeWidget()
+        self.toc_tree.setHeaderLabel("Table of Contents")
+        self.toc_tree.itemClicked.connect(self._on_toc_clicked)
+        toc_lay.addWidget(self.toc_tree)
+        self.tabs.addTab(toc_widget, "Outline")
+
+        # Tab 3: Search
+        search_widget = QWidget()
+        s_lay = QVBoxLayout(search_widget)
+        s_lay.setContentsMargins(6, 6, 6, 6)
+        s_lay.setSpacing(8)
+
+        s_bar = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search inside PDF...")
+        self.search_input.returnPressed.connect(self._do_search)
+        s_bar.addWidget(self.search_input)
+
+        s_btn = QPushButton()
+        s_btn.setIcon(get_icon("search", "#00FF85", 14))
+        s_btn.setFixedSize(32, 32)
+        s_btn.clicked.connect(self._do_search)
+        s_bar.addWidget(s_btn)
+        s_lay.addLayout(s_bar)
+
+        # Match navigation bar
+        match_bar = QHBoxLayout()
+        self.match_lbl = QLabel("0 matches")
+        self.match_lbl.setStyleSheet("font-size: 11.5px; color: #6B8273;")
+        match_bar.addWidget(self.match_lbl)
+        match_bar.addStretch()
+
+        self.prev_match_btn = QPushButton("Prev")
+        self.prev_match_btn.setFixedHeight(26)
+        self.prev_match_btn.clicked.connect(self._prev_match)
+        match_bar.addWidget(self.prev_match_btn)
+
+        self.next_match_btn = QPushButton("Next")
+        self.next_match_btn.setFixedHeight(26)
+        self.next_match_btn.clicked.connect(self._next_match)
+        match_bar.addWidget(self.next_match_btn)
+        s_lay.addLayout(match_bar)
+
+        self.search_list = QListWidget()
+        self.search_list.itemClicked.connect(self._on_search_item_clicked)
+        s_lay.addWidget(self.search_list, 1)
+        self.tabs.addTab(search_widget, "Search")
+
+        # Tab 4: Figures Gallery
+        fig_widget = QWidget()
+        f_lay = QVBoxLayout(fig_widget)
+        f_lay.setContentsMargins(4, 4, 4, 4)
+        self.fig_scroll = QScrollArea()
+        self.fig_scroll.setWidgetResizable(True)
+        self.fig_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.fig_container = QWidget()
+        self.fig_lay = QVBoxLayout(self.fig_container)
+        self.fig_lay.setContentsMargins(4, 4, 4, 4)
+        self.fig_lay.setSpacing(10)
+        self.fig_lay.addStretch()
+        self.fig_scroll.setWidget(self.fig_container)
+        f_lay.addWidget(self.fig_scroll)
+        self.tabs.addTab(fig_widget, "Figures")
+
+        # Tab 5: Bookmarks & Notes
+        bm_widget = QWidget()
+        bm_lay = QVBoxLayout(bm_widget)
+        bm_lay.setContentsMargins(6, 6, 6, 6)
+        bm_lay.setSpacing(8)
+
+        add_bm_b = QPushButton("Add Note On This Page")
+        add_bm_b.setIcon(get_icon("bookmark", "#00FF85", 13))
+        add_bm_b.setProperty("kind", "secondary")
+        add_bm_b.clicked.connect(self.add_bookmark_prompt)
+        bm_lay.addWidget(add_bm_b)
+
+        self.bm_list = QListWidget()
+        self.bm_list.itemClicked.connect(self._on_bookmark_clicked)
+        bm_lay.addWidget(self.bm_list, 1)
+        self.tabs.addTab(bm_widget, "Notes")
+
+        # Tab 6: Details & Components
+        det_widget = QWidget()
+        d_lay = QVBoxLayout(det_widget)
+        d_lay.setContentsMargins(10, 10, 10, 10)
+        d_lay.setSpacing(10)
+
+        self.det_summary_lbl = QLabel()
+        self.det_summary_lbl.setWordWrap(True)
+        self.det_summary_lbl.setStyleSheet("font-size: 12px; color: #cbd5e1; line-height: 1.4;")
+        d_lay.addWidget(self.det_summary_lbl)
+
+        d_lay.addWidget(QLabel("<b>MENTIONED COMPONENTS:</b>"))
+        self.comp_chips_box = QWidget()
+        self.comp_chips_lay = QVBoxLayout(self.comp_chips_box)
+        self.comp_chips_lay.setContentsMargins(0, 0, 0, 0)
+        self.comp_chips_lay.setSpacing(6)
+        d_lay.addWidget(self.comp_chips_box)
+        d_lay.addStretch()
+        self.tabs.addTab(det_widget, "Details")
+
+        self.splitter.addWidget(self.tabs)
+
+        # Right Document Canvas
+        self.doc_scroll = QScrollArea()
+        self.doc_scroll.setWidgetResizable(True)
+        self.doc_scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.doc_scroll.setStyleSheet("background: #080d0a;")
+
+        self.canvas_lbl = QLabel("No manual loaded", self.doc_scroll)
+        self.canvas_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.doc_scroll.setWidget(self.canvas_lbl)
+
+        self.splitter.addWidget(self.doc_scroll)
+        self.splitter.setStretchFactor(1, 4)
+
+        root_lay.addWidget(self.splitter, 1)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key.Key_Left, Qt.Key.Key_PageUp):
+            self.prev_page()
+            event.accept()
+        elif event.key() in (Qt.Key.Key_Right, Qt.Key.Key_PageDown):
+            self.next_page()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
+    def load_manual(self, manual_id, page=1, highlight_query=""):
+        self.manual_id = manual_id
+        self.manual_info = db.get_manual(manual_id)
+        if not self.manual_info:
+            return
+
+        db.update_manual_last_viewed(manual_id)
+        path = self.manual_info.get("file_path", "")
+        if not path or not os.path.isfile(path):
+            QMessageBox.warning(self, "Manual Error", "Could not locate PDF file on disk.")
+            return
+
+        try:
+            if self.doc:
+                self.doc.close()
+            self.doc = fitz.open(path)
+            self.total_pages = self.doc.page_count
+        except Exception as e:
+            QMessageBox.warning(self, "PDF Reader Error", f"Failed to open PDF:\n{e}")
+            return
+
+        self.title_lbl.setText(self.manual_info.get("name", "Manual"))
+        self.page_spin.blockSignals(True)
+        self.page_spin.setRange(1, self.total_pages)
+        self.page_spin.setValue(max(1, min(page, self.total_pages)))
+        self.page_spin.blockSignals(False)
+        self.total_lbl.setText(f"of {self.total_pages}")
+        self.current_page = max(1, min(page, self.total_pages))
+
+        # Populate sidebar tabs
+        self._populate_outline()
+        self._populate_thumbnails()
+        self._populate_figures()
+        self._populate_bookmarks()
+        self._populate_details()
+
+        # Render page
+        self.search_query = highlight_query or ""
+        self.render_page()
+
+    def render_page(self):
+        if not self.doc or self.current_page < 1 or self.current_page > self.total_pages:
+            return
+
+        page_obj = self.doc[self.current_page - 1]
+        mat = fitz.Matrix(self.zoom, self.zoom).prerotate(self.rotation)
+        pix = page_obj.get_pixmap(matrix=mat, alpha=False)
+
+        qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format.Format_RGB888)
+
+        # Dark Reading Mode: Invert pixels for comfortable viewing
+        if self.dark_mode:
+            qimg.invertPixels(QImage.InvertMode.InvertRgb)
+
+        # Highlight search query matches
+        if self.search_query.strip():
+            matches = page_obj.search_for(self.search_query.strip())
+            if matches:
+                painter = QPainter(qimg)
+                color = QColor(0, 255, 133, 110) if self.dark_mode else QColor(16, 185, 129, 90)
+                painter.setBrush(color)
+                painter.setPen(Qt.PenStyle.NoPen)
+                for r in matches:
+                    rx = int(r.x0 * self.zoom)
+                    ry = int(r.y0 * self.zoom)
+                    rw = int((r.x1 - r.x0) * self.zoom)
+                    rh = int((r.y1 - r.y0) * self.zoom)
+                    painter.drawRect(rx, ry, rw, rh)
+                painter.end()
+
+        self.canvas_lbl.setPixmap(QPixmap.fromImage(qimg))
+        self.zoom_lbl.setText(f"{int(self.zoom * 100)}%")
+
+        # Update active thumbnail border
+        for pno, btn in self.thumbnail_buttons.items():
+            is_cur = (pno == self.current_page)
+            btn.setStyleSheet(
+                "border: 2px solid #00FF85; border-radius: 6px; background: #142018;"
+                if is_cur else
+                "border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: #070b09;"
+            )
+
+    def prev_page(self):
+        if self.current_page > 1:
+            self.jump_to_page(self.current_page - 1)
+
+    def next_page(self):
+        if self.current_page < self.total_pages:
+            self.jump_to_page(self.current_page + 1)
+
+    def jump_to_page(self, pno):
+        pno = max(1, min(pno, self.total_pages))
+        self.current_page = pno
+        self.page_spin.blockSignals(True)
+        self.page_spin.setValue(pno)
+        self.page_spin.blockSignals(False)
+        self.render_page()
+
+    def zoom_in(self):
+        self.zoom = min(4.0, self.zoom + 0.25)
+        self.render_page()
+
+    def zoom_out(self):
+        self.zoom = max(0.5, self.zoom - 0.25)
+        self.render_page()
+
+    def fit_width(self):
+        if not self.doc:
+            return
+        w = self.doc_scroll.viewport().width() - 30
+        page_w = self.doc[self.current_page - 1].rect.width
+        self.zoom = max(0.5, min(3.5, w / page_w))
+        self.render_page()
+
+    def toggle_dark_reading_mode(self):
+        self.dark_mode = not self.dark_mode
+        self.dark_mode_btn.setIcon(get_icon("moon" if self.dark_mode else "sun", "#00FF85", 14))
+        self.render_page()
+
+    def rotate_clockwise(self):
+        self.rotation = (self.rotation + 90) % 360
+        self.render_page()
+
+    def open_external(self):
+        if self.manual_info and self.manual_info.get("file_path"):
+            path = self.manual_info["file_path"]
+            if os.path.isfile(path):
+                try:
+                    os.startfile(path)
+                except Exception as e:
+                    QMessageBox.warning(self, "External Viewer", f"Could not launch viewer:\n{e}")
+
+    def add_bookmark_prompt(self):
+        if not self.manual_id:
+            return
+        note, ok = QInputDialog.getText(self, "Add Bookmark", f"Add note for Page {self.current_page}:")
+        if ok:
+            db.add_manual_bookmark(self.manual_id, self.current_page, note)
+            self._populate_bookmarks()
+
+    def ask_about_this_manual(self):
+        if not self.manual_info:
+            return
+        name = self.manual_info.get("name", "Manual")
+        prompt = f"Can you summarize the key specifications, precautions, and operating instructions for the {name} manual?"
+        self.win.navigate_to(1)
+        if hasattr(self.win.view, "chat_input"):
+            self.win.view.chat_input.setPlainText(prompt)
+            self.win.view.chat_input.setFocus()
+
+    def ask_about_this_page(self):
+        if not self.manual_info or not self.doc:
+            return
+        page_txt = self.doc[self.current_page - 1].get_text("text").strip()
+        name = self.manual_info.get("name", "Manual")
+        excerpt = page_txt[:400].replace("\\n", " ")
+        prompt = f'In [{name}, p.{self.current_page}], can you explain the procedure or diagram shown here: "{excerpt}"?'
+        self.win.navigate_to(1)
+        if hasattr(self.win.view, "chat_input"):
+            self.win.view.chat_input.setPlainText(prompt)
+            self.win.view.chat_input.setFocus()
+
+    def _go_back(self):
+        if self.on_back_cb:
+            self.on_back_cb()
+
+    def _populate_thumbnails(self):
+        # Clear existing
+        while self.thumb_lay.count() > 1:
+            item = self.thumb_lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self.thumbnail_buttons.clear()
+
+        # Generate lazy thumbnails up to 50 pages or all
+        limit = min(self.total_pages, 60)
+        for i in range(limit):
+            pno = i + 1
+            btn = QPushButton()
+            btn.setFixedHeight(95)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            p_obj = self.doc[i]
+            pix = p_obj.get_pixmap(matrix=fitz.Matrix(0.2, 0.2), alpha=False)
+            qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format.Format_RGB888)
+            btn.setIcon(QIcon(QPixmap.fromImage(qimg)))
+            btn.setIconSize(QSize(70, 85))
+            btn.setToolTip(f"Page {pno}")
+            btn.clicked.connect(lambda _=False, p=pno: self.jump_to_page(p))
+            self.thumb_lay.insertWidget(self.thumb_lay.count() - 1, btn)
+            self.thumbnail_buttons[pno] = btn
+
+    def _populate_outline(self):
+        self.toc_tree.clear()
+        if not self.doc:
+            return
+        toc = self.doc.get_toc()
+        if not toc:
+            item = QTreeWidgetItem(self.toc_tree, ["(No bookmarks in this document)"])
+            return
+
+        node_stack = [(0, self.toc_tree.invisibleRootItem())]
+        for lvl, title, page in toc:
+            while node_stack and node_stack[-1][0] >= lvl:
+                node_stack.pop()
+            parent_item = node_stack[-1][1] if node_stack else self.toc_tree.invisibleRootItem()
+            item = QTreeWidgetItem(parent_item, [f"{title} (p.{page})"])
+            item.setData(0, Qt.ItemDataRole.UserRole, page)
+            node_stack.append((lvl, item))
+        self.toc_tree.expandAll()
+
+    def _on_toc_clicked(self, item):
+        pno = item.data(0, Qt.ItemDataRole.UserRole)
+        if pno:
+            self.jump_to_page(int(pno))
+
+    def _do_search(self):
+        query_text = self.search_input.text().strip()
+        if not query_text or not self.doc:
+            return
+        self.search_query = query_text
+        self.search_matches.clear()
+        self.search_list.clear()
+
+        for idx, page in enumerate(self.doc):
+            pno = idx + 1
+            rects = page.search_for(query_text)
+            if rects:
+                t = page.get_text("text").strip().replace("\\n", " ")
+                snippet = t[:80] + "..." if len(t) > 80 else t
+                item = QListWidgetItem(f"Page {pno}: {snippet}")
+                item.setData(Qt.ItemDataRole.UserRole, pno)
+                self.search_list.addItem(item)
+                for r in rects:
+                    self.search_matches.append((pno, r))
+
+        cnt = len(self.search_matches)
+        self.match_lbl.setText(f"{cnt} match{'es' if cnt != 1 else ''}")
+        self.current_match_idx = 0 if cnt > 0 else -1
+        if cnt > 0:
+            self.jump_to_page(self.search_matches[0][0])
+        else:
+            self.render_page()
+
+    def _next_match(self):
+        if not self.search_matches:
+            return
+        self.current_match_idx = (self.current_match_idx + 1) % len(self.search_matches)
+        pno, _ = self.search_matches[self.current_match_idx]
+        self.match_lbl.setText(f"Match {self.current_match_idx + 1} of {len(self.search_matches)}")
+        self.jump_to_page(pno)
+
+    def _prev_match(self):
+        if not self.search_matches:
+            return
+        self.current_match_idx = (self.current_match_idx - 1) % len(self.search_matches)
+        pno, _ = self.search_matches[self.current_match_idx]
+        self.match_lbl.setText(f"Match {self.current_match_idx + 1} of {len(self.search_matches)}")
+        self.jump_to_page(pno)
+
+    def _on_search_item_clicked(self, item):
+        pno = item.data(Qt.ItemDataRole.UserRole)
+        if pno:
+            self.jump_to_page(int(pno))
+
+    def _populate_figures(self):
+        while self.fig_lay.count() > 1:
+            w = self.fig_lay.takeAt(0)
+            if w.widget():
+                w.widget().deleteLater()
+
+        if not self.manual_id:
+            return
+        rows = db.query("SELECT page_number, image_path FROM manual_images WHERE manual_id=? ORDER BY page_number ASC", (self.manual_id,))
+        for r in rows:
+            pno = r["page_number"]
+            ipath = r["image_path"]
+            if not os.path.isfile(ipath):
+                continue
+            card = QFrame()
+            card.setStyleSheet("background: #0d1410; border: 1px solid rgba(0,255,133,0.15); border-radius: 8px; padding: 6px;")
+            c_l = QVBoxLayout(card)
+            c_l.setContentsMargins(4, 4, 4, 4)
+
+            h_bar = QHBoxLayout()
+            h_bar.addWidget(QLabel(f'<span style="background:rgba(0,255,133,0.12); color:#00FF85; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:600;">Page {pno}</span>'))
+            h_bar.addStretch()
+            c_l.addLayout(h_bar)
+
+            lbl = QLabel()
+            lbl.setFixedHeight(110)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setStyleSheet("background: #070b09; border-radius: 6px;")
+            pix = QPixmap(ipath)
+            if not pix.isNull():
+                lbl.setPixmap(pix.scaled(QSize(180, 105), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+                lbl.mousePressEvent = lambda e, p=ipath, pn=pno: ImageLightboxDialog(p, f"{self.manual_info.get('name')} - Page {pn} Figure", parent=self).exec()
+            c_l.addWidget(lbl)
+            self.fig_lay.insertWidget(self.fig_lay.count() - 1, card)
+
+    def _populate_bookmarks(self):
+        self.bm_list.clear()
+        if not self.manual_id:
+            return
+        bms = db.get_manual_bookmarks(self.manual_id)
+        for b in bms:
+            note_str = f": {b['note']}" if b.get("note") else ""
+            item = QListWidgetItem(f"Page {b['page_number']}{note_str}")
+            item.setData(Qt.ItemDataRole.UserRole, b["page_number"])
+            self.bm_list.addItem(item)
+
+    def _on_bookmark_clicked(self, item):
+        pno = item.data(Qt.ItemDataRole.UserRole)
+        if pno:
+            self.jump_to_page(int(pno))
+
+    def _populate_details(self):
+        if not self.manual_info:
+            return
+        sz = self.manual_info.get("file_size", 0)
+        sz_mb = f"{sz / (1024*1024):.1f} MB" if sz else "—"
+        summary_txt = self.manual_info.get("summary") or "Technical hardware documentation."
+        self.det_summary_lbl.setText(
+            f"<b>File Size:</b> {sz_mb}<br>"
+            f"<b>Total Pages:</b> {self.total_pages}<br>"
+            f"<b>Added:</b> {self.manual_info.get('created_at', '—')}<br><br>"
+            f"<b>Summary:</b><br>{summary_txt}"
+        )
+
+        # Scan for mentioned electronic components
+        while self.comp_chips_lay.count():
+            w = self.comp_chips_lay.takeAt(0)
+            if w.widget():
+                w.widget().deleteLater()
+
+        all_comps = comp_service.get_all_components()
+        all_text = ""
+        if self.doc:
+            for p in self.doc[:10]:
+                all_text += " " + p.get_text("text").lower()
+
+        found = []
+        for c in all_comps:
+            token = c.get("display_name", "").lower()
+            if token and len(token) >= 3 and token in all_text:
+                found.append(c)
+
+        if not found:
+            found = all_comps[:3]
+
+        for c in found:
+            btn = QPushButton(f"{c.get('display_name')} — {c.get('category')}")
+            btn.setIcon(get_icon("cpu", "#00FF85", 13))
+            btn.setProperty("kind", "secondary")
+            btn.clicked.connect(lambda _=False, comp=c: self._open_component(comp))
+            self.comp_chips_lay.addWidget(btn)
+
+    def _open_component(self, comp):
+        self.win.navigate_to(2)
+        if hasattr(self.win.view, "lib_search"):
+            self.win.view.lib_search.setText(comp.get("display_name", ""))
+
 class MainView:
     """Builder for the modern 4-page electronic components learning interface."""
     def __init__(self, window):
@@ -2276,7 +3484,7 @@ class MainView:
         self.dashboard_page = self._build_dashboard()   # Page 0
         self.chat_page = self._build_chat()             # Page 1
         self.library_page = self._build_library()       # Page 2
-        self.manual_page = self._build_manual_help()    # Page 3
+        self.manual_page = self._build_manuals_page()    # Page 3
 
         # Auxiliary background transition page (for long processing operations)
         self.busy_page = self._build_busy()
@@ -2944,172 +4152,240 @@ class MainView:
 
         return page
 
-    def _build_manual_help(self):
+    # =========================================================================
+    # PAGE 4: HARDWARE MANUALS & INTERACTIVE PDF VIEWER
+    # =========================================================================
+    def _build_manuals_page(self):
         page = QWidget()
-        lay = QVBoxLayout(page)
-        lay.setContentsMargins(28, 20, 28, 24)
-        lay.setSpacing(14)
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
 
-        tabs = QTabWidget()
+        self.manuals_stack = QStackedWidget()
 
-        # TAB 1: App User Guide & Tutorials
-        guide_widget = QWidget()
-        g_scroll = QScrollArea()
-        g_scroll.setWidgetResizable(True)
-        g_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        g_content = QWidget()
-        g_lay = QVBoxLayout(g_content)
-        g_lay.setContentsMargins(20, 16, 20, 20)
-        g_lay.setSpacing(16)
+        # VIEW 0: Manuals Hub & Management
+        hub = QWidget()
+        hub_scroll = QScrollArea()
+        hub_scroll.setWidgetResizable(True)
+        hub_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        hub_content = QWidget()
+        hc_lay = QVBoxLayout(hub_content)
+        hc_lay.setContentsMargins(28, 24, 28, 28)
+        hc_lay.setSpacing(16)
+        hc_lay.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        g_lay.addWidget(label("How to Use ElectroLearn AI & Hardware Assistant", "title"))
-        g_lay.addWidget(label("A complete beginner-to-advanced visual guide on how to capture, identify, learn, and troubleshoot electronics.", "subtitle"))
+        centered = QWidget()
+        centered.setMaximumWidth(1320)
+        c_lay = QVBoxLayout(centered)
+        c_lay.setContentsMargins(0, 0, 0, 0)
+        c_lay.setSpacing(16)
 
-        guides = [
-            ("1. Live Camera & Photo Scanning",
-             "• Click 'Live Camera Scan' on the Dashboard to start your webcam or external USB microscope.\n"
-             "• Align the chip or circuit board in good lighting. Click 'Capture Photo' to run vision identification.\n"
-             "• Alternatively, click 'Upload Image' to choose a photo from disk. Common formats (.png, .jpg, .webp) are supported up to 50MB."),
+        # 1. Header Bar: Title + Subtitle + Action buttons
+        head_row = QHBoxLayout()
+        h_col = QVBoxLayout()
+        h_col.setSpacing(4)
+        t_lbl = QLabel("Hardware Manuals")
+        t_lbl.setStyleSheet("font-size: 24px; font-weight: 800; color: #F3FBF5;")
+        s_lbl = QLabel("Upload, index, inspect and search PDF hardware documentation and datasheets")
+        s_lbl.setStyleSheet("font-size: 13.5px; color: #6B8273;")
+        h_col.addWidget(t_lbl)
+        h_col.addWidget(s_lbl)
+        head_row.addLayout(h_col, 1)
 
-            ("2. Component Identification & Matching",
-             "• The AI extracts visual markings, text, part numbers, and package types.\n"
-             "• The result card presents the detected component with pinouts, schematic symbols, and typical uses.\n"
-             "• If matched with a manufacturer PDF manual, it displays the exact illustration and page reference side-by-side."),
+        self.man_add_btn = QPushButton("Add Manuals")
+        self.man_add_btn.setIcon(get_icon("plus", "#060907", 14))
+        self.man_add_btn.setProperty("kind", "primary")
+        self.man_add_btn.clicked.connect(self.win.add_manual_multi)
+        head_row.addWidget(self.man_add_btn)
 
-            ("3. AI Chat Assistant & Voice Recognition",
-             "• Click 'AI Assistant' in the top bar to open the continuous chat thread.\n"
-             "• Click the 'Speak' button to dictate questions using Whisper speech recognition with automatic pause detection.\n"
-             "• The assistant maintains conversation memory so follow-up questions work seamlessly."),
+        self.man_reindex_all_btn = QPushButton("Re-index All")
+        self.man_reindex_all_btn.setIcon(get_icon("refresh-cw", "#00FF85", 14))
+        self.man_reindex_all_btn.setProperty("kind", "secondary")
+        self.man_reindex_all_btn.clicked.connect(self.win.reindex_all_manuals)
+        head_row.addWidget(self.man_reindex_all_btn)
 
-            ("4. Exporting Answers & Guides",
-             "• Export individual answers or full chat threads to PDF, Markdown (.md), or Plain Text (.txt).\n"
-             "• Use 'Export Recent Chats' from the sidebar to archive your learning sessions."),
+        c_lay.addLayout(head_row)
 
-            ("5. Reading Electronic Symbols & Safety",
-             "• Notch & Dot: Pin 1 is always top-left when the notch points upwards.\n"
-             "• Polarity: Diodes have a cathode stripe; electrolytic capacitors have a negative (-) stripe.\n"
-             "• Safety: Always turn off power before probing resistance or continuity with a multimeter.")
-        ]
+        # 2. Summary Statistics Panel (4 cards)
+        stats_row = QHBoxLayout()
+        stats_row.setSpacing(12)
 
-        for g_title, g_body in guides:
+        def make_stat_card(title, value, icon_name):
             card = QFrame()
-            card.setObjectName("card")
-            c_lay = QVBoxLayout(card)
-            c_lay.setContentsMargins(18, 14, 18, 14)
-            c_lay.setSpacing(6)
-            c_lay.addWidget(label(g_title, "h2"))
-            body_lbl = label(g_body)
-            body_lbl.setStyleSheet("line-height:1.5;")
-            c_lay.addWidget(body_lbl)
-            g_lay.addWidget(card)
+            card.setObjectName("statCard")
+            sc_l = QHBoxLayout(card)
+            sc_l.setContentsMargins(12, 10, 12, 10)
+            sc_l.setSpacing(10)
 
-        g_lay.addStretch()
-        g_scroll.setWidget(g_content)
+            ic = QLabel()
+            ic.setPixmap(get_pixmap(icon_name, "#00FF85", 22))
+            sc_l.addWidget(ic)
 
-        g_main_lay = QVBoxLayout(guide_widget)
-        g_main_lay.setContentsMargins(0, 0, 0, 0)
-        g_main_lay.addWidget(g_scroll)
-        tabs.addTab(guide_widget, "App User Guide & Tutorials")
-        tabs.setTabIcon(0, get_icon("book-open", "#10B981", 16))
+            tc = QVBoxLayout()
+            tc.setSpacing(1)
+            v_l = QLabel(value)
+            v_l.setStyleSheet("font-size: 16px; font-weight: 800; color: #F3FBF5;")
+            t_l = QLabel(title)
+            t_l.setStyleSheet("font-size: 11.5px; color: #6B8273;")
+            tc.addWidget(v_l)
+            tc.addWidget(t_l)
+            sc_l.addLayout(tc, 1)
+            return card, v_l
 
-        # TAB 2: Embedded Interactive PDF Manual Reader
-        self.embedded_viewer_widget = QWidget()
-        ev_lay = QVBoxLayout(self.embedded_viewer_widget)
-        ev_lay.setContentsMargins(10, 10, 10, 10)
-        ev_lay.setSpacing(10)
+        self.stat_card_total, self.stat_total_val = make_stat_card("Total Manuals", "0", "book-open")
+        self.stat_card_pages, self.stat_pages_val = make_stat_card("Pages Indexed", "0", "file-text")
+        self.stat_card_chat, self.stat_chat_val = make_stat_card("AI Search Enabled", "0", "message-square")
+        self.stat_card_storage, self.stat_storage_val = make_stat_card("Storage Used", "0 MB", "hard-drive")
 
-        # Embedded viewer controls
-        ev_ctrl = QHBoxLayout()
-        ev_ctrl.addWidget(label("Active Manual:", "caption"))
-        self.ev_manual_lbl = label("No manual selected", "h2")
-        ev_ctrl.addWidget(self.ev_manual_lbl)
-        ev_ctrl.addStretch()
+        for sc in (self.stat_card_total, self.stat_card_pages, self.stat_card_chat, self.stat_card_storage):
+            stats_row.addWidget(sc)
+        c_lay.addLayout(stats_row)
 
-        self.ev_prev_btn = button("Prev", "secondary", slot=self.win.ev_prev_page)
-        self.ev_prev_btn.setIcon(get_icon("chevron-left", "#cbd5e1", 14))
-        self.ev_next_btn = button("Next", "secondary", slot=self.win.ev_next_page)
-        self.ev_next_btn.setIcon(get_icon("chevron-right", "#cbd5e1", 14))
-        ev_ctrl.addWidget(self.ev_prev_btn)
-        ev_ctrl.addWidget(self.ev_next_btn)
+        # 3. Recently Viewed Row (horizontal list of cards)
+        self.recent_box = QWidget()
+        rec_lay = QVBoxLayout(self.recent_box)
+        rec_lay.setContentsMargins(0, 0, 0, 0)
+        rec_lay.setSpacing(8)
+        rec_title = QLabel("RECENTLY VIEWED")
+        rec_title.setStyleSheet("font-size: 11.5px; font-weight: 700; color: #6B8273; letter-spacing: 0.5px;")
+        rec_lay.addWidget(rec_title)
 
-        self.ev_page_spin = QSpinBox()
-        self.ev_page_spin.setRange(1, 1)
-        self.ev_page_spin.valueChanged.connect(self.win.ev_jump_page)
-        ev_ctrl.addWidget(self.ev_page_spin)
+        self.recent_cards_lay = QHBoxLayout()
+        self.recent_cards_lay.setSpacing(10)
+        rec_lay.addLayout(self.recent_cards_lay)
+        c_lay.addWidget(self.recent_box)
 
-        self.ev_total_lbl = label("of 0", "caption")
-        ev_ctrl.addWidget(self.ev_total_lbl)
+        # 4. Drag-and-Drop Zone
+        self.drop_zone = ManualDropZone(
+            on_files_dropped=self.win.import_manual_files,
+            on_browse_clicked=self.win.add_manual_multi
+        )
+        c_lay.addWidget(self.drop_zone)
 
-        ev_ctrl.addSpacing(12)
-        self.ev_zoom_lbl = label("125%", "caption")
-        ev_ctrl.addWidget(button("－", slot=self.win.ev_zoom_out))
-        ev_ctrl.addWidget(self.ev_zoom_lbl)
-        ev_ctrl.addWidget(button("＋", slot=self.win.ev_zoom_in))
-        ev_ctrl.addWidget(button("Fit", slot=self.win.ev_fit_width))
+        # 5. Filter & Search Toolbar
+        filter_bar = QHBoxLayout()
+        filter_bar.setSpacing(10)
 
-        self.ev_ext_btn = button("↗ External", "secondary", slot=self.win.ev_open_external)
-        ev_ctrl.addWidget(self.ev_ext_btn)
+        self.man_search = QLineEdit()
+        self.man_search.setPlaceholderText("Search manuals by name, manufacturer, or model...")
+        self.man_search.setClearButtonEnabled(True)
+        self.man_search.addAction(get_icon("search", "#6B8273", 16), QLineEdit.ActionPosition.LeadingPosition)
+        self.man_search.textChanged.connect(self.win.filter_manuals_list)
+        filter_bar.addWidget(self.man_search, 1)
 
-        ev_lay.addLayout(ev_ctrl)
+        self.man_sort_combo = QComboBox()
+        self.man_sort_combo.addItems(["Newest Added", "Name (A-Z)", "Size (Largest)", "Pages (Most)", "Recently Viewed"])
+        self.man_sort_combo.currentTextChanged.connect(self.win.filter_manuals_list)
+        filter_bar.addWidget(self.man_sort_combo)
 
-        # Splitter: Left Outline/Search | Right Document Page View
-        ev_splitter = QSplitter(Qt.Orientation.Horizontal)
+        # Grid / List Toggle
+        self.view_grid_btn = QPushButton()
+        self.view_grid_btn.setIcon(get_icon("grid", "#00FF85", 15))
+        self.view_grid_btn.setFixedSize(36, 36)
+        self.view_grid_btn.setToolTip("Grid View")
+        self.view_grid_btn.clicked.connect(lambda: self.win.set_manuals_view_mode("grid"))
+        filter_bar.addWidget(self.view_grid_btn)
 
-        # Left: TOC and Search tabs
-        ev_left_tabs = QTabWidget()
-        ev_left_tabs.setFixedWidth(280)
+        self.view_list_btn = QPushButton()
+        self.view_list_btn.setIcon(get_icon("list", "#6B8273", 15))
+        self.view_list_btn.setFixedSize(36, 36)
+        self.view_list_btn.setToolTip("List View")
+        self.view_list_btn.clicked.connect(lambda: self.win.set_manuals_view_mode("list"))
+        filter_bar.addWidget(self.view_list_btn)
 
-        # Outline tab
-        ev_toc_w = QWidget()
-        ev_toc_l = QVBoxLayout(ev_toc_w)
-        ev_toc_l.setContentsMargins(4, 4, 4, 4)
-        self.ev_toc_tree = QTreeWidget()
-        self.ev_toc_tree.setHeaderLabel("Manual Outline")
-        self.ev_toc_tree.itemClicked.connect(self.win.ev_on_toc_clicked)
-        ev_toc_l.addWidget(self.ev_toc_tree)
-        ev_left_tabs.addTab(ev_toc_w, "Outline")
+        # Bulk Delete Button
+        self.bulk_delete_btn = QPushButton("Delete Selected")
+        self.bulk_delete_btn.setIcon(get_icon("trash-2", "#fca5a5", 13))
+        self.bulk_delete_btn.setProperty("kind", "danger")
+        self.bulk_delete_btn.clicked.connect(self.win.bulk_delete_manuals)
+        self.bulk_delete_btn.setVisible(False)
+        filter_bar.addWidget(self.bulk_delete_btn)
 
-        # Search tab
-        ev_search_w = QWidget()
-        ev_s_l = QVBoxLayout(ev_search_w)
-        ev_s_l.setContentsMargins(4, 4, 4, 4)
-        ev_s_row = QHBoxLayout()
-        self.ev_search_input = QLineEdit()
-        self.ev_search_input.setPlaceholderText("Search manual text...")
-        self.ev_search_input.returnPressed.connect(self.win.ev_search_text)
-        ev_s_btn = button("", slot=self.win.ev_search_text)
-        ev_s_btn.setIcon(get_icon("search", "#cbd5e1", 16))
-        ev_s_row.addWidget(self.ev_search_input)
-        ev_s_row.addWidget(ev_s_btn)
-        ev_s_l.addLayout(ev_s_row)
+        c_lay.addLayout(filter_bar)
 
-        self.ev_search_list = QListWidget()
-        self.ev_search_list.itemClicked.connect(self.win.ev_on_search_clicked)
-        ev_s_l.addWidget(self.ev_search_list, 1)
-        ev_left_tabs.addTab(ev_search_w, "Search")
+        # Collections / Tag Filter Pills
+        self.tags_scroll = QScrollArea()
+        self.tags_scroll.setWidgetResizable(True)
+        self.tags_scroll.setFixedHeight(42)
+        self.tags_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.tags_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.tags_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.tags_scroll.setStyleSheet("background:transparent; border:none;")
 
-        ev_splitter.addWidget(ev_left_tabs)
+        self.tags_content = QWidget()
+        self.tags_lay = QHBoxLayout(self.tags_content)
+        self.tags_lay.setContentsMargins(0, 0, 0, 0)
+        self.tags_lay.setSpacing(6)
+        self.tags_lay.addStretch()
+        self.tags_scroll.setWidget(self.tags_content)
+        c_lay.addWidget(self.tags_scroll)
 
-        # Right: Page Scroll Area
-        self.ev_scroll = QScrollArea()
-        self.ev_scroll.setWidgetResizable(True)
-        self.ev_scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.ev_page_lbl = QLabel("Select a manual to view its pages", self.ev_scroll)
-        self.ev_page_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.ev_scroll.setWidget(self.ev_page_lbl)
-        ev_splitter.addWidget(self.ev_scroll)
-        ev_splitter.setStretchFactor(1, 4)
+        # 6. Manuals Container: Grid & List host
+        self.manuals_container = QWidget()
+        self.manuals_lay = QVBoxLayout(self.manuals_container)
+        self.manuals_lay.setContentsMargins(0, 0, 0, 0)
+        self.manuals_lay.setSpacing(14)
+        c_lay.addWidget(self.manuals_container)
 
-        ev_lay.addWidget(ev_splitter, 1)
+        # Empty State
+        self.man_empty = QWidget()
+        me_lay = QVBoxLayout(self.man_empty)
+        me_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        me_lay.setContentsMargins(20, 40, 20, 40)
+        me_lay.setSpacing(12)
 
-        tabs.addTab(self.embedded_viewer_widget, "Interactive Manual PDF Viewer")
-        tabs.setTabIcon(1, get_icon("file-text", "#38BDF8", 16))
-        lay.addWidget(tabs, 1)
+        e_icon = QLabel()
+        e_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        e_icon.setPixmap(get_pixmap("book-open", "#6B8273", 44))
+        me_lay.addWidget(e_icon)
+
+        e_title = QLabel("No manuals indexed yet")
+        e_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        e_title.setStyleSheet("font-size: 16px; font-weight: 700; color: #cbd5e1;")
+        me_lay.addWidget(e_title)
+
+        e_sub = QLabel("Drag and drop manufacturer hardware PDF manuals above to extract schematics, pinouts, and knowledge.")
+        e_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        e_sub.setStyleSheet("font-size: 13px; color: #6B8273;")
+        me_lay.addWidget(e_sub)
+
+        first_btn = QPushButton("Add your first manual")
+        first_btn.setProperty("kind", "primary")
+        first_btn.setIcon(get_icon("plus", "#060907", 14))
+        first_btn.clicked.connect(self.win.add_manual_multi)
+        me_lay.addWidget(first_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        c_lay.addWidget(self.man_empty)
+        self.man_empty.setVisible(False)
+
+        hc_lay.addWidget(centered, alignment=Qt.AlignmentFlag.AlignHCenter)
+        hub_scroll.setWidget(hub_content)
+        outer_hub_lay = QVBoxLayout(hub)
+        outer_hub_lay.setContentsMargins(0, 0, 0, 0)
+        outer_hub_lay.addWidget(hub_scroll)
+        self.manuals_stack.addWidget(hub)
+
+        # VIEW 1: Interactive PDF Viewer
+        self.viewer_widget = InteractiveManualViewer(self.win, on_back_cb=lambda: self.manuals_stack.setCurrentIndex(0))
+        self.manuals_stack.addWidget(self.viewer_widget)
+
+        outer.addWidget(self.manuals_stack)
+
+        # Backward compatibility aliases
+        self.embedded_viewer_widget = self.viewer_widget
+        self.ev_scroll = self.viewer_widget.doc_scroll
+        self.ev_page_lbl = self.viewer_widget.canvas_lbl
+        self.ev_manual_lbl = self.viewer_widget.title_lbl
+        self.ev_total_lbl = self.viewer_widget.total_lbl
+        self.ev_page_spin = self.viewer_widget.page_spin
+        self.ev_zoom_lbl = self.viewer_widget.zoom_lbl
+        self.ev_toc_tree = self.viewer_widget.toc_tree
+        self.ev_search_input = self.viewer_widget.search_input
+        self.ev_search_list = self.viewer_widget.search_list
+
         return page
 
-    # =========================================================================
-    # AUXILIARY / TRANSITION PAGE: BUSY PROGRESS
-    # =========================================================================
+
     def _build_busy(self):
         p = QWidget()
         lay = QVBoxLayout(p)

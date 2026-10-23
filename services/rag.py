@@ -432,8 +432,8 @@ def search(manual_id, question, k=None):
             c["manual_id"] = manual_id
         return chunks
 
-    # Multi-manual balanced retrieval
-    manuals = db.list_manuals()
+    # Multi-manual balanced retrieval (only enabled manuals)
+    manuals = [m for m in db.list_manuals() if m.get("enabled_for_chat", 1) == 1]
     if not manuals:
         return []
 

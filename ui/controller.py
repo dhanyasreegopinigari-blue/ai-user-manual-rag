@@ -8,8 +8,9 @@ import threading
 from datetime import datetime, timedelta
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
-    QInputDialog,
+    QInputDialog, QPushButton, QTreeWidgetItem,
     QApplication, QCheckBox, QDialog, QFileDialog, QFrame, QGridLayout,
     QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QVBoxLayout,
     QWidget
@@ -26,6 +27,7 @@ import services.export as export_mod
 import services.components as comp_service
 from config import AppError
 from ui.view import (
+    HelpDrawerDialog, ManualDropZone, ManualItemWidget, InteractiveManualViewer,
     ManualScopeDialog, ManualsManagerDialog, ChatHistoryItemWidget, ChatTextEdit, ImageLightboxDialog,
     MainView, QuestionCard, MetaDialog, CameraDialog, ImagePreviewDialog,
     VoiceInputDialog, UserManualDialog, ChatMessageWidget, ComponentCardWidget,
@@ -76,15 +78,18 @@ class MainWindow(QWidget):
         self.hw_result = None
         self.is_dark_theme = True
         self.active_category = "All"
+        self.manuals_view_mode = "grid"
+        self.active_manual_tag = "All"
+        self.selected_manual_ids = set()
         self.active_package_filter = "All Packages"
         self.active_pin_filter = "All Pins"
         self.active_sort = "Name (A-Z)" 
 
         # Embedded Manual Viewer state (Page 4)
-        self.ev_doc = None
-        self.ev_total_pages = 0
-        self.ev_current_page = 1
-        self.ev_zoom = 1.25
+        self._ev_doc = None
+        self._ev_total_pages = 0
+        self._ev_current_page = 1
+        self._ev_zoom = 1.25
 
         # Build View
         self.view = MainView(self)
@@ -181,6 +186,8 @@ class MainWindow(QWidget):
             self.ev_load_manual(manuals[0]["id"])
 
         self.refresh_recent_scans()
+        if hasattr(self, 'refresh_manuals_page'):
+            self.refresh_manuals_page()
         self.filter_library_cards()
         self.refresh_library()
         self.refresh_dashboard_overview()
@@ -210,6 +217,8 @@ class MainWindow(QWidget):
         self.stack.setCurrentIndex(page_index)
         if page_index == 0:
             self.refresh_recent_scans()
+        if hasattr(self, 'refresh_manuals_page'):
+            self.refresh_manuals_page()
             self.refresh_dashboard_overview()
         elif page_index == 1:
             if not self.active_conv_id:
@@ -641,6 +650,8 @@ class MainWindow(QWidget):
             for s in scans:
                 db.delete_component_scan(s["id"])
             self.refresh_recent_scans()
+        if hasattr(self, 'refresh_manuals_page'):
+            self.refresh_manuals_page()
         self.setup_library_filters()
         self.filter_library_cards()
 
@@ -698,6 +709,9 @@ class MainWindow(QWidget):
 
     def reset_all_library_filters(self):
         self.active_category = "All"
+        self.manuals_view_mode = "grid"
+        self.active_manual_tag = "All"
+        self.selected_manual_ids = set()
         self.active_package_filter = "All Packages"
         self.active_pin_filter = "All Pins"
         self.active_sort = "Name (A-Z)"
@@ -1319,140 +1333,369 @@ class MainWindow(QWidget):
         self.view.chat_input.setFocus()
 
 
-    # ---- Embedded PDF Manual Viewer in Page 4 ---------------------------------
-    def ev_load_manual(self, manual_id, page=1):
+
+    # ---- Hardware Manuals Hub & Interactive Reader (Page 4) ------------------
+    def open_help_drawer(self):
+        """Open the slide-out Help & Guided Tour modal drawer."""
+        dlg = HelpDrawerDialog(self)
+        dlg.exec()
+
+    def start_guided_tour(self):
+        """Interactive walkthrough of the 4 primary application screens."""
+        steps = [
+            (0, "Dashboard: Here you can scan electronic components with your camera, upload photos, and view AI matches with datasheet illustrations."),
+            (1, "AI Assistant: Chat with our electronics troubleshooting model, dictate questions with real-time waveform voice input, and inspect citations."),
+            (2, "Component Library: Explore real photographs, pinout diagrams, schematic symbols, and key specs across 8 component categories."),
+            (3, "Hardware Manuals: Upload and manage PDF service manuals, inspect schematics in our high-res interactive reader, and toggle AI chat search.")
+        ]
+        for tab_idx, msg in steps:
+            self.navigate_to(tab_idx)
+            QMessageBox.information(self, f"Tour Step {tab_idx + 1} of 4", msg)
+
+    def refresh_manuals_page(self):
+        """Refresh summary cards, recently viewed row, tag chips, and manuals list."""
+        if not hasattr(self.view, "stat_total_val"):
+            return
+
+        # 1. Summary Statistics
+        stats = db.get_manual_summary_stats()
+        self.view.stat_total_val.setText(str(stats.get("total_manuals", 0)))
+        self.view.stat_pages_val.setText(str(stats.get("total_pages", 0)))
+        self.view.stat_chat_val.setText(f"{stats.get('chat_enabled', 0)} of {stats.get('total_manuals', 0)}")
+        sz_mb = stats.get("total_bytes", 0) / (1024 * 1024)
+        self.view.stat_storage_val.setText(f"{sz_mb:.1f} MB")
+
+        # 2. Recently Viewed Row
+        while self.view.recent_cards_lay.count():
+            item = self.view.recent_cards_lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        recent_manuals = db.list_manuals(sort_by="Recently Viewed")[:4]
+        has_recent = any(m.get("last_viewed_at") for m in recent_manuals)
+        self.view.recent_box.setVisible(has_recent)
+
+        for m in recent_manuals:
+            if not m.get("last_viewed_at"):
+                continue
+            rc = QFrame()
+            rc.setStyleSheet("background: #0d1410; border: 1px solid rgba(0,255,133,0.15); border-radius: 8px; padding: 6px 12px;")
+            rc_l = QHBoxLayout(rc)
+            rc_l.setContentsMargins(4, 4, 4, 4)
+            rc_l.setSpacing(8)
+
+            ic = QLabel()
+            ic.setPixmap(get_pixmap("book-open", "#00FF85", 16))
+            rc_l.addWidget(ic)
+
+            name_lbl = QLabel(f"<b>{m['name'][:24]}...</b>" if len(m['name']) > 26 else f"<b>{m['name']}</b>")
+            name_lbl.setStyleSheet("font-size: 12px; color: #F3FBF5;")
+            rc_l.addWidget(name_lbl)
+
+            open_b = QPushButton("Open")
+            open_b.setIcon(get_icon("chevron-right", "#00FF85", 12))
+            open_b.setProperty("kind", "secondary")
+            open_b.setFixedHeight(26)
+            open_b.clicked.connect(lambda _=False, mid=m['id']: self.load_manual_in_viewer(mid))
+            rc_l.addWidget(open_b)
+
+            self.view.recent_cards_lay.addWidget(rc)
+
+        self.view.recent_cards_lay.addStretch()
+
+        # 3. Collections / Tag Filter Pills
+        while self.view.tags_lay.count() > 1:
+            item = self.view.tags_lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        tags = ["All"] + db.get_all_manual_tags()
+        for t in tags:
+            btn = QPushButton(t)
+            is_act = (t == getattr(self, "active_manual_tag", "All"))
+            btn.setProperty("kind", "catPillActive" if is_act else "catPill")
+            btn.clicked.connect(lambda _=False, tag=t: self._on_manual_tag_clicked(tag))
+            self.view.tags_lay.insertWidget(self.view.tags_lay.count() - 1, btn)
+
+        # 4. Refresh List
+        self.filter_manuals_list()
+
+    def _on_manual_tag_clicked(self, tag):
+        self.active_manual_tag = tag
+        self.refresh_manuals_page()
+
+    def filter_manuals_list(self):
+        """Query and populate manuals into the grid or list container."""
+        if not hasattr(self.view, "manuals_lay"):
+            return
+
+        search_q = self.view.man_search.text().strip() if hasattr(self.view, "man_search") else ""
+        sort_by = self.view.man_sort_combo.currentText() if hasattr(self.view, "man_sort_combo") else "Newest Added"
+        tag = getattr(self, "active_manual_tag", "All")
+
+        manuals = db.list_manuals(search=search_q, tag=tag, sort_by=sort_by)
+
+        while self.view.manuals_lay.count():
+            item = self.view.manuals_lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        self.view.man_empty.setVisible(len(manuals) == 0)
+
+        mode = getattr(self, "manuals_view_mode", "grid")
+
+        if mode == "grid":
+            grid_w = QWidget()
+            grid_l = QGridLayout(grid_w)
+            grid_l.setContentsMargins(0, 0, 0, 0)
+            grid_l.setSpacing(14)
+            cols = 3
+            for i, m in enumerate(manuals):
+                w = ManualItemWidget(
+                    m, view_mode="grid",
+                    on_view_cb=self.load_manual_in_viewer,
+                    on_ask_cb=lambda mid: (setattr(self, "manual_id", mid), self.open_chat(manual_id=mid)),
+                    on_toggle_cb=self.on_manual_chat_toggled,
+                    on_delete_cb=self.delete_manual_confirmed,
+                    on_rename_cb=self.rename_manual_modal,
+                    on_download_cb=self.download_manual_pdf,
+                    parent=self
+                )
+                w.select_check.toggled.connect(lambda val, mid=m['id']: self._on_manual_selected(mid, val))
+                grid_l.addWidget(w, i // cols, i % cols)
+            self.view.manuals_lay.addWidget(grid_w)
+        else:
+            for m in manuals:
+                w = ManualItemWidget(
+                    m, view_mode="list",
+                    on_view_cb=self.load_manual_in_viewer,
+                    on_ask_cb=lambda mid: (setattr(self, "manual_id", mid), self.open_chat(manual_id=mid)),
+                    on_toggle_cb=self.on_manual_chat_toggled,
+                    on_delete_cb=self.delete_manual_confirmed,
+                    on_rename_cb=self.rename_manual_modal,
+                    on_download_cb=self.download_manual_pdf,
+                    parent=self
+                )
+                w.select_check.toggled.connect(lambda val, mid=m['id']: self._on_manual_selected(mid, val))
+                self.view.manuals_lay.addWidget(w)
+
+    def set_manuals_view_mode(self, mode):
+        self.manuals_view_mode = mode
+        is_dark = getattr(self, "is_dark_theme", True)
+        acc = "#00FF85" if is_dark else "#10B981"
+        mut = "#6B8273" if is_dark else "#94a3b8"
+        self.view.view_grid_btn.setIcon(get_icon("grid", acc if mode == "grid" else mut, 15))
+        self.view.view_list_btn.setIcon(get_icon("list", acc if mode == "list" else mut, 15))
+        self.filter_manuals_list()
+
+    def _on_manual_selected(self, mid, val):
+        if val:
+            self.selected_manual_ids.add(mid)
+        else:
+            self.selected_manual_ids.discard(mid)
+        has_sel = len(self.selected_manual_ids) > 0
+        self.view.bulk_delete_btn.setVisible(has_sel)
+        if has_sel:
+            self.view.bulk_delete_btn.setText(f"Delete Selected ({len(self.selected_manual_ids)})")
+
+    def add_manual_multi(self):
+        """Open multi-PDF file dialog and batch import."""
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Choose hardware manuals to index", "", "PDF Files (*.pdf)"
+        )
+        if paths:
+            self.import_manual_files(paths)
+
+    def import_manual_files(self, paths):
+        """Import multiple PDF files with per-file progress tracking."""
+        if not paths:
+            return
+
+        total = len(paths)
+        self.view.drop_zone.show_progress(0, total, "Starting import...")
+
+        def run_import(progress_cb):
+            results = []
+            for idx, p in enumerate(paths):
+                name = os.path.splitext(os.path.basename(p))[0]
+                def sub_cb(msg):
+                    progress_cb(f"[{idx+1}/{total}] {name}: {msg}")
+                try:
+                    mid = manual_mod.import_pdf(p, name, progress=sub_cb)
+                    results.append((p, mid, None))
+                except Exception as e:
+                    results.append((p, None, str(e)))
+            return results
+
+        def on_done(results):
+            self.view.drop_zone.hide_progress()
+            successes = [r for r in results if r[1] is not None]
+            failures = [r for r in results if r[2] is not None]
+            self.refresh_manuals_page()
+            if successes:
+                # Load first imported manual in viewer
+                self.load_manual_in_viewer(successes[0][1])
+            if failures:
+                err_text = "\n".join(f"• {os.path.basename(f[0])}: {f[2]}" for f in failures)
+                QMessageBox.warning(self, "Some Manuals Failed", f"The following files could not be indexed:\n{err_text}")
+
+        self.run_task(run_import, on_done, text=f"Indexing {total} Manual(s)...")
+
+    def reindex_all_manuals(self):
+        if QMessageBox.question(self, "Re-index All", "Rebuild chunks and vector embeddings for all indexed manuals?") != QMessageBox.StandardButton.Yes:
+            return
+        self.run_task(
+            lambda cb: manual_mod.reindex_all_manuals(progress=cb),
+            lambda _: (self.refresh_manuals_page(), QMessageBox.information(self, "Re-indexed", "All manuals re-indexed successfully.")),
+            "Re-indexing manuals..."
+        )
+
+    def on_manual_chat_toggled(self, mid, val):
+        db.update_manual_chat_enabled(mid, val)
+        stats = db.get_manual_summary_stats()
+        self.view.stat_chat_val.setText(f"{stats.get('chat_enabled', 0)} of {stats.get('total_manuals', 0)}")
+
+    def delete_manual_confirmed(self, mid):
+        m = db.get_manual(mid)
+        name = m.get("name", "this manual") if m else "this manual"
+        if QMessageBox.question(
+            self, "Delete Manual",
+            f"Are you sure you want to delete '{name}'?\n\nThis will remove all indexed chunks, extracted images, and FAISS vectors so it will never appear in AI search answers.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        manual_mod.delete_manual(mid)
+        self.refresh_manuals_page()
+
+    def bulk_delete_manuals(self):
+        if not self.selected_manual_ids:
+            return
+        count = len(self.selected_manual_ids)
+        if QMessageBox.question(
+            self, "Bulk Delete",
+            f"Delete {count} selected manual(s) and remove their vector indexes and images?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        ) != QMessageBox.StandardButton.Yes:
+            return
+
+        for mid in list(self.selected_manual_ids):
+            manual_mod.delete_manual(mid)
+        self.selected_manual_ids.clear()
+        self.view.bulk_delete_btn.setVisible(False)
+        self.refresh_manuals_page()
+
+    def rename_manual_modal(self, manual):
+        new_name, ok = QInputDialog.getText(self, "Rename Manual", "Manual Title:", text=manual.get("name", ""))
+        if ok and new_name.strip():
+            db.update_manual_metadata(manual["id"], new_name.strip(), manual.get("manufacturer", ""), manual.get("model", ""), manual.get("tags", ""))
+            self.refresh_manuals_page()
+
+    def download_manual_pdf(self, manual):
+        src = manual.get("file_path")
+        if not src or not os.path.isfile(src):
+            QMessageBox.warning(self, "Download Error", "Source file not found on disk.")
+            return
+        dst, _ = QFileDialog.getSaveFileName(self, "Save Copy of PDF Manual", os.path.basename(src), "PDF Files (*.pdf)")
+        if dst:
+            import shutil
+            shutil.copy2(src, dst)
+            QMessageBox.information(self, "Saved", f"Manual PDF saved to {dst}")
+
+    def load_manual_in_viewer(self, manual_id, page=1, highlight_query=""):
+        """Display the interactive PDF viewer for the given manual."""
         self.manual_id = manual_id
-        minfo = db.get_manual(manual_id)
-        if not minfo or not minfo.get("file_path") or not os.path.isfile(minfo["file_path"]):
-            self.view.ev_manual_lbl.setText("No manual PDF found")
-            return
+        self.navigate_to(3)
+        if hasattr(self.view, "manuals_stack"):
+            self.view.manuals_stack.setCurrentIndex(1)
+        if hasattr(self.view, "viewer_widget"):
+            self.view.viewer_widget.load_manual(manual_id, page=page, highlight_query=highlight_query)
+            self.ev_doc = self.view.viewer_widget.doc
+            self.ev_total_pages = self.view.viewer_widget.total_pages
+            self.ev_current_page = self.view.viewer_widget.current_page
 
-        self.view.ev_manual_lbl.setText(minfo["name"])
-        try:
-            self.ev_doc = fitz.open(minfo["file_path"])
-            self.ev_total_pages = len(self.ev_doc)
-            self.view.ev_page_spin.setMaximum(self.ev_total_pages)
-            self.view.ev_total_lbl.setText(f"of {self.ev_total_pages}")
-            self.ev_populate_toc()
-            self.ev_render_page(page)
-        except Exception as e:
-            self.view.ev_page_lbl.setText(f"Could not load PDF: {e}")
+    def open_user_manual(self, pno=1, mid=None, highlight=""):
+        """Navigates to the Manuals page, opens the viewer at the exact cited page, and highlights terms."""
+        target_mid = mid or self.manual_id
+        if not target_mid:
+            manuals = db.list_manuals()
+            if manuals:
+                target_mid = manuals[0]["id"]
+        if target_mid:
+            self.load_manual_in_viewer(target_mid, page=int(pno) if pno else 1, highlight_query=highlight)
 
-    def ev_populate_toc(self):
-        if not self.ev_doc:
-            return
-        toc = self.ev_doc.get_toc()
-        self.view.ev_toc_tree.clear()
-        if not toc:
-            root = QTreeWidgetItem(["Document Pages"])
-            for p in range(1, min(self.ev_total_pages + 1, 100)):
-                item = QTreeWidgetItem([f"Page {p}"])
-                item.setData(0, Qt.ItemDataRole.UserRole, p)
-                root.addChild(item)
-            self.view.ev_toc_tree.addTopLevelItem(root)
-            root.setExpanded(True)
-            return
 
-        stack = [self.view.ev_toc_tree.invisibleRootItem()]
-        for item in toc:
-            lvl, title, pno = item
-            node = QTreeWidgetItem([f"{title} (p. {pno})"])
-            node.setData(0, Qt.ItemDataRole.UserRole, pno)
-            while len(stack) > lvl:
-                stack.pop()
-            stack[-1].addChild(node)
-            stack.append(node)
-        self.view.ev_toc_tree.expandToDepth(1)
+    # ---- Embedded PDF Manual Viewer Compatibility Layer ----------------------
+    @property
+    def ev_doc(self):
+        w = getattr(self.view, "viewer_widget", None)
+        return getattr(w, "doc", None) or self._ev_doc
+
+    @ev_doc.setter
+    def ev_doc(self, val):
+        self._ev_doc = val
+
+    @property
+    def ev_total_pages(self):
+        w = getattr(self.view, "viewer_widget", None)
+        return getattr(w, "total_pages", 0) or self._ev_total_pages
+
+    @ev_total_pages.setter
+    def ev_total_pages(self, val):
+        self._ev_total_pages = val
+
+    @property
+    def ev_current_page(self):
+        w = getattr(self.view, "viewer_widget", None)
+        return getattr(w, "current_page", 1) if w and hasattr(w, "current_page") else self._ev_current_page
+
+    @ev_current_page.setter
+    def ev_current_page(self, val):
+        self._ev_current_page = val
+        if hasattr(self.view, "viewer_widget"):
+            self.view.viewer_widget.current_page = val
+
+    @property
+    def ev_zoom(self):
+        w = getattr(self.view, "viewer_widget", None)
+        return getattr(w, "zoom", 1.0) if w and hasattr(w, "zoom") else self._ev_zoom
+
+    @ev_zoom.setter
+    def ev_zoom(self, val):
+        self._ev_zoom = val
+        if hasattr(self.view, "viewer_widget"):
+            self.view.viewer_widget.zoom = val
+
+    def ev_load_manual(self, manual_id, page=1):
+        self.load_manual_in_viewer(manual_id, page=page)
 
     def ev_render_page(self, page_num):
-        if not self.ev_doc or self.ev_total_pages == 0:
-            return
-        self.ev_current_page = max(1, min(page_num, self.ev_total_pages))
-        self.view.ev_page_spin.blockSignals(True)
-        self.view.ev_page_spin.setValue(self.ev_current_page)
-        self.view.ev_page_spin.blockSignals(False)
-
-        self.view.ev_prev_btn.setEnabled(self.ev_current_page > 1)
-        self.view.ev_next_btn.setEnabled(self.ev_current_page < self.ev_total_pages)
-        self.view.ev_zoom_lbl.setText(f"{int(self.ev_zoom * 100)}%")
-
-        try:
-            page = self.ev_doc[self.ev_current_page - 1]
-            matrix = fitz.Matrix(self.ev_zoom, self.ev_zoom)
-            pix = page.get_pixmap(matrix=matrix)
-            qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format.Format_RGB888)
-            pm = QPixmap.fromImage(qimg)
-            self.view.ev_page_lbl.setPixmap(pm)
-            self.view.ev_page_lbl.setFixedSize(pm.size())
-            self.view.ev_scroll.verticalScrollBar().setValue(0)
-        except Exception as e:
-            self.view.ev_page_lbl.setText(f"Error rendering page: {e}")
+        if hasattr(self.view, "viewer_widget"):
+            self.view.viewer_widget.jump_to_page(page_num)
 
     def ev_jump_page(self, pno):
-        self.ev_render_page(pno)
+        if hasattr(self.view, "viewer_widget"):
+            self.view.viewer_widget.jump_to_page(pno)
 
     def ev_prev_page(self):
-        if self.ev_current_page > 1:
-            self.ev_render_page(self.ev_current_page - 1)
+        if hasattr(self.view, "viewer_widget"):
+            self.view.viewer_widget.prev_page()
 
     def ev_next_page(self):
-        if self.ev_current_page < self.ev_total_pages:
-            self.ev_render_page(self.ev_current_page + 1)
+        if hasattr(self.view, "viewer_widget"):
+            self.view.viewer_widget.next_page()
 
     def ev_zoom_in(self):
-        self.ev_zoom = min(3.0, round(self.ev_zoom + 0.25, 2))
-        self.ev_render_page(self.ev_current_page)
+        if hasattr(self.view, "viewer_widget"):
+            self.view.viewer_widget.zoom_in()
 
     def ev_zoom_out(self):
-        self.ev_zoom = max(0.5, round(self.ev_zoom - 0.25, 2))
-        self.ev_render_page(self.ev_current_page)
+        if hasattr(self.view, "viewer_widget"):
+            self.view.viewer_widget.zoom_out()
 
     def ev_fit_width(self):
-        if not self.ev_doc or self.ev_total_pages == 0:
-            return
-        avail_w = self.view.ev_scroll.viewport().width() - 32
-        page = self.ev_doc[self.ev_current_page - 1]
-        orig_w = page.rect.width
-        if orig_w > 0:
-            self.ev_zoom = round(avail_w / orig_w, 2)
-            self.ev_render_page(self.ev_current_page)
+        if hasattr(self.view, "viewer_widget"):
+            self.view.viewer_widget.fit_width()
 
-    def ev_on_toc_clicked(self, item, col):
-        pno = item.data(0, Qt.ItemDataRole.UserRole)
-        if pno:
-            self.ev_render_page(int(pno))
-
-    def ev_search_text(self):
-        query = self.view.ev_search_input.text().strip()
-        if not query or not self.ev_doc:
-            return
-        self.view.ev_search_list.clear()
-        matches = []
-        q_lower = query.lower()
-        for pno in range(len(self.ev_doc)):
-            txt = self.ev_doc[pno].get_text("text")
-            if q_lower in txt.lower():
-                idx = txt.lower().find(q_lower)
-                start = max(0, idx - 30)
-                end = min(len(txt), idx + 70)
-                snippet = txt[start:end].replace("\n", " ").strip()
-                matches.append((pno + 1, snippet))
-                if len(matches) >= 25:
-                    break
-
-        if matches:
-            for pno, snip in matches:
-                item = QListWidgetItem(f"p. {pno}: ...{snip}...")
-                item.setData(Qt.ItemDataRole.UserRole, pno)
-                self.view.ev_search_list.addItem(item)
-            self.ev_render_page(matches[0][0])
-        else:
-            QMessageBox.information(self, "Search", f"No matches found for '{query}'.")
-
-    def ev_on_search_clicked(self, item):
-        pno = item.data(Qt.ItemDataRole.UserRole)
-        if pno:
-            self.ev_render_page(int(pno))
 
     def ev_open_external(self):
         if self.manual_id:

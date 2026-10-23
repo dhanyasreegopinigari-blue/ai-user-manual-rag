@@ -24,7 +24,7 @@ MAX_IMAGES_PER_PAGE = 6
 # =============================================================================
 # Import
 # =============================================================================
-def import_pdf(pdf_path, name, manufacturer="", model="", progress=None):
+def import_pdf(pdf_path, name, manufacturer="", model="", tags="", progress=None):
     """Import a PDF manual. Returns the new manual id. Raises AppError with a friendly message."""
     cb = progress or (lambda m: None)
     cb("Importing manual...")
@@ -44,8 +44,21 @@ def import_pdf(pdf_path, name, manufacturer="", model="", progress=None):
 
     dest = os.path.join(config.MANUALS_DIR, f"{int(time.time())}_{os.path.basename(pdf_path)}")
     shutil.copy2(pdf_path, dest)
-    manual_id = db.add_manual(name.strip() or os.path.splitext(os.path.basename(pdf_path))[0],
-                              manufacturer.strip(), model.strip(), dest)
+    file_size = os.path.getsize(dest) if os.path.exists(dest) else 0
+
+    # Auto-extract short summary from first non-empty page
+    summary = ""
+    for p in doc[:3]:
+        t = p.get_text("text").strip()
+        if t:
+            summary = re.sub(r"\s+", " ", t)[:240] + "..."
+            break
+
+    manual_id = db.add_manual(
+        name.strip() or os.path.splitext(os.path.basename(pdf_path))[0],
+        manufacturer.strip(), model.strip(), dest,
+        file_size=file_size, tags=tags.strip(), summary=summary
+    )
     try:
         _process(doc, manual_id, cb)
     except AppError:
@@ -359,3 +372,70 @@ def analyze_video(path, progress=None):
         "match_info": match_info
     }
 
+
+
+def import_pdfs_batch(pdf_paths, tags="", progress=None):
+    """Import multiple PDF manuals sequentially with progress tracking."""
+    results = []
+    total = len(pdf_paths)
+    for idx, path in enumerate(pdf_paths):
+        base_name = os.path.splitext(os.path.basename(path))[0]
+        def file_cb(msg):
+            if progress:
+                progress(f"[{idx + 1}/{total}] {base_name}: {msg}")
+        try:
+            mid = import_pdf(path, base_name, tags=tags, progress=file_cb)
+            results.append((path, mid, None))
+        except Exception as e:
+            results.append((path, None, str(e)))
+    return results
+
+
+def reindex_manual(manual_id, progress=None):
+    """Re-chunk and rebuild embeddings FAISS index for a manual."""
+    cb = progress or (lambda m: None)
+    m = db.get_manual(manual_id)
+    if not m or not m.get("file_path") or not os.path.isfile(m["file_path"]):
+        raise AppError("Original PDF file not found on disk.")
+
+    cb(f"Re-indexing {m['name']}...")
+    page_rows = db.query(
+        "SELECT page_number, text FROM manual_pages WHERE manual_id=? ORDER BY page_number",
+        (manual_id,)
+    )
+    if not page_rows:
+        raise AppError("No extracted text pages found for this manual.")
+
+    page_texts = [(p["page_number"], p["text"]) for p in page_rows]
+    chunks = make_chunks(page_texts)
+    if not chunks:
+        raise AppError("No readable text chunks generated.")
+
+    first_image = {}
+    for r in db.query("SELECT page_number, image_path FROM manual_images WHERE manual_id=?", (manual_id,)):
+        first_image.setdefault(r["page_number"], r["image_path"])
+
+    for ch in chunks:
+        ch["image_path"] = next((first_image[p] for p in ch["pages"] if p in first_image), None)
+
+    db.execute("DELETE FROM manual_chunks WHERE manual_id=?", (manual_id,))
+    db.execute("DELETE FROM manual_chunks_fts WHERE manual_id=?", (manual_id,))
+    chunk_ids = db.add_chunks(manual_id, chunks)
+
+    rag.build_index(manual_id, chunk_ids, [c["text"] for c in chunks], cb)
+    cb(f"Re-indexed {len(chunks)} chunks.")
+    return {"chunks": len(chunks), "success": True}
+
+
+def reindex_all_manuals(progress=None):
+    """Re-index all manuals in the database."""
+    cb = progress or (lambda m: None)
+    manuals = db.list_manuals()
+    for idx, m in enumerate(manuals):
+        def m_cb(msg):
+            cb(f"[{idx+1}/{len(manuals)}] {m['name']}: {msg}")
+        try:
+            reindex_manual(m["id"], progress=m_cb)
+        except Exception as e:
+            print(f"Error reindexing manual {m['id']}: {e}")
+    cb("All manuals re-indexed.")

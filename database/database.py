@@ -14,8 +14,21 @@ CREATE TABLE IF NOT EXISTS manuals (
     manufacturer TEXT DEFAULT '',
     model TEXT DEFAULT '',
     file_path TEXT,
+    file_size INTEGER DEFAULT 0,
+    tags TEXT DEFAULT '',
+    summary TEXT DEFAULT '',
+    last_viewed_at TEXT DEFAULT '',
+    enabled_for_chat INTEGER DEFAULT 1,
     created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS manual_bookmarks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    manual_id INTEGER NOT NULL,
+    page_number INTEGER NOT NULL,
+    note TEXT DEFAULT '',
+    created_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_manual ON manual_bookmarks(manual_id);
 CREATE TABLE IF NOT EXISTS manual_pages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     manual_id INTEGER NOT NULL,
@@ -93,6 +106,32 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+
+        # Migration: Add new columns to manuals if they do not exist
+        for col_sql in [
+            "enabled_for_chat INTEGER DEFAULT 1",
+            "file_size INTEGER DEFAULT 0",
+            "tags TEXT DEFAULT ''",
+            "summary TEXT DEFAULT ''",
+            "last_viewed_at TEXT DEFAULT ''"
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE manuals ADD COLUMN {col_sql}")
+                conn.commit()
+            except Exception:
+                pass
+
+        # Backfill file_size and tags for existing manuals
+        try:
+            rows = conn.execute("SELECT id, file_path, name FROM manuals WHERE file_size = 0 OR file_size IS NULL").fetchall()
+            for r in rows:
+                fp = r["file_path"]
+                if fp and os.path.isfile(fp):
+                    sz = os.path.getsize(fp)
+                    conn.execute("UPDATE manuals SET file_size=? WHERE id=?", (sz, r["id"]))
+            conn.commit()
+        except Exception:
+            pass
         # Backfill any existing manual_chunks into FTS5
         conn.execute("""
             INSERT INTO manual_chunks_fts (chunk_id, manual_id, chunk_text, section)
@@ -123,10 +162,14 @@ def execute(sql, args=()):
 
 
 # ---- writing ----------------------------------------------------------------
-def add_manual(name, manufacturer, model, file_path):
+def add_manual(name, manufacturer="", model="", file_path="", file_size=0, tags="", summary=""):
+    now = datetime.now().isoformat(timespec="seconds")
+    if file_path and os.path.isfile(file_path) and not file_size:
+        file_size = os.path.getsize(file_path)
     return execute(
-        "INSERT INTO manuals (name, manufacturer, model, file_path, created_at) VALUES (?,?,?,?,?)",
-        (name, manufacturer, model, file_path, datetime.now().isoformat(timespec="seconds")))
+        "INSERT INTO manuals (name, manufacturer, model, file_path, file_size, tags, summary, created_at, enabled_for_chat) "
+        "VALUES (?,?,?,?,?,?,?,?,1)",
+        (name, manufacturer, model, file_path, file_size, tags, summary, now))
 
 
 def add_pages(manual_id, rows):
@@ -225,12 +268,87 @@ def search_chunks_fts(manual_id, query_text, limit=10):
 
 
 # ---- reading ----------------------------------------------------------------
-def list_manuals(search=""):
+def list_manuals(search="", tag="All", sort_by="Newest Added"):
     like = f"%{search.strip()}%"
+    sql = (
+        "SELECT m.*, "
+        "(SELECT COUNT(*) FROM manual_pages p WHERE p.manual_id = m.id) AS page_count "
+        "FROM manuals m WHERE (m.name LIKE ? OR m.manufacturer LIKE ? OR m.model LIKE ? OR m.tags LIKE ?) "
+    )
+    args = [like, like, like, like]
+    if tag and tag != "All":
+        sql += " AND m.tags LIKE ? "
+        args.append(f"%{tag.strip()}%")
+
+    if sort_by == "Name (A-Z)":
+        sql += " ORDER BY m.name COLLATE NOCASE ASC"
+    elif sort_by == "Size (Largest)":
+        sql += " ORDER BY m.file_size DESC, m.name ASC"
+    elif sort_by == "Pages (Most)":
+        sql += " ORDER BY page_count DESC, m.name ASC"
+    elif sort_by == "Recently Viewed":
+        sql += " ORDER BY m.last_viewed_at DESC, m.id DESC"
+    else:  # Newest Added
+        sql += " ORDER BY m.id DESC"
+
+    return query(sql, tuple(args))
+
+
+def update_manual_chat_enabled(manual_id, enabled: bool):
+    return execute("UPDATE manuals SET enabled_for_chat=? WHERE id=?", (1 if enabled else 0, manual_id))
+
+
+def update_manual_metadata(manual_id, name, manufacturer="", model="", tags=""):
+    return execute(
+        "UPDATE manuals SET name=?, manufacturer=?, model=?, tags=? WHERE id=?",
+        (name.strip(), manufacturer.strip(), model.strip(), tags.strip(), manual_id)
+    )
+
+
+def update_manual_last_viewed(manual_id):
+    now = datetime.now().isoformat(timespec="seconds")
+    return execute("UPDATE manuals SET last_viewed_at=? WHERE id=?", (now, manual_id))
+
+
+def get_manual_summary_stats():
+    res = query(
+        "SELECT COUNT(*) AS total_manuals, "
+        "COALESCE(SUM(file_size), 0) AS total_bytes, "
+        "COALESCE((SELECT COUNT(*) FROM manual_pages), 0) AS total_pages, "
+        "COALESCE(SUM(CASE WHEN enabled_for_chat = 1 THEN 1 ELSE 0 END), 0) AS chat_enabled "
+        "FROM manuals"
+    )
+    return res[0] if res else {"total_manuals": 0, "total_bytes": 0, "total_pages": 0, "chat_enabled": 0}
+
+
+def get_all_manual_tags():
+    rows = query("SELECT tags FROM manuals WHERE tags != '' AND tags IS NOT NULL")
+    tags = set()
+    for r in rows:
+        for t in r["tags"].split(","):
+            cleaned = t.strip()
+            if cleaned:
+                tags.add(cleaned)
+    return sorted(list(tags))
+
+
+def add_manual_bookmark(manual_id, page_number, note=""):
+    now = datetime.now().isoformat(timespec="seconds")
+    return execute(
+        "INSERT INTO manual_bookmarks (manual_id, page_number, note, created_at) VALUES (?,?,?,?)",
+        (manual_id, page_number, note.strip(), now)
+    )
+
+
+def get_manual_bookmarks(manual_id):
     return query(
-        "SELECT m.*, (SELECT COUNT(*) FROM manual_pages p WHERE p.manual_id = m.id) AS page_count "
-        "FROM manuals m WHERE m.name LIKE ? OR m.manufacturer LIKE ? OR m.model LIKE ? ORDER BY m.name",
-        (like, like, like))
+        "SELECT * FROM manual_bookmarks WHERE manual_id=? ORDER BY page_number ASC",
+        (manual_id,)
+    )
+
+
+def delete_manual_bookmark(bookmark_id):
+    return execute("DELETE FROM manual_bookmarks WHERE id=?", (bookmark_id,))
 
 
 def get_manual(manual_id):
