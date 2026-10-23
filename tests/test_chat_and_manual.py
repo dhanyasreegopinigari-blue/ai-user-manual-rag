@@ -105,6 +105,54 @@ class TestChatAndManual(unittest.TestCase):
         asst_w = ChatMessageWidget("assistant", "Read the manual", data=data, parent_win=self.win)
         self.assertIsNotNone(asst_w)
 
+    def test_chat_manual_selector_and_no_upload_button(self):
+        """Verify AI Chat Assistant has direct manual selector dropdown and no upload buttons."""
+        view = self.win.view
+
+        # 1. Verify upload buttons are removed/hidden from the chat UI
+        self.assertTrue(view.scope_add_btn is None or view.scope_add_btn.isHidden())
+        self.assertTrue(view.scope_manage_btn is None or view.scope_manage_btn.isHidden())
+
+        # 2. Verify direct manual selector dropdown is present
+        self.assertIsNotNone(view.chat_manual_combo)
+        self.assertIsNotNone(view.chat_view_manual_btn)
+        self.assertIsNotNone(view.scope_clear_btn)
+
+        # 3. Test changing manual in selector
+        self.win.update_scope_ui()
+        combo = view.chat_manual_combo
+        self.assertGreaterEqual(combo.count(), 1)  # At least 'All Loaded Manuals'
+        self.assertIn("All Loaded Manuals", combo.itemText(0))
+
+        # Reset scope
+        self.win.reset_scope_to_all()
+        self.assertIsNone(self.win.manual_id)
+        self.assertEqual(combo.currentIndex(), 0)
+        self.assertTrue(view.chat_view_manual_btn.isHidden())
+        self.assertTrue(view.scope_clear_btn.isHidden())
+
+        # Select manual if available
+        manuals = db.list_manuals()
+        if manuals:
+            mid = manuals[0]["id"]
+            # Change combo to index 1
+            combo.setCurrentIndex(1)
+            self.assertEqual(self.win.manual_id, mid)
+            self.assertFalse(view.chat_view_manual_btn.isHidden())
+            self.assertFalse(view.scope_clear_btn.isHidden())
+
+            # Reset back to all
+            view.scope_clear_btn.click()
+            self.assertIsNone(self.win.manual_id)
+            self.assertEqual(combo.currentIndex(), 0)
+
+    def test_user_manual_page_loaded_manuals_primary(self):
+        """Verify User Manual page shows loaded manuals by default."""
+        self.win.navigate_to(2)
+        self.assertEqual(self.win.stack.currentIndex(), 2)
+        self.assertEqual(self.win.view.manuals_main_stack.currentIndex(), 1)
+        self.assertEqual(self.win.view.seg_hw_btn.property("kind"), "chipActive")
+
 
 if __name__ == "__main__":
     unittest.main()

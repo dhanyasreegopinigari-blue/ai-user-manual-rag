@@ -19,15 +19,14 @@ class TestRedesignAndFeatures(unittest.TestCase):
         cls.app = QApplication.instance() or QApplication(sys.argv)
         cls.win = MainWindow()
 
-    def test_four_pages_architecture(self):
-        # 1. Verify exact 4 primary pages
+    def test_three_pages_architecture(self):
+        # 1. Verify primary pages (Component Library removed)
         self.assertIsNotNone(self.win.dashboard_page)
         self.assertIsNotNone(self.win.chat_page)
-        self.assertIsNotNone(self.win.library_page)
         self.assertIsNotNone(self.win.manual_page)
 
-        # 2. Test navigation across all 4 pages
-        for idx in range(4):
+        # 2. Test navigation across primary pages
+        for idx in range(3):
             self.win.navigate_to(idx)
             self.assertEqual(self.win.stack.currentIndex(), idx)
 

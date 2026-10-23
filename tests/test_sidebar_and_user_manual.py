@@ -31,9 +31,9 @@ class TestSidebarAndUserManual(unittest.TestCase):
         self.assertIsNotNone(sidebar.brand_icon)
         self.assertIsNotNone(sidebar.collapse_btn)
 
-        # Check the 5 navigation items: Dashboard, AI Assistant, Component Library, User Manual, Help
+        # Check the 4 navigation items: Dashboard, AI Assistant, User Manual, Help (Component Library removed)
         btn_labels = [b._orig_text for b in sidebar.all_buttons]
-        self.assertEqual(btn_labels, ["Dashboard", "AI Assistant", "Component Library", "User Manual", "Help"])
+        self.assertEqual(btn_labels, ["Dashboard", "AI Assistant", "User Manual", "Help"])
 
         # Check bottom utilities
         self.assertTrue(hasattr(sidebar, "ollama_pill"))
@@ -78,8 +78,7 @@ class TestSidebarAndUserManual(unittest.TestCase):
         for idx, expected_title in [
             (0, "Dashboard"),
             (1, "AI Assistant"),
-            (2, "Component Library"),
-            (3, "User Manual & Documentation")
+            (2, "User Manual")
         ]:
             self.win.navigate_to(idx)
             self.assertEqual(self.win.stack.currentIndex(), idx)
@@ -91,8 +90,8 @@ class TestSidebarAndUserManual(unittest.TestCase):
 
     def test_04_user_manual_page_structure_and_toc(self):
         """Verify redesigned User Manual documentation view with 9 sections and Table of Contents."""
-        self.win.navigate_to(3)
-        self.assertEqual(self.win.stack.currentIndex(), 3)
+        self.win.navigate_to(2)
+        self.assertEqual(self.win.stack.currentIndex(), 2)
 
         self.assertTrue(hasattr(self.win.view, "doc_view"))
         self.assertTrue(hasattr(self.win.view, "doc_search_input"))
@@ -113,7 +112,7 @@ class TestSidebarAndUserManual(unittest.TestCase):
 
     def test_05_user_manual_search_filtering(self):
         """Test search box live-filtering topics and TOC buttons in documentation."""
-        self.win.navigate_to(3)
+        self.win.navigate_to(2)
         doc_search = self.win.view.doc_search_input
 
         # Search for specific term
@@ -131,20 +130,21 @@ class TestSidebarAndUserManual(unittest.TestCase):
 
     def test_06_manual_segment_switcher_and_hub_integration(self):
         """Test seamless switching between User Manual & Documentation and Hardware PDF Hub."""
-        self.win.navigate_to(3)
+        self.win.navigate_to(2)
 
-        # By default doc view is visible
-        self.assertEqual(self.win.view.manuals_main_stack.currentIndex(), 0)
-
-        # Switch to Hardware PDF Hub
-        self.win.view.switch_to_hw_manuals()
+        # By default loaded manuals hub is visible
         self.assertEqual(self.win.view.manuals_main_stack.currentIndex(), 1)
         self.assertEqual(self.win.view.seg_hw_btn.property("kind"), "chipActive")
 
-        # Switch back to User Manual
+        # Switch to App User Guide
         self.win.view.switch_to_user_manual()
         self.assertEqual(self.win.view.manuals_main_stack.currentIndex(), 0)
         self.assertEqual(self.win.view.seg_doc_btn.property("kind"), "chipActive")
+
+        # Switch back to Loaded Manuals Hub
+        self.win.view.switch_to_hw_manuals()
+        self.assertEqual(self.win.view.manuals_main_stack.currentIndex(), 1)
+        self.assertEqual(self.win.view.seg_hw_btn.property("kind"), "chipActive")
 
     def test_07_mobile_responsive_behavior(self):
         """Test that clicking a nav button on narrow screens (<850px) auto-closes the sidebar."""

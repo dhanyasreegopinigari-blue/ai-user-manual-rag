@@ -72,16 +72,16 @@ class TestManualsPageRedesign(unittest.TestCase):
         config.FAISS_DIR = cls.orig_faiss
         shutil.rmtree(cls.tmp_dir, ignore_errors=True)
 
-    def test_01_navigation_tab_and_four_pages(self):
-        """Strictly 4 user pages: Dashboard(0), AI Assistant(1), Component Library(2), Manuals(3)."""
+    def test_01_navigation_tab_and_three_pages(self):
+        """Primary user pages: Dashboard(0), AI Assistant(1), User Manual(2) with Component Library removed."""
         nav = self.win.view.top_bar
         tab_texts = [b.text() for b in nav.nav_buttons]
-        self.assertTrue(tab_texts == ["Dashboard", "AI Assistant", "Component Library", "User Manual"] or tab_texts == ["Dashboard", "AI Assistant", "Component Library", "Manuals"])
-        self.assertEqual(len(nav.nav_buttons), 4)
+        self.assertEqual(tab_texts, ["Dashboard", "AI Assistant", "User Manual"])
+        self.assertEqual(len(nav.nav_buttons), 3)
 
-        # Navigating to index 3 shows manuals page
-        self.win.navigate_to(3)
-        self.assertEqual(self.win.view.stack.currentIndex(), 3)
+        # Navigating to index 2 shows manuals page
+        self.win.navigate_to(2)
+        self.assertEqual(self.win.view.stack.currentIndex(), 2)
 
     def test_02_help_drawer_dialog(self):
         """Help icon in top bar opens HelpDrawerDialog and does not consume a page."""

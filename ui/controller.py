@@ -142,12 +142,14 @@ class MainWindow(QWidget):
         self.typing_lbl = self.view.typing_lbl
         self.chat_manual_badge = self.view.chat_manual_badge
         self.expand_sidebar_btn = self.view.expand_sidebar_btn
+        self.chat_manual_combo = getattr(self.view, "chat_manual_combo", None)
+        self.chat_view_manual_btn = getattr(self.view, "chat_view_manual_btn", None)
 
-        # Library elements
-        self.lib_search = self.view.lib_search
+        # Library elements (retained safely for backward compatibility)
+        self.lib_search = getattr(self.view, 'lib_search', None)
         self.lib_list = getattr(self.view, 'lib_list', None) or QListWidget()
         self.lib_empty = getattr(self.view, 'lib_empty', None) or QLabel()
-        self.cards_lay = self.view.cards_lay
+        self.cards_lay = getattr(self.view, 'cards_lay', None)
 
         # Backward compatibility compatibility slots for old viewer/ask tests
         self.ask_manual_name = label("", "subtitle")
@@ -188,8 +190,8 @@ class MainWindow(QWidget):
         self.refresh_recent_scans()
         if hasattr(self, 'refresh_manuals_page'):
             self.refresh_manuals_page()
-        self.filter_library_cards()
-        self.refresh_library()
+        if hasattr(self.view, 'cards_lay') and self.view.cards_lay:
+            self.filter_library_cards()
         self.refresh_dashboard_overview()
         self.navigate_to(0)
 
@@ -212,7 +214,13 @@ class MainWindow(QWidget):
 
     # ---- Navigation & Worker execution ----------------------------------------
     def navigate_to(self, page_index):
-        """Switch to one of the 4 primary app pages."""
+        """Switch to one of the primary app pages (Dashboard, AI Assistant, User Manual)."""
+        # Backward compatibility: redirect old page 3 (Manuals) to page 2 (User Manual)
+        if page_index == 3:
+            page_index = 2
+        elif page_index not in (0, 1, 2):
+            page_index = 0
+
         self.top_bar.set_active_tab(page_index)
         self.stack.setCurrentIndex(page_index)
         if page_index == 0:
@@ -227,10 +235,10 @@ class MainWindow(QWidget):
                     self.new_chat()
             else:
                 self.refresh_history_sidebar()
+            self.update_scope_ui()
         elif page_index == 2:
-            self.filter_library_cards()
-            self.refresh_library()
-        elif page_index == 3:
+            if hasattr(self.view, "switch_to_hw_manuals"):
+                self.view.switch_to_hw_manuals()
             if hasattr(self.view, "manuals_stack"):
                 self.view.manuals_stack.setCurrentIndex(0)
             self.refresh_manuals_page()
@@ -959,20 +967,68 @@ class MainWindow(QWidget):
     # ---- Scope Controls & Multi-Manual Management ----------------------------
     def update_scope_ui(self):
         manuals = db.list_manuals()
+        total = len(manuals)
+
+        # Update chat manual combo selector
+        combo = getattr(self.view, "chat_manual_combo", None)
+        if combo is not None:
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem(f"📚 All Loaded Manuals ({total})", None)
+            sel_idx = 0
+            for idx, m in enumerate(manuals, start=1):
+                mname = m.get("name") or "Manual"
+                pages = m.get("page_count", 0)
+                mfr = m.get("manufacturer", "")
+                label_txt = f"📄 {mname}"
+                if mfr:
+                    label_txt += f" — {mfr}"
+                if pages:
+                    label_txt += f" ({pages}p)"
+                combo.addItem(label_txt, m["id"])
+                if self.manual_id == m["id"]:
+                    sel_idx = idx
+            combo.setCurrentIndex(sel_idx)
+            combo.blockSignals(False)
+
         if self.manual_id is None:
-            self.view.scope_chip_btn.setText(f"All manuals ({len(manuals)})")
-            self.view.scope_chip_btn.setProperty("kind", "chipActive")
-            self.chat_manual_badge.setText(f"Scope: All Manuals ({len(manuals)})")
-            self.view.scope_clear_btn.setVisible(False)
+            if hasattr(self.view, "scope_chip_btn"):
+                self.view.scope_chip_btn.setText(f"All manuals ({total})")
+                self.view.scope_chip_btn.setProperty("kind", "chipActive")
+            self.chat_manual_badge.setText(f"Scope: All Manuals ({total})")
+            if hasattr(self.view, "scope_clear_btn"):
+                self.view.scope_clear_btn.setVisible(False)
+            if hasattr(self.view, "chat_view_manual_btn"):
+                self.view.chat_view_manual_btn.setVisible(False)
         else:
             m = db.get_manual(self.manual_id)
             mname = m["name"] if m else "Manual"
-            self.view.scope_chip_btn.setText(f"{mname[:20]}")
-            self.view.scope_chip_btn.setProperty("kind", "chip")
+            if hasattr(self.view, "scope_chip_btn"):
+                self.view.scope_chip_btn.setText(f"{mname[:20]}")
+                self.view.scope_chip_btn.setProperty("kind", "chip")
             self.chat_manual_badge.setText(f"Scope: {mname}")
-            self.view.scope_clear_btn.setVisible(True)
-        self.view.scope_chip_btn.style().unpolish(self.view.scope_chip_btn)
-        self.view.scope_chip_btn.style().polish(self.view.scope_chip_btn)
+            if hasattr(self.view, "scope_clear_btn"):
+                self.view.scope_clear_btn.setVisible(True)
+            if hasattr(self.view, "chat_view_manual_btn"):
+                self.view.chat_view_manual_btn.setVisible(True)
+
+        if hasattr(self.view, "scope_chip_btn"):
+            self.view.scope_chip_btn.style().unpolish(self.view.scope_chip_btn)
+            self.view.scope_chip_btn.style().polish(self.view.scope_chip_btn)
+
+    def on_chat_manual_combo_changed(self, index):
+        combo = getattr(self.view, "chat_manual_combo", None)
+        if combo is None:
+            return
+        mid = combo.currentData()
+        self.manual_id = mid
+        if self.active_conv_id:
+            db.update_conversation_manual(self.active_conv_id, self.manual_id)
+        self.update_scope_ui()
+
+    def on_chat_view_manual_clicked(self):
+        if self.manual_id:
+            self.load_manual_in_viewer(self.manual_id)
 
     def open_scope_picker(self):
         dlg = ManualScopeDialog(self, current_manual_id=self.manual_id)
@@ -1634,7 +1690,7 @@ class MainWindow(QWidget):
     def load_manual_in_viewer(self, manual_id, page=1, highlight_query=""):
         """Display the interactive PDF viewer for the given manual."""
         self.manual_id = manual_id
-        self.navigate_to(3)
+        self.navigate_to(2)
         if hasattr(self.view, "switch_to_hw_manuals"):
             self.view.switch_to_hw_manuals()
         if hasattr(self.view, "manuals_stack"):

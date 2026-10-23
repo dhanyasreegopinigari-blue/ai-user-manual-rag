@@ -3112,12 +3112,14 @@ class GlobalSidebar(QFrame):
 
         self.btn_dash = self._create_nav_button("Dashboard", "layout-grid", 0)
         self.btn_chat = self._create_nav_button("AI Assistant", "message-square", 1)
-        self.btn_lib = self._create_nav_button("Component Library", "cpu", 2)
-        self.btn_manual = self._create_nav_button("User Manual", "book-open", 3)
+        self.btn_manual = self._create_nav_button("User Manual", "book-open", 2)
         self.btn_help = self._create_nav_button("Help", "help-circle", -1, slot=self._on_help_clicked)
 
-        self.nav_buttons = [self.btn_dash, self.btn_chat, self.btn_lib, self.btn_manual]
-        self.all_buttons = [self.btn_dash, self.btn_chat, self.btn_lib, self.btn_manual, self.btn_help]
+        # Attribute retained for backward compatibility
+        self.btn_lib = None
+
+        self.nav_buttons = [self.btn_dash, self.btn_chat, self.btn_manual]
+        self.all_buttons = [self.btn_dash, self.btn_chat, self.btn_manual, self.btn_help]
 
         for b in self.all_buttons:
             self.nav_items_lay.addWidget(b)
@@ -3283,8 +3285,8 @@ class SlimHeader(QFrame):
         titles = {
             0: "Dashboard",
             1: "AI Assistant",
-            2: "Component Library",
-            3: "User Manual & Documentation",
+            2: "User Manual",
+            3: "User Manual",
         }
         self.title_lbl.setText(titles.get(idx, "ElectroLearn AI"))
 
@@ -3392,18 +3394,15 @@ class HelpDrawerDialog(QDialog):
             ("2. AI Assistant & Voice Dictation",
              "• Ask repair, pinout, wiring, and replacement questions.\n"
              "• Click the mic button to speak with real-time waveform visualization and automatic silence detection.\n"
-             "• Answers automatically cite manuals (e.g. [Manual, p.12])—click any citation to open that exact page in the reader."),
+             "• Answers automatically cite manuals (e.g. [Manual, p.12])—click any citation to open that exact page in the reader.\n"
+             "• Select any specific user manual from the dropdown selector or search across all loaded manuals."),
 
-            ("3. Component Library & Pinouts",
-             "• Browse curated electronic components across 8 categories (ICs, Diodes, Sensors, etc.).\n"
-             "• Click any card to inspect realistic photographs, pin connections, schematic symbols, and key specs."),
-
-            ("4. Hardware Manuals & PDF Reader",
-             "• Upload and index manufacturer service manuals and hardware datasheets with drag-and-drop.\n"
+            ("3. User Manuals & Interactive PDF Reader",
+             "• Upload and index equipment user manuals and hardware datasheets with drag-and-drop.\n"
              "• Use the interactive PDF reader with page thumbnails, text search, bookmarks, dark reading mode, and extracted figure galleries.\n"
              "• Use the 'Include in AI search' toggle to customize which manuals the AI assistant searches."),
 
-            ("5. Safety & Bench Testing Rules",
+            ("4. Safety & Bench Testing Rules",
              "• Pin 1 Orientation: Pin 1 is always to the left of the U-notch or adjacent to the embossed dot.\n"
              "• Polarity: Rectifier diodes have a silver band at the cathode. Electrolytic capacitors have a negative (-) stripe and must NEVER be wired in reverse.\n"
              "• Always de-energize circuits before measuring component resistance or diode drops.")
@@ -4454,11 +4453,10 @@ class MainView:
 
         root_lay.addWidget(content_container, 1)
 
-        # Build the exact 4 pages requested
+        # Build the exact 3 primary pages (Component Library removed)
         self.dashboard_page = self._build_dashboard()   # Page 0
         self.chat_page = self._build_chat()             # Page 1
-        self.library_page = self._build_library()       # Page 2
-        self.manual_page = self._build_manuals_page()    # Page 3
+        self.manual_page = self._build_manuals_page()   # Page 2
 
         # Auxiliary background transition page (for long processing operations)
         self.busy_page = self._build_busy()
@@ -4466,7 +4464,6 @@ class MainView:
         # Add to stack in order
         self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.chat_page)
-        self.stack.addWidget(self.library_page)
         self.stack.addWidget(self.manual_page)
         self.stack.addWidget(self.busy_page)
 
@@ -4475,6 +4472,7 @@ class MainView:
         self.result_page = self.dashboard_page
         self.viewer_page = self.manual_page
         self.ask_page = self.chat_page
+        self.library_page = None
 
     def _page_scroll(self, max_width=1160):
         scroll = QScrollArea()
@@ -4751,7 +4749,7 @@ class MainView:
         scans_head.addWidget(label("RECENT IDENTIFICATIONS", "caption", wrap=False))
         scans_head.addStretch()
 
-        view_lib_btn = button("View All in Library", "secondary", slot=lambda: self.win.navigate_to(2))
+        view_lib_btn = button("View Manuals", "secondary", slot=lambda: self.win.navigate_to(2))
         view_lib_btn.setIcon(get_icon("arrow-right", "#00FF85", 13))
         view_lib_btn.setStyleSheet("padding: 4px 12px; font-size: 12px; font-weight: 600;")
         scans_head.addWidget(view_lib_btn)
@@ -4802,7 +4800,7 @@ class MainView:
         m_head = QHBoxLayout()
         m_head.addWidget(label("Hardware Manuals Overview", "h2", wrap=False))
         m_head.addStretch()
-        self.dash_manage_manuals_btn = button("Manage Manuals", "secondary", slot=lambda: self.win.navigate_to(3))
+        self.dash_manage_manuals_btn = button("Manage Manuals", "secondary", slot=lambda: self.win.navigate_to(2))
         self.dash_manage_manuals_btn.setIcon(get_icon("book-open", "#10B981", 14))
         m_head.addWidget(self.dash_manage_manuals_btn)
         m_lay.addLayout(m_head)
@@ -5050,30 +5048,46 @@ class MainView:
 
         b_lay.addLayout(input_row)
 
-        # Manual Scope Controls & Quick Actions Toolbar
+        # Manual Scope Controls & Quick Actions Toolbar (Upload manuals removed; direct manual selector added)
         scope_row = QHBoxLayout()
         scope_row.setSpacing(8)
 
-        # Scope Chip
-        self.scope_chip_btn = button("All manuals", "chipActive", slot=self.win.open_scope_picker)
-        self.scope_chip_btn.setIcon(get_icon("book-open", "#00FF85", 14))
-        self.scope_chip_btn.setToolTip("Click to change manual scope")
-        scope_row.addWidget(self.scope_chip_btn)
+        # Direct Manual Selector Dropdown
+        scope_lbl = label("Manual:", "caption", wrap=False)
+        scope_lbl.setStyleSheet("font-weight: 700; color: #8ca394; margin-right: 2px;")
+        scope_row.addWidget(scope_lbl)
 
-        self.scope_add_btn = button("Add Manual", "secondary", slot=self.win.add_manual_multi)
-        self.scope_add_btn.setIcon(get_icon("upload", "#94a3b8", 13))
-        self.scope_add_btn.setStyleSheet("padding: 5px 10px; font-size: 12.5px;")
-        scope_row.addWidget(self.scope_add_btn)
+        self.chat_manual_combo = QComboBox()
+        self.chat_manual_combo.setObjectName("chatManualCombo")
+        self.chat_manual_combo.setToolTip("Select which loaded user manual to query, or search across all manuals")
+        self.chat_manual_combo.setMinimumWidth(260)
+        self.chat_manual_combo.setFixedHeight(34)
+        self.chat_manual_combo.currentIndexChanged.connect(self.win.on_chat_manual_combo_changed)
+        scope_row.addWidget(self.chat_manual_combo)
 
-        self.scope_manage_btn = button("Manage", "secondary", slot=self.win.manage_manuals_modal)
-        self.scope_manage_btn.setIcon(get_icon("settings", "#94a3b8", 13))
-        self.scope_manage_btn.setStyleSheet("padding: 5px 10px; font-size: 12.5px;")
-        scope_row.addWidget(self.scope_manage_btn)
+        # Quick action: View manual directly in PDF reader
+        self.chat_view_manual_btn = button("View Manual", "secondary", slot=self.win.on_chat_view_manual_clicked)
+        self.chat_view_manual_btn.setIcon(get_icon("book-open", "#00FF85", 13))
+        self.chat_view_manual_btn.setStyleSheet("padding: 5px 12px; font-size: 12.5px; font-weight: 600;")
+        self.chat_view_manual_btn.setToolTip("Open this manual directly in the User Manual viewer")
+        self.chat_view_manual_btn.setVisible(False)
+        scope_row.addWidget(self.chat_view_manual_btn)
 
-        self.scope_clear_btn = button("Reset Scope", "secondary", slot=self.win.reset_scope_to_all)
+        # Reset scope to all manuals
+        self.scope_clear_btn = button("Reset to All", "secondary", slot=self.win.reset_scope_to_all)
+        self.scope_clear_btn.setIcon(get_icon("x", "#94a3b8", 12))
         self.scope_clear_btn.setStyleSheet("padding: 5px 10px; font-size: 12.5px;")
+        self.scope_clear_btn.setToolTip("Search across all loaded manuals")
         self.scope_clear_btn.setVisible(False)
         scope_row.addWidget(self.scope_clear_btn)
+
+        # Backward compatibility attributes (removed from UI as requested)
+        self.scope_chip_btn = button("Scope Picker", "secondary", slot=self.win.open_scope_picker)
+        self.scope_chip_btn.setVisible(False)
+        self.scope_add_btn = button("Add Manual", "secondary", slot=self.win.add_manual_multi)
+        self.scope_add_btn.setVisible(False)
+        self.scope_manage_btn = button("Manage", "secondary", slot=self.win.manage_manuals_modal)
+        self.scope_manage_btn.setVisible(False)
 
         scope_row.addStretch()
 
@@ -5955,33 +5969,33 @@ class MainView:
 
         p_col = QVBoxLayout()
         p_col.setSpacing(2)
-        p_title = QLabel("User Manual & Hardware Documentation")
+        p_title = QLabel("User Manuals")
         p_title.setObjectName("title")
         p_title.setStyleSheet("font-size: 19px; font-weight: 800;")
-        p_sub = QLabel("Official guide, pinouts, workbench safety rules, and manufacturer hardware datasheets")
+        p_sub = QLabel("Browse, search, inspect, and explore all your loaded equipment and hardware documentation")
         p_sub.setObjectName("subtitle")
         p_col.addWidget(p_title)
         p_col.addWidget(p_sub)
         top_bar_row.addLayout(p_col, 1)
 
-        # Segmented Buttons
+        # Segmented Buttons (Loaded Manuals is primary; App User Guide is secondary)
         seg_box = QFrame()
         seg_box.setObjectName("card")
         sb_lay = QHBoxLayout(seg_box)
         sb_lay.setContentsMargins(4, 4, 4, 4)
         sb_lay.setSpacing(4)
 
-        self.seg_doc_btn = QPushButton("User Manual & Guides")
-        self.seg_doc_btn.setIcon(get_icon("book-open", "#00FF85", 14))
-        self.seg_doc_btn.setProperty("kind", "chipActive")
-        self.seg_doc_btn.clicked.connect(self.switch_to_user_manual)
-        sb_lay.addWidget(self.seg_doc_btn)
-
-        self.seg_hw_btn = QPushButton("Hardware PDF Hub")
-        self.seg_hw_btn.setIcon(get_icon("file-text", "#8ca394", 14))
-        self.seg_hw_btn.setProperty("kind", "chip")
+        self.seg_hw_btn = QPushButton("Loaded Manuals")
+        self.seg_hw_btn.setIcon(get_icon("book-open", "#00FF85", 14))
+        self.seg_hw_btn.setProperty("kind", "chipActive")
         self.seg_hw_btn.clicked.connect(self.switch_to_hw_manuals)
         sb_lay.addWidget(self.seg_hw_btn)
+
+        self.seg_doc_btn = QPushButton("App User Guide")
+        self.seg_doc_btn.setIcon(get_icon("file-text", "#8ca394", 14))
+        self.seg_doc_btn.setProperty("kind", "chip")
+        self.seg_doc_btn.clicked.connect(self.switch_to_user_manual)
+        sb_lay.addWidget(self.seg_doc_btn)
 
         top_bar_row.addWidget(seg_box)
         outer.addLayout(top_bar_row)
@@ -6017,9 +6031,9 @@ class MainView:
         head_row = QHBoxLayout()
         h_col = QVBoxLayout()
         h_col.setSpacing(4)
-        t_lbl = QLabel("Hardware Manuals")
+        t_lbl = QLabel("Loaded User Manuals")
         t_lbl.setObjectName("title")
-        s_lbl = QLabel("Upload, index, inspect and search PDF hardware documentation and datasheets")
+        s_lbl = QLabel("Upload, index, inspect and search all your loaded PDF manuals and datasheets")
         s_lbl.setObjectName("subtitle")
         h_col.addWidget(t_lbl)
         h_col.addWidget(s_lbl)
@@ -6215,6 +6229,9 @@ class MainView:
         self.ev_toc_tree = self.viewer_widget.toc_tree
         self.ev_search_input = self.viewer_widget.search_input
         self.ev_search_list = self.viewer_widget.search_list
+
+        # Default to showing loaded user manuals
+        self.switch_to_hw_manuals()
 
         return page
 
