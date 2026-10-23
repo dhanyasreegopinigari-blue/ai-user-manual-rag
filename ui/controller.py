@@ -183,7 +183,7 @@ class MainWindow(QWidget):
         self.manual_id = None  # Default scope is ALL manuals
         manuals = db.list_manuals()
         if manuals:
-            self.ev_load_manual(manuals[0]["id"])
+            self.manual_id = manuals[0]["id"]
 
         self.refresh_recent_scans()
         if hasattr(self, 'refresh_manuals_page'):
@@ -217,8 +217,6 @@ class MainWindow(QWidget):
         self.stack.setCurrentIndex(page_index)
         if page_index == 0:
             self.refresh_recent_scans()
-        if hasattr(self, 'refresh_manuals_page'):
-            self.refresh_manuals_page()
             self.refresh_dashboard_overview()
         elif page_index == 1:
             if not self.active_conv_id:
@@ -233,8 +231,9 @@ class MainWindow(QWidget):
             self.filter_library_cards()
             self.refresh_library()
         elif page_index == 3:
-            if self.manual_id and not self.ev_doc:
-                self.ev_load_manual(self.manual_id)
+            if hasattr(self.view, "manuals_stack"):
+                self.view.manuals_stack.setCurrentIndex(0)
+            self.refresh_manuals_page()
 
     def go(self, page):
         """Navigate to a specific page widget (supports backward compatibility)."""
@@ -1118,7 +1117,8 @@ class MainWindow(QWidget):
                 question,
                 progress=progress_cb,
                 mode=mode,
-                history=history
+                history=history,
+                cancel_event=self._chat_cancel_event
             )
 
         def on_done(ans):
@@ -1195,7 +1195,7 @@ class MainWindow(QWidget):
 
     def start_voice_input(self):
         if not voice.is_available():
-            QMessageBox.warning(self, "Voice Input", "Microphone recording is unavailable.\\nPlease check your microphone settings.")
+            QMessageBox.warning(self, "Voice Input", "Microphone recording is unavailable.\nPlease check your microphone settings.")
             return
 
         self._is_recording_voice = True
@@ -1303,16 +1303,6 @@ class MainWindow(QWidget):
             self._tts.say(clean_text)
         except Exception as e:
             print(f"[TTS] Read aloud error: {e}")
-
-    def open_user_manual(self, page_number=1, manual_id=None):
-        mid = manual_id or self.manual_id
-        if not mid:
-            manuals = db.list_manuals()
-            if manuals:
-                mid = manuals[0]["id"]
-        if mid:
-            dlg = UserManualDialog(self, manual_id=mid, initial_page=int(page_number))
-            dlg.exec()
 
     def attach_photo_to_chat(self):
         path, _ = QFileDialog.getOpenFileName(self, "Choose component photo", "", "Images (*.png *.jpg *.jpeg *.webp)")
@@ -1532,9 +1522,16 @@ class MainWindow(QWidget):
             successes = [r for r in results if r[1] is not None]
             failures = [r for r in results if r[2] is not None]
             self.refresh_manuals_page()
+            self.refresh_library()
+            self.refresh_dashboard_overview()
+            self.update_scope_ui()
+            if hasattr(self.view, "manuals_stack"):
+                self.view.manuals_stack.setCurrentIndex(0)
             if successes:
-                # Load first imported manual in viewer
-                self.load_manual_in_viewer(successes[0][1])
+                QMessageBox.information(
+                    self, "Manuals Added",
+                    f"Successfully indexed {len(successes)} manual(s)! They are now available in your manuals list and AI Assistant."
+                )
             if failures:
                 err_text = "\n".join(f"• {os.path.basename(f[0])}: {f[2]}" for f in failures)
                 QMessageBox.warning(self, "Some Manuals Failed", f"The following files could not be indexed:\n{err_text}")
@@ -1565,7 +1562,12 @@ class MainWindow(QWidget):
         ) != QMessageBox.StandardButton.Yes:
             return
         manual_mod.delete_manual(mid)
+        if self.manual_id == mid:
+            self.manual_id = None
         self.refresh_manuals_page()
+        self.refresh_library()
+        self.refresh_dashboard_overview()
+        self.update_scope_ui()
 
     def bulk_delete_manuals(self):
         if not self.selected_manual_ids:
@@ -1580,15 +1582,23 @@ class MainWindow(QWidget):
 
         for mid in list(self.selected_manual_ids):
             manual_mod.delete_manual(mid)
+        if self.manual_id in self.selected_manual_ids:
+            self.manual_id = None
         self.selected_manual_ids.clear()
         self.view.bulk_delete_btn.setVisible(False)
         self.refresh_manuals_page()
+        self.refresh_library()
+        self.refresh_dashboard_overview()
+        self.update_scope_ui()
 
     def rename_manual_modal(self, manual):
         new_name, ok = QInputDialog.getText(self, "Rename Manual", "Manual Title:", text=manual.get("name", ""))
         if ok and new_name.strip():
             db.update_manual_metadata(manual["id"], new_name.strip(), manual.get("manufacturer", ""), manual.get("model", ""), manual.get("tags", ""))
             self.refresh_manuals_page()
+            self.refresh_library()
+            self.refresh_dashboard_overview()
+            self.update_scope_ui()
 
     def download_manual_pdf(self, manual):
         src = manual.get("file_path")
@@ -1705,19 +1715,6 @@ class MainWindow(QWidget):
                     os.startfile(m["file_path"])
                 except Exception as e:
                     QMessageBox.warning(self, "Viewer", f"Could not launch external viewer:\n{e}")
-
-    def open_user_manual(self, page_number=None):
-        """Open User Manual viewer Dialog or navigate to Page 4."""
-        if not self.manual_id:
-            manuals = db.list_manuals()
-            if manuals:
-                self.manual_id = manuals[0]["id"]
-            else:
-                self.navigate_to(3)
-                return
-
-        dlg = UserManualDialog(self, manual_id=self.manual_id, initial_page=page_number or 1)
-        dlg.exec()
 
     # ---- Exporting -----------------------------------------------------------
     def export_current_chat(self, fmt="txt"):

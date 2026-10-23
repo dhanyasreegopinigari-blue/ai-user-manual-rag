@@ -29,12 +29,12 @@ def _post(path, payload, model):
         )
     except requests.exceptions.ConnectionError:
         raise AppError(
-            "Ollama is not running.\n\nPlease start Ollama and try again."
+            "Ollama is not running.\n\nPlease start Ollama service on http://localhost:11434 and try again."
         )
     except requests.exceptions.Timeout:
         raise AppError(
-            "Ollama took too long to respond.\n\n"
-            "Try again, or use a smaller model."
+            "Model loading or request timed out.\n\n"
+            "The local model took too long to load into memory or generate. Try again or check available system RAM/VRAM."
         )
     except requests.exceptions.RequestException as e:
         raise AppError(f"Could not talk to Ollama:\n{e}")
@@ -44,8 +44,8 @@ def _post(path, payload, model):
 
         if "model" in body and "not found" in body:
             raise AppError(
-                f"Required Ollama model was not found:\n\n{model}\n\n"
-                f"Install it with: ollama pull {model}"
+                f"Model not found: '{model}'\n\n"
+                f"Please pull this model in your terminal using:\nollama pull {model}"
             )
 
         err = AppError(
@@ -294,7 +294,7 @@ def test_connection(url=None):
     try:
         r = requests.get(
             url + "/api/tags",
-            timeout=5
+            timeout=10
         )
         r.raise_for_status()
 
@@ -694,7 +694,7 @@ def _page_excerpt(manual_id, page, step_text, max_sentences=2):
     )[:500]
 
 
-def _answer_quick(manual_id, question, progress=None, history=None):
+def _answer_quick(manual_id, question, progress=None, history=None, cancel_event=None):
     """
     Quick RAG pipeline.
 
@@ -967,7 +967,7 @@ def _attach_visuals(manual_id, steps):
         )
 
 
-def _answer_full(manual_id, question, cb, history=None):
+def _answer_full(manual_id, question, cb, history=None, cancel_event=None):
     """Build a multi-step guide from relevant manual chunks."""
 
     cb("Searching the whole manual...")
@@ -1159,7 +1159,8 @@ def answer_question(
     question,
     progress=None,
     mode="auto",
-    history=None
+    history=None,
+    cancel_event=None
 ):
     """
     Answer a manual question.
@@ -1172,6 +1173,9 @@ def answer_question(
 
     cb = progress or (lambda message: None)
 
+    if cancel_event and cancel_event.is_set():
+        return {"title": "Stopped", "summary": "Generation stopped by user.", "answer": "Generation stopped.", "steps": [], "found": False}
+
     if mode == "full" or (
         mode == "auto" and is_broad(question)
     ):
@@ -1179,14 +1183,16 @@ def answer_question(
             manual_id,
             question,
             cb,
-            history=history
+            history=history,
+            cancel_event=cancel_event
         )
 
     return _answer_quick(
         manual_id,
         question,
         cb,
-        history=history
+        history=history,
+        cancel_event=cancel_event
     )
 
 

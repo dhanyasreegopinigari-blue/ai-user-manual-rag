@@ -1284,13 +1284,13 @@ def render_markdown_html(text: str, manuals_map=None) -> str:
     def make_citation(m):
         m_name = m.group(1).strip()
         p_num = m.group(2).strip()
-        mid = ""
+        mid = "0"
         if manuals_map and m_name in manuals_map:
-            mid = manuals_map[m_name]
+            mid = str(manuals_map[m_name])
         return f'<a href="manual://{mid}/{p_num}" style="color:#00FF85; text-decoration:none; font-weight:600; background:rgba(0,255,133,0.12); padding:2px 7px; border-radius:5px; border:1px solid rgba(0,255,133,0.25);">[{m_name}, p.{p_num}]</a>'
 
     text = re.sub(r"\[([^,\]]+),\s*(?:p\.|page|Page)\s*(\d+)\]", make_citation, text)
-    text = re.sub(r"\[(?:p\.|page|Page)\s*(\d+)\]", r'<a href="manual:////\1" style="color:#00FF85; text-decoration:none; font-weight:600; background:rgba(0,255,133,0.12); padding:2px 6px; border-radius:4px; border:1px solid rgba(0,255,133,0.25);">[p. \1]</a>', text)
+    text = re.sub(r"\[(?:p\.|page|Page)\s*(\d+)\]", r'<a href="manual://0/\1" style="color:#00FF85; text-decoration:none; font-weight:600; background:rgba(0,255,133,0.12); padding:2px 6px; border-radius:4px; border:1px solid rgba(0,255,133,0.25);">[p. \1]</a>', text)
 
     text = re.sub(r"^###\s+(.+)$", r'<h3 style="margin:8px 0 4px 0; font-size:15px; color:#f3fbf5;">\1</h3>', text, flags=re.MULTILINE)
     text = re.sub(r"^##\s+(.+)$", r'<h2 style="margin:10px 0 4px 0; font-size:17px; color:#f3fbf5;">\1</h2>', text, flags=re.MULTILINE)
@@ -1897,9 +1897,17 @@ class ChatMessageWidget(QWidget):
 
     def _on_link_clicked(self, url):
         if url.startswith("manual://"):
-            parts = url.replace("manual://", "").split("/")
-            mid = int(parts[0]) if len(parts) > 0 and parts[0].isdigit() else None
-            pno = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
+            clean = url[len("manual://"):].strip("/")
+            parts = clean.split("/")
+            mid = None
+            pno = 1
+            if len(parts) >= 2:
+                if parts[0].isdigit() and int(parts[0]) > 0:
+                    mid = int(parts[0])
+                if parts[1].isdigit():
+                    pno = int(parts[1])
+            elif len(parts) == 1 and parts[0].isdigit():
+                pno = int(parts[0])
             if self.win:
                 self.win.open_user_manual(pno, mid)
 
@@ -2790,12 +2798,20 @@ class ManualItemWidget(QFrame):
         ask_b.clicked.connect(lambda: self.on_ask_cb(self.mid) if self.on_ask_cb else None)
         lay.addWidget(ask_b)
 
-        del_b = QPushButton()
-        del_b.setIcon(get_icon("trash-2", "#fca5a5", 14))
-        del_b.setProperty("kind", "danger")
-        del_b.setFixedSize(34, 34)
-        del_b.clicked.connect(lambda: self.on_delete_cb(self.mid) if self.on_delete_cb else None)
-        lay.addWidget(del_b)
+        more_b = QPushButton()
+        more_b.setIcon(get_icon("settings", "#6B8273", 14))
+        more_b.setFixedSize(34, 34)
+        more_b.setProperty("kind", "secondary")
+        menu = QMenu(more_b)
+        act_ren = menu.addAction("Rename Manual")
+        act_ren.triggered.connect(lambda: self.on_rename_cb(self.manual) if self.on_rename_cb else None)
+        act_down = menu.addAction("Download PDF Copy")
+        act_down.triggered.connect(lambda: self.on_download_cb(self.manual) if self.on_download_cb else None)
+        menu.addSeparator()
+        act_del = menu.addAction("Delete Manual")
+        act_del.triggered.connect(lambda: self.on_delete_cb(self.mid) if self.on_delete_cb else None)
+        more_b.setMenu(menu)
+        lay.addWidget(more_b)
 
 class InteractiveManualViewer(QWidget):
     """Full-featured interactive PDF manual reader with PyMuPDF rendering, dark mode, thumbnails, search, and notes."""
@@ -2812,7 +2828,7 @@ class InteractiveManualViewer(QWidget):
         self.current_page = 1
         self.zoom = 1.25
         self.rotation = 0
-        self.dark_mode = True
+        self.dark_mode = False
         self.search_matches = []
         self.current_match_idx = -1
         self.search_query = ""
@@ -3079,12 +3095,13 @@ class InteractiveManualViewer(QWidget):
 
         # Right Document Canvas
         self.doc_scroll = QScrollArea()
-        self.doc_scroll.setWidgetResizable(True)
+        self.doc_scroll.setWidgetResizable(False)
         self.doc_scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.doc_scroll.setStyleSheet("background: #080d0a;")
 
-        self.canvas_lbl = QLabel("No manual loaded", self.doc_scroll)
+        self.canvas_lbl = QLabel("No manual loaded")
         self.canvas_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.canvas_lbl.setStyleSheet("background: #ffffff; border-radius: 4px;")
         self.doc_scroll.setWidget(self.canvas_lbl)
 
         self.splitter.addWidget(self.doc_scroll)
@@ -3111,7 +3128,8 @@ class InteractiveManualViewer(QWidget):
         db.update_manual_last_viewed(manual_id)
         path = self.manual_info.get("file_path", "")
         if not path or not os.path.isfile(path):
-            QMessageBox.warning(self, "Manual Error", "Could not locate PDF file on disk.")
+            self.canvas_lbl.setText(f"<p style='color:#f87171; font-size:15px; font-weight:700;'>PDF File Not Found</p><p style='color:#94a3b8; font-size:12.5px;'>Could not locate PDF file on disk at:<br><b>{path}</b></p>")
+            self.canvas_lbl.setFixedSize(560, 200)
             return
 
         try:
@@ -3120,7 +3138,8 @@ class InteractiveManualViewer(QWidget):
             self.doc = fitz.open(path)
             self.total_pages = self.doc.page_count
         except Exception as e:
-            QMessageBox.warning(self, "PDF Reader Error", f"Failed to open PDF:\n{e}")
+            self.canvas_lbl.setText(f"<p style='color:#f87171; font-size:15px; font-weight:700;'>PDF Read Error</p><p style='color:#94a3b8; font-size:12.5px;'>Failed to open PDF document:<br>{e}</p>")
+            self.canvas_lbl.setFixedSize(560, 200)
             return
 
         self.title_lbl.setText(self.manual_info.get("name", "Manual"))
@@ -3172,7 +3191,9 @@ class InteractiveManualViewer(QWidget):
                     painter.drawRect(rx, ry, rw, rh)
                 painter.end()
 
-        self.canvas_lbl.setPixmap(QPixmap.fromImage(qimg))
+        pm = QPixmap.fromImage(qimg)
+        self.canvas_lbl.setPixmap(pm)
+        self.canvas_lbl.setFixedSize(pm.size())
         self.zoom_lbl.setText(f"{int(self.zoom * 100)}%")
 
         # Update active thumbnail border
@@ -3218,7 +3239,8 @@ class InteractiveManualViewer(QWidget):
 
     def toggle_dark_reading_mode(self):
         self.dark_mode = not self.dark_mode
-        self.dark_mode_btn.setIcon(get_icon("moon" if self.dark_mode else "sun", "#00FF85", 14))
+        self.dark_mode_btn.setIcon(get_icon("sun" if self.dark_mode else "moon", "#00FF85", 14))
+        self.dark_mode_btn.setToolTip("Switch to Standard View" if self.dark_mode else "Toggle Dark Reading Mode")
         self.render_page()
 
     def rotate_clockwise(self):
@@ -3257,7 +3279,7 @@ class InteractiveManualViewer(QWidget):
             return
         page_txt = self.doc[self.current_page - 1].get_text("text").strip()
         name = self.manual_info.get("name", "Manual")
-        excerpt = page_txt[:400].replace("\\n", " ")
+        excerpt = page_txt[:400].replace("\n", " ")
         prompt = f'In [{name}, p.{self.current_page}], can you explain the procedure or diagram shown here: "{excerpt}"?'
         self.win.navigate_to(1)
         if hasattr(self.win.view, "chat_input"):
@@ -3329,7 +3351,7 @@ class InteractiveManualViewer(QWidget):
             pno = idx + 1
             rects = page.search_for(query_text)
             if rects:
-                t = page.get_text("text").strip().replace("\\n", " ")
+                t = page.get_text("text").strip().replace("\n", " ")
                 snippet = t[:80] + "..." if len(t) > 80 else t
                 item = QListWidgetItem(f"Page {pno}: {snippet}")
                 item.setData(Qt.ItemDataRole.UserRole, pno)

@@ -158,11 +158,11 @@ class TestManualsPageRedesign(unittest.TestCase):
         self.assertEqual(viewer.zoom, z0)
 
         # Dark Reading Mode
-        self.assertTrue(viewer.dark_mode)
-        viewer.toggle_dark_reading_mode()
         self.assertFalse(viewer.dark_mode)
         viewer.toggle_dark_reading_mode()
         self.assertTrue(viewer.dark_mode)
+        viewer.toggle_dark_reading_mode()
+        self.assertFalse(viewer.dark_mode)
 
         # Rotation
         self.assertEqual(viewer.rotation, 0)
