@@ -4,7 +4,7 @@ import re
 import time
 import cv2
 
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QSize, QUrl
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QSize, QUrl, QSettings
 from PyQt6.QtGui import QAction, QImage, QPainter, QPixmap, QFont, QColor, QIcon
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QFrame,
@@ -503,6 +503,153 @@ QFrame#statBoxTeal {
 QLabel#statGreenVal { font-size: 20px; font-weight: 700; color: #00FF85; }
 QLabel#statTealVal { font-size: 20px; font-weight: 700; color: #14B8A6; }
 
+/* Global Left Sidebar */
+QFrame#globalSidebar {
+    background: #090e0b;
+    border-right: 1px solid rgba(0, 255, 133, 0.14);
+}
+QPushButton#collapseBtn {
+    background: transparent;
+    border: 1px solid rgba(0, 255, 133, 0.16);
+    border-radius: 8px;
+    padding: 4px;
+}
+QPushButton#collapseBtn:hover {
+    background: #142018;
+    border-color: #00FF85;
+}
+QPushButton[kind="sidebarNav"] {
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: #8ca394;
+    font-weight: 500;
+    font-size: 13.5px;
+}
+QPushButton[kind="sidebarNav"]:hover {
+    background: #121c16;
+    color: #f3fbf5;
+    border-color: rgba(0, 255, 133, 0.15);
+}
+QPushButton[kind="sidebarNavActive"] {
+    text-align: left;
+    background: rgba(0, 255, 133, 0.12);
+    border: 1px solid rgba(0, 255, 133, 0.28);
+    border-left: 3.5px solid #00FF85;
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: #00FF85;
+    font-weight: 700;
+    font-size: 13.5px;
+}
+QPushButton[kind="sidebarNavCollapsed"] {
+    text-align: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 9px 0px;
+}
+QPushButton[kind="sidebarNavCollapsed"]:hover {
+    background: #121c16;
+    border-color: rgba(0, 255, 133, 0.15);
+}
+QPushButton[kind="sidebarNavCollapsedActive"] {
+    text-align: center;
+    background: rgba(0, 255, 133, 0.15);
+    border: 1px solid rgba(0, 255, 133, 0.35);
+    border-radius: 10px;
+    padding: 9px 0px;
+}
+
+/* Slim Content Header */
+QFrame#slimHeader {
+    background: #080d0a;
+    border-bottom: 1px solid rgba(0, 255, 133, 0.1);
+}
+
+/* User Manual Documentation & TOC */
+QFrame#tocCard {
+    background: #0b110e;
+    border: 1px solid rgba(0, 255, 133, 0.14);
+    border-radius: 16px;
+    padding: 10px;
+}
+QPushButton[kind="tocItem"] {
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: #8ca394;
+    font-size: 13px;
+    font-weight: 500;
+}
+QPushButton[kind="tocItem"]:hover {
+    background: #131e17;
+    color: #f3fbf5;
+}
+QPushButton[kind="tocItemActive"] {
+    text-align: left;
+    background: rgba(0, 255, 133, 0.12);
+    border: 1px solid rgba(0, 255, 133, 0.28);
+    border-left: 3px solid #00FF85;
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: #00FF85;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+/* Callout Boxes */
+QFrame#calloutTip {
+    background: rgba(0, 255, 133, 0.06);
+    border-left: 4px solid #00FF85;
+    border-top: 1px solid rgba(0, 255, 133, 0.16);
+    border-right: 1px solid rgba(0, 255, 133, 0.16);
+    border-bottom: 1px solid rgba(0, 255, 133, 0.16);
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+QFrame#calloutNote {
+    background: rgba(56, 189, 248, 0.06);
+    border-left: 4px solid #38bdf8;
+    border-top: 1px solid rgba(56, 189, 248, 0.16);
+    border-right: 1px solid rgba(56, 189, 248, 0.16);
+    border-bottom: 1px solid rgba(56, 189, 248, 0.16);
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+QFrame#calloutWarning {
+    background: rgba(251, 191, 36, 0.06);
+    border-left: 4px solid #fbbf24;
+    border-top: 1px solid rgba(251, 191, 36, 0.16);
+    border-right: 1px solid rgba(251, 191, 36, 0.16);
+    border-bottom: 1px solid rgba(251, 191, 36, 0.16);
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+QFrame#calloutCaution {
+    background: rgba(248, 113, 113, 0.06);
+    border-left: 4px solid #f87171;
+    border-top: 1px solid rgba(248, 113, 113, 0.16);
+    border-right: 1px solid rgba(248, 113, 113, 0.16);
+    border-bottom: 1px solid rgba(248, 113, 113, 0.16);
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+
+/* Code Snippet Box */
+QFrame#codeSnippet {
+    background: #050806;
+    border: 1px solid rgba(0, 255, 133, 0.18);
+    border-radius: 11px;
+    padding: 12px 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+
 """
 
 LIGHT_STYLE = """
@@ -925,6 +1072,154 @@ QFrame#statBoxTeal {
 }
 QLabel#statGreenVal { font-size: 20px; font-weight: 700; color: #047857; }
 QLabel#statTealVal { font-size: 20px; font-weight: 700; color: #0D9488; }
+
+/* Global Left Sidebar */
+QFrame#globalSidebar {
+    background: #F4F3EE;
+    border-right: 1px solid #E2E0D8;
+}
+QPushButton#collapseBtn {
+    background: transparent;
+    border: 1px solid #D5D3CC;
+    border-radius: 8px;
+    padding: 4px;
+}
+QPushButton#collapseBtn:hover {
+    background: #E8E6DF;
+    border-color: #10B981;
+}
+QPushButton[kind="sidebarNav"] {
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: #475549;
+    font-weight: 500;
+    font-size: 13.5px;
+}
+QPushButton[kind="sidebarNav"]:hover {
+    background: #EBEAE3;
+    color: #131f16;
+    border-color: #D5D3CC;
+}
+QPushButton[kind="sidebarNavActive"] {
+    text-align: left;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-left: 3.5px solid #10B981;
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: #059669;
+    font-weight: 700;
+    font-size: 13.5px;
+}
+QPushButton[kind="sidebarNavCollapsed"] {
+    text-align: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 9px 0px;
+}
+QPushButton[kind="sidebarNavCollapsed"]:hover {
+    background: #EBEAE3;
+    border-color: #D5D3CC;
+}
+QPushButton[kind="sidebarNavCollapsedActive"] {
+    text-align: center;
+    background: rgba(16, 185, 129, 0.14);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-radius: 10px;
+    padding: 9px 0px;
+}
+
+/* Slim Content Header */
+QFrame#slimHeader {
+    background: #FBFAF8;
+    border-bottom: 1px solid #EAE8E2;
+}
+
+/* User Manual Documentation & TOC */
+QFrame#tocCard {
+    background: #FFFFFF;
+    border: 1px solid #E8E6E1;
+    border-radius: 16px;
+    padding: 10px;
+}
+QPushButton[kind="tocItem"] {
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: #475549;
+    font-size: 13px;
+    font-weight: 500;
+}
+QPushButton[kind="tocItem"]:hover {
+    background: #F4F3EE;
+    color: #0F172A;
+    border-color: #E2E0D8;
+}
+QPushButton[kind="tocItemActive"] {
+    text-align: left;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    border-left: 3px solid #10B981;
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: #059669;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+/* Callout Boxes */
+QFrame#calloutTip {
+    background: #F0FDF4;
+    border-left: 4px solid #10B981;
+    border-top: 1px solid #D1FAE5;
+    border-right: 1px solid #D1FAE5;
+    border-bottom: 1px solid #D1FAE5;
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+QFrame#calloutNote {
+    background: #F0F9FF;
+    border-left: 4px solid #0284C7;
+    border-top: 1px solid #E0F2FE;
+    border-right: 1px solid #E0F2FE;
+    border-bottom: 1px solid #E0F2FE;
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+QFrame#calloutWarning {
+    background: #FFFBEB;
+    border-left: 4px solid #D97706;
+    border-top: 1px solid #FEF3C7;
+    border-right: 1px solid #FEF3C7;
+    border-bottom: 1px solid #FEF3C7;
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+QFrame#calloutCaution {
+    background: #FEF2F2;
+    border-left: 4px solid #DC2626;
+    border-top: 1px solid #FEE2E2;
+    border-right: 1px solid #FEE2E2;
+    border-bottom: 1px solid #FEE2E2;
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+
+/* Code Snippet Box */
+QFrame#codeSnippet {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 11px;
+    padding: 12px 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
 
 """
 
@@ -2775,82 +3070,230 @@ class OllamaStatusPill(QFrame):
         super().mousePressEvent(event)
 
 
-class TopNavBar(QFrame):
-    """Top navigation bar for unified 4-page access and theme toggling."""
+class GlobalSidebar(QFrame):
+    """Collapsible Global Left Navigation Sidebar for ElectroLearn AI."""
     def __init__(self, win):
         super().__init__()
         self.win = win
-        self.setObjectName("card")
-        self.setFixedHeight(64)
+        self.setObjectName("globalSidebar")
+        self.settings = QSettings("ElectroLearn", "ElectroLearnAI")
+        # Persist user choice between sessions
+        self.is_collapsed = self.settings.value("sidebar_collapsed", False, type=bool)
 
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(20, 8, 20, 8)
-        lay.setSpacing(10)
+        self.lay = QVBoxLayout(self)
+        self.lay.setContentsMargins(10, 14, 10, 14)
+        self.lay.setSpacing(6)
 
-        # Brand / Logo
+        # 1. Top Brand Header
+        self.brand_row = QHBoxLayout()
+        self.brand_row.setContentsMargins(4, 2, 4, 12)
+        self.brand_row.setSpacing(10)
+
         self.brand_icon = QLabel()
         self.brand_icon.setPixmap(get_pixmap("zap", "#00FF85", 22))
-        brand_lbl = label("ElectroLearn AI", "brand", wrap=False)
-        lay.addWidget(self.brand_icon)
-        lay.addWidget(brand_lbl)
-        lay.addSpacing(20)
+        self.brand_row.addWidget(self.brand_icon)
 
-        # The 4 Main Navigation Buttons
-        self.btn_dash = button("Dashboard", "navActive", slot=lambda: self.win.navigate_to(0))
-        self.btn_dash.setIcon(get_icon("layout-grid", "#00FF85", 16))
+        self.app_title_lbl = QLabel("ElectroLearn AI")
+        self.app_title_lbl.setStyleSheet("font-size: 15.5px; font-weight: 800; color: #00FF85;")
+        self.brand_row.addWidget(self.app_title_lbl, 1)
 
-        self.btn_chat = button("AI Assistant", "nav", slot=lambda: self.win.navigate_to(1))
-        self.btn_chat.setIcon(get_icon("message-square", "#8ca394", 16))
+        self.collapse_btn = QPushButton()
+        self.collapse_btn.setObjectName("collapseBtn")
+        self.collapse_btn.setFixedSize(30, 30)
+        self.collapse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.collapse_btn.clicked.connect(self.toggle_collapse)
+        self.brand_row.addWidget(self.collapse_btn)
 
-        self.btn_lib = button("Component Library", "nav", slot=lambda: self.win.navigate_to(2))
-        self.btn_lib.setIcon(get_icon("cpu", "#8ca394", 16))
+        self.lay.addLayout(self.brand_row)
 
-        self.btn_manual = button("Manuals", "nav", slot=lambda: self.win.navigate_to(3))
-        self.btn_manual.setIcon(get_icon("book-open", "#8ca394", 16))
+        # 2. Navigation Items
+        self.nav_items_lay = QVBoxLayout()
+        self.nav_items_lay.setSpacing(6)
+
+        self.btn_dash = self._create_nav_button("Dashboard", "layout-grid", 0)
+        self.btn_chat = self._create_nav_button("AI Assistant", "message-square", 1)
+        self.btn_lib = self._create_nav_button("Component Library", "cpu", 2)
+        self.btn_manual = self._create_nav_button("User Manual", "book-open", 3)
+        self.btn_help = self._create_nav_button("Help", "help-circle", -1, slot=self._on_help_clicked)
 
         self.nav_buttons = [self.btn_dash, self.btn_chat, self.btn_lib, self.btn_manual]
-        for b in self.nav_buttons:
-            lay.addWidget(b)
+        self.all_buttons = [self.btn_dash, self.btn_chat, self.btn_lib, self.btn_manual, self.btn_help]
 
-        lay.addStretch()
+        for b in self.all_buttons:
+            self.nav_items_lay.addWidget(b)
 
-        # Live Ollama Status Indicator Pill
+        self.lay.addLayout(self.nav_items_lay)
+        self.lay.addStretch(1)
+
+        # 3. Footer Utilities
+        self.footer_lay = QVBoxLayout()
+        self.footer_lay.setSpacing(6)
+
         self.ollama_pill = OllamaStatusPill(self)
-        lay.addWidget(self.ollama_pill)
-        lay.addSpacing(6)
+        self.footer_lay.addWidget(self.ollama_pill)
 
-        # Help drawer button
-        self.help_btn = button("Help", "secondary", slot=lambda: self.win.open_help_drawer())
-        self.help_btn.setIcon(get_icon("help-circle", "#00FF85", 16))
-        self.help_btn.setToolTip("App User Guide & Interactive Tour")
-        lay.addWidget(self.help_btn)
-
-        # Theme toggle & Settings
         self.theme_btn = button("Dark Mode", "secondary", slot=self.win.toggle_theme)
         self.theme_btn.setIcon(get_icon("moon", "#00FF85", 16))
         self.theme_btn.setToolTip("Toggle Dark / Light Theme")
-        lay.addWidget(self.theme_btn)
+        self.theme_btn._orig_text = "Dark Mode"
+        self.footer_lay.addWidget(self.theme_btn)
 
         self.settings_btn = button("Settings", "secondary", slot=lambda: SettingsDialog(self.win).exec())
         self.settings_btn.setIcon(get_icon("settings", "#8ca394", 16))
-        lay.addWidget(self.settings_btn)
+        self.settings_btn.setToolTip("Application Settings")
+        self.settings_btn._orig_text = "Settings"
+        self.footer_lay.addWidget(self.settings_btn)
 
-    def set_active_tab(self, idx):
-        buttons = [
-            (self.btn_dash, "layout-grid"),
-            (self.btn_chat, "message-square"),
-            (self.btn_lib, "cpu"),
-            (self.btn_manual, "book-open")
-        ]
+        self.lay.addLayout(self.footer_lay)
+
+        # Compatibility alias
+        self.help_btn = self.btn_help
+
+        # Initial layout update
+        self._apply_collapse_state(save=False)
+
+    def _create_nav_button(self, text, icon_name, page_idx, slot=None):
+        click_slot = slot or (lambda: self._on_nav_clicked(page_idx))
+        b = QPushButton(text)
+        b.setCursor(Qt.CursorShape.PointingHandCursor)
+        b.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        b.setProperty("kind", "sidebarNav")
+        b._orig_text = text
+        b._icon_name = icon_name
+        b._page_idx = page_idx
+        b.setIcon(get_icon(icon_name, "#8ca394", 18))
+        b.clicked.connect(click_slot)
+        return b
+
+    def _on_nav_clicked(self, page_idx):
+        self.win.navigate_to(page_idx)
+        # Mobile/tablet responsiveness: auto close on narrow screens
+        if self.win.width() < 850:
+            if not self.is_collapsed:
+                self.set_collapsed(True, save=False)
+
+    def _on_help_clicked(self):
+        self.win.open_help_drawer()
+        if self.win.width() < 850:
+            if not self.is_collapsed:
+                self.set_collapsed(True, save=False)
+
+    def toggle_collapse(self):
+        self.set_collapsed(not self.is_collapsed, save=True)
+
+    def set_collapsed(self, collapsed, save=True):
+        self.is_collapsed = collapsed
+        if save:
+            self.settings.setValue("sidebar_collapsed", self.is_collapsed)
+        self._apply_collapse_state(save=save)
+        if hasattr(self.win, "view") and hasattr(self.win.view, "slim_header"):
+            self.win.view.slim_header.update_menu_btn(self.is_collapsed)
+
+    def _apply_collapse_state(self, save=True):
         is_dark = getattr(self.win, "is_dark_theme", True)
         accent = "#00FF85" if is_dark else "#10B981"
         muted = "#8ca394" if is_dark else "#5E7060"
-        for i, (b, icon_name) in enumerate(buttons):
-            is_active = (i == idx)
-            b.setProperty("kind", "navActive" if is_active else "nav")
-            b.setIcon(get_icon(icon_name, accent if is_active else muted, 16))
+
+        if self.is_collapsed:
+            self.setFixedWidth(68)
+            self.app_title_lbl.setVisible(False)
+            self.collapse_btn.setIcon(get_icon("panel-left-open", muted, 16))
+            self.collapse_btn.setToolTip("Expand Navigation")
+            for b in self.all_buttons:
+                b.setText("")
+                b.setToolTip(b._orig_text)
+                is_active = (b.property("kind") in ("sidebarNavActive", "sidebarNavCollapsedActive"))
+                b.setProperty("kind", "sidebarNavCollapsedActive" if is_active else "sidebarNavCollapsed")
+                b.style().unpolish(b)
+                b.style().polish(b)
+            self.theme_btn.setText("")
+            self.settings_btn.setText("")
+            if hasattr(self.ollama_pill, "set_compact"):
+                self.ollama_pill.set_compact(True)
+        else:
+            self.setFixedWidth(230)
+            self.app_title_lbl.setVisible(True)
+            self.collapse_btn.setIcon(get_icon("panel-left-close", muted, 16))
+            self.collapse_btn.setToolTip("Collapse Navigation")
+            for b in self.all_buttons:
+                b.setText(b._orig_text)
+                b.setToolTip("")
+                is_active = (b.property("kind") in ("sidebarNavActive", "sidebarNavCollapsedActive"))
+                b.setProperty("kind", "sidebarNavActive" if is_active else "sidebarNav")
+                b.style().unpolish(b)
+                b.style().polish(b)
+            self.theme_btn.setText(self.theme_btn._orig_text)
+            self.settings_btn.setText(self.settings_btn._orig_text)
+            if hasattr(self.ollama_pill, "set_compact"):
+                self.ollama_pill.set_compact(False)
+
+    def set_active_tab(self, idx):
+        is_dark = getattr(self.win, "is_dark_theme", True)
+        accent = "#00FF85" if is_dark else "#10B981"
+        muted = "#8ca394" if is_dark else "#5E7060"
+
+        for b in self.all_buttons:
+            is_active = (b._page_idx == idx)
+            if self.is_collapsed:
+                b.setProperty("kind", "sidebarNavCollapsedActive" if is_active else "sidebarNavCollapsed")
+            else:
+                b.setProperty("kind", "sidebarNavActive" if is_active else "sidebarNav")
+            b.setIcon(get_icon(b._icon_name, accent if is_active else muted, 18))
             b.style().unpolish(b)
             b.style().polish(b)
+
+        if hasattr(self.win, "view") and hasattr(self.win.view, "slim_header"):
+            self.win.view.slim_header.set_page_title(idx)
+
+
+TopNavBar = GlobalSidebar  # Alias for backward compatibility
+
+
+class SlimHeader(QFrame):
+    """Ultra-slim top header for responsive menu toggle and breadcrumb."""
+    def __init__(self, win, sidebar):
+        super().__init__()
+        self.win = win
+        self.sidebar = sidebar
+        self.setObjectName("slimHeader")
+        self.setFixedHeight(42)
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(14, 4, 14, 4)
+        lay.setSpacing(10)
+
+        # Responsive menu hamburger button
+        self.menu_btn = QPushButton()
+        self.menu_btn.setObjectName("collapseBtn")
+        self.menu_btn.setFixedSize(32, 32)
+        self.menu_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.menu_btn.setToolTip("Toggle Navigation Sidebar")
+        self.menu_btn.clicked.connect(self.sidebar.toggle_collapse)
+        lay.addWidget(self.menu_btn)
+
+        self.title_lbl = QLabel("Dashboard")
+        self.title_lbl.setStyleSheet("font-size: 13.5px; font-weight: 600; color: #8ca394;")
+        lay.addWidget(self.title_lbl)
+
+        lay.addStretch(1)
+
+        self.update_menu_btn(self.sidebar.is_collapsed)
+
+    def set_page_title(self, idx):
+        titles = {
+            0: "Dashboard",
+            1: "AI Assistant",
+            2: "Component Library",
+            3: "User Manual & Documentation",
+        }
+        self.title_lbl.setText(titles.get(idx, "ElectroLearn AI"))
+
+    def update_menu_btn(self, is_collapsed):
+        self.menu_btn.setVisible(True)
+        is_dark = getattr(self.win, "is_dark_theme", True)
+        accent = "#00FF85" if is_dark else "#10B981"
+        self.menu_btn.setIcon(get_icon("menu", accent, 16))
+
 
 
 class HelpDrawerDialog(QDialog):
@@ -3990,14 +4433,26 @@ class MainView:
         self.stack = QStackedWidget()
 
     def setup_ui(self):
-        outer = QVBoxLayout(self.win)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
+        root_lay = QHBoxLayout(self.win)
+        root_lay.setContentsMargins(0, 0, 0, 0)
+        root_lay.setSpacing(0)
 
-        # Persistent Top Navigation Bar
-        self.top_bar = TopNavBar(self.win)
-        outer.addWidget(self.top_bar)
-        outer.addWidget(self.stack, 1)
+        # Global Left Navigation Sidebar
+        self.sidebar = GlobalSidebar(self.win)
+        self.top_bar = self.sidebar  # Expose top_bar alias for controller and test backward compatibility
+        root_lay.addWidget(self.sidebar)
+
+        # Right Content Area (Slim Header + Page Stack)
+        content_container = QWidget()
+        content_lay = QVBoxLayout(content_container)
+        content_lay.setContentsMargins(0, 0, 0, 0)
+        content_lay.setSpacing(0)
+
+        self.slim_header = SlimHeader(self.win, self.sidebar)
+        content_lay.addWidget(self.slim_header)
+        content_lay.addWidget(self.stack, 1)
+
+        root_lay.addWidget(content_container, 1)
 
         # Build the exact 4 pages requested
         self.dashboard_page = self._build_dashboard()   # Page 0
@@ -4407,9 +4862,10 @@ class MainView:
         self.sidebar_scroll.setStyleSheet("background:transparent; border:none;")
         self.sidebar_container = QWidget()
         self.sidebar_groups_lay = QVBoxLayout(self.sidebar_container)
+        self.sidebar_groups_lay.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.sidebar_groups_lay.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinimumSize)
         self.sidebar_groups_lay.setContentsMargins(0, 4, 0, 4)
         self.sidebar_groups_lay.setSpacing(6)
-        self.sidebar_groups_lay.addStretch()
 
         self.sidebar_scroll.setWidget(self.sidebar_container)
         s_lay.addWidget(self.sidebar_scroll, 1)
@@ -4773,14 +5229,771 @@ class MainView:
         return page
 
     # =========================================================================
+    # USER MANUAL & DOCUMENTATION CENTER
+    # =========================================================================
+    def _build_doc_view(self):
+        """Construct a clean, modern documentation-style User Manual with sticky TOC and search."""
+        doc_widget = QWidget()
+        doc_main_lay = QVBoxLayout(doc_widget)
+        doc_main_lay.setContentsMargins(0, 0, 0, 0)
+        doc_main_lay.setSpacing(14)
+
+        # 1. Search Bar for Documentation
+        search_card = QFrame()
+        search_card.setObjectName("card")
+        sc_lay = QHBoxLayout(search_card)
+        sc_lay.setContentsMargins(16, 10, 16, 10)
+        sc_lay.setSpacing(12)
+
+        s_icon = QLabel()
+        s_icon.setPixmap(get_pixmap("search", "#00FF85", 18))
+        sc_lay.addWidget(s_icon)
+
+        self.doc_search_input = QLineEdit()
+        self.doc_search_input.setPlaceholderText("Search documentation, pins, commands, safety rules, or troubleshooting...")
+        self.doc_search_input.setClearButtonEnabled(True)
+        self.doc_search_input.setStyleSheet("background: transparent; border: none; font-size: 14px; padding: 4px;")
+        self.doc_search_input.textChanged.connect(self._filter_doc_topics)
+        sc_lay.addWidget(self.doc_search_input, 1)
+        doc_main_lay.addWidget(search_card)
+
+        # 2. Main Two-Column Layout: Sticky TOC on left, Scrollable Documentation on right
+        doc_split = QWidget()
+        ds_lay = QHBoxLayout(doc_split)
+        ds_lay.setContentsMargins(0, 0, 0, 0)
+        ds_lay.setSpacing(20)
+
+        # --- Left Column: Table of Contents ---
+        toc_frame = QFrame()
+        toc_frame.setObjectName("tocCard")
+        toc_frame.setFixedWidth(240)
+        toc_lay = QVBoxLayout(toc_frame)
+        toc_lay.setContentsMargins(12, 14, 12, 14)
+        toc_lay.setSpacing(6)
+        toc_lay.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        toc_head = QHBoxLayout()
+        toc_icon = QLabel()
+        toc_icon.setPixmap(get_pixmap("compass", "#00FF85", 16))
+        toc_title = QLabel("ON THIS PAGE")
+        toc_title.setStyleSheet("font-size: 11.5px; font-weight: 800; color: #8ca394; letter-spacing: 0.5px;")
+        toc_head.addWidget(toc_icon)
+        toc_head.addWidget(toc_title)
+        toc_head.addStretch()
+        toc_lay.addLayout(toc_head)
+        toc_lay.addSpacing(6)
+
+        # Navigation items to generate
+        toc_items = [
+            ("1. Getting Started", "play", 0),
+            ("2. Dashboard & Vision", "layout-grid", 1),
+            ("3. AI Assistant & RAG", "message-square", 2),
+            ("4. Component Library", "cpu", 3),
+            ("5. Hardware Manuals", "book-open", 4),
+            ("6. Voice & Live Camera", "mic", 5),
+            ("7. Exporting Reports", "download", 6),
+            ("8. Safety & Bench Rules", "shield-alert", 7),
+            ("9. Troubleshooting & FAQ", "help-circle", 8),
+        ]
+
+        self.toc_buttons = []
+        for text, icon_name, idx in toc_items:
+            b = QPushButton(text)
+            b._icon_name = icon_name
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.setProperty("kind", "tocItemActive" if idx == 0 else "tocItem")
+            b.setIcon(get_icon(icon_name, "#00FF85" if idx == 0 else "#8ca394", 15))
+            b.clicked.connect(lambda checked=False, i=idx: self._scroll_to_doc_section(i))
+            toc_lay.addWidget(b)
+            self.toc_buttons.append(b)
+
+        toc_lay.addStretch(1)
+        ds_lay.addWidget(toc_frame)
+
+        # --- Right Column: Scrollable Documentation Content ---
+        self.doc_scroll = QScrollArea()
+        self.doc_scroll.setWidgetResizable(True)
+        self.doc_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.doc_scroll.setStyleSheet("background: transparent; border: none;")
+
+        self.doc_scroll_content = QWidget()
+        dsc_lay = QHBoxLayout(self.doc_scroll_content)
+        dsc_lay.setContentsMargins(10, 0, 20, 40)
+        dsc_lay.setSpacing(0)
+
+        # Center container for comfortable line length
+        doc_center = QWidget()
+        doc_center.setMaximumWidth(960)
+        dc_lay = QVBoxLayout(doc_center)
+        dc_lay.setContentsMargins(0, 0, 0, 0)
+        dc_lay.setSpacing(32)
+
+        dsc_lay.addStretch(1)
+        dsc_lay.addWidget(doc_center)
+        dsc_lay.addStretch(1)
+
+        self.doc_sections = []
+
+        # Helper: Callout Box
+        def make_callout(kind: str, title: str, text: str, icon_name: str = None) -> QFrame:
+            card = QFrame()
+            card.setObjectName(f"callout{kind.capitalize()}")
+            lay = QHBoxLayout(card)
+            lay.setContentsMargins(16, 14, 16, 14)
+            lay.setSpacing(14)
+
+            icon_col = QLabel()
+            icon_colors = {
+                "tip": ("#00FF85", "zap"),
+                "note": ("#38bdf8", "info"),
+                "warning": ("#fbbf24", "alert-triangle"),
+                "caution": ("#f87171", "alert-octagon"),
+            }
+            col, def_icon = icon_colors.get(kind, ("#00FF85", "info"))
+            icon_col.setPixmap(get_pixmap(icon_name or def_icon, col, 20))
+            lay.addWidget(icon_col, alignment=Qt.AlignmentFlag.AlignTop)
+
+            text_col = QVBoxLayout()
+            text_col.setSpacing(4)
+            text_col.setContentsMargins(0, 0, 0, 0)
+            t_lbl = QLabel(title)
+            t_lbl.setStyleSheet(f"font-size: 13.5px; font-weight: 700; color: {col};")
+            d_lbl = QLabel(text)
+            d_lbl.setStyleSheet("font-size: 13px;")
+            d_lbl.setWordWrap(True)
+            text_col.addWidget(t_lbl)
+            text_col.addWidget(d_lbl)
+            lay.addLayout(text_col, 1)
+            return card
+
+        # Helper: Numbered Step Card
+        def make_step_card(number: int, title: str, text: str) -> QFrame:
+            card = QFrame()
+            card.setObjectName("card")
+            lay = QHBoxLayout(card)
+            lay.setContentsMargins(16, 14, 16, 14)
+            lay.setSpacing(14)
+
+            badge = QLabel(str(number))
+            badge.setFixedSize(28, 28)
+            badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            badge.setStyleSheet(
+                "background: rgba(0, 255, 133, 0.15); border: 1.5px solid #00FF85; "
+                "border-radius: 14px; font-size: 13px; font-weight: 800; color: #00FF85;"
+            )
+            lay.addWidget(badge, alignment=Qt.AlignmentFlag.AlignTop)
+
+            col = QVBoxLayout()
+            col.setSpacing(4)
+            col.setContentsMargins(0, 0, 0, 0)
+            t_lbl = QLabel(title)
+            t_lbl.setStyleSheet("font-size: 14.5px; font-weight: 700;")
+            d_lbl = QLabel(text)
+            d_lbl.setStyleSheet("font-size: 13px;")
+            d_lbl.setWordWrap(True)
+            col.addWidget(t_lbl)
+            col.addWidget(d_lbl)
+            lay.addLayout(col, 1)
+            return card
+
+        # Helper: Monospace Code Block
+        def make_code_block(code_text: str, label_hint: str = "Terminal") -> QFrame:
+            card = QFrame()
+            card.setObjectName("codeSnippet")
+            lay = QVBoxLayout(card)
+            lay.setContentsMargins(14, 10, 14, 12)
+            lay.setSpacing(6)
+
+            top_row = QHBoxLayout()
+            h_lbl = QLabel(label_hint)
+            h_lbl.setStyleSheet("font-size: 11px; font-weight: 700; color: #8ca394; text-transform: uppercase;")
+            top_row.addWidget(h_lbl)
+            top_row.addStretch()
+            lay.addLayout(top_row)
+
+            c_lbl = QLabel(code_text)
+            c_lbl.setStyleSheet("font-family: 'Consolas', 'Courier New', monospace; font-size: 12.5px; color: #67e8f9; line-height: 1.45;")
+            c_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            lay.addWidget(c_lbl)
+            return card
+
+        # ---------------------------------------------------------------------
+        # SECTION 1: Getting Started
+        # ---------------------------------------------------------------------
+        sec1 = QWidget()
+        s1_lay = QVBoxLayout(sec1)
+        s1_lay.setContentsMargins(0, 0, 0, 0)
+        s1_lay.setSpacing(14)
+
+        s1_title = QLabel("1. Getting Started with ElectroLearn AI")
+        s1_title.setStyleSheet("font-size: 20px; font-weight: 800;")
+        s1_sub = QLabel("An offline-first intelligent hardware engineering companion combining computer vision, local LLM RAG, and voice recognition.")
+        s1_sub.setStyleSheet("font-size: 13.5px; color: #8ca394;")
+        s1_sub.setWordWrap(True)
+        s1_lay.addWidget(s1_title)
+        s1_lay.addWidget(s1_sub)
+
+        s1_lay.addWidget(make_step_card(
+            1, "Capture or Upload PCB Components",
+            "Choose 'Upload Image' to drag & drop photos from your microscope, or click 'Live Camera' to align components under your webcam or USB bench microscope in real time."
+        ))
+        s1_lay.addWidget(make_step_card(
+            2, "Automated OCR & Marking Detection",
+            "The neural vision engine extracts laser markings, pin counts, package types (DIP, TO-92, SOIC), and automatically correlates them with manufacturer datasheets."
+        ))
+        s1_lay.addWidget(make_step_card(
+            3, "Ask Questions & Jump to Cited Manuals",
+            "Query the AI assistant with voice or text. Click citations like [Manual, p.12] to inspect original schematics and pin connection tables directly in the PDF reader."
+        ))
+
+        s1_lay.addWidget(make_callout(
+            "note", "100% Local Privacy & Air-Gapped Operation",
+            "All OCR extraction (Tesseract), vision search, speech transcription (OpenAI Whisper), and RAG neural reasoning (Ollama) run entirely on your computer. No schematics, component photos, or lab notes leave your bench."
+        ))
+
+        s1_lay.addWidget(make_code_block(
+            "# Ensure your local Ollama service is running:\nollama serve\n\n# Recommended local model (fast & accurate):\nollama run qwen2.5:3b",
+            "Shell Setup"
+        ))
+
+        sec1._text_corpus = "getting started capture upload pcb components ocr markings detection privacy local air-gapped ollama qwen"
+        dc_lay.addWidget(sec1)
+        self.doc_sections.append((sec1, self.toc_buttons[0]))
+
+        # ---------------------------------------------------------------------
+        # SECTION 2: Dashboard & Vision Identification
+        # ---------------------------------------------------------------------
+        sec2 = QWidget()
+        s2_lay = QVBoxLayout(sec2)
+        s2_lay.setContentsMargins(0, 0, 0, 0)
+        s2_lay.setSpacing(14)
+
+        s2_title = QLabel("2. Dashboard & Visual Component Identification")
+        s2_title.setStyleSheet("font-size: 20px; font-weight: 800;")
+        s2_sub = QLabel("Scanning unknown parts, inspecting package markings, and triggering high-resolution zoomable lightboxes.")
+        s2_sub.setStyleSheet("font-size: 13.5px; color: #8ca394;")
+        s2_sub.setWordWrap(True)
+        s2_lay.addWidget(s2_title)
+        s2_lay.addWidget(s2_sub)
+
+        # Lightbox showcase card with zoomable trigger
+        lb_demo_card = QFrame()
+        lb_demo_card.setObjectName("card")
+        lbc_lay = QHBoxLayout(lb_demo_card)
+        lbc_lay.setContentsMargins(16, 14, 16, 14)
+        lbc_lay.setSpacing(16)
+
+        # Image preview
+        demo_img_box = QFrame()
+        demo_img_box.setObjectName("imgPanel")
+        demo_img_box.setFixedSize(140, 100)
+        di_lay = QVBoxLayout(demo_img_box)
+        di_lay.setContentsMargins(0, 0, 0, 0)
+        di_lbl = QLabel()
+        di_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        c_sample = comp_service.find_component_match("555") or (comp_service.filter_components() or [{}])[0]
+        cid = c_sample.get("id", "ic_555_timer") if isinstance(c_sample, dict) else "ic_555_timer"
+        photo_p = comp_service.get_component_image_path(cid, "photo")
+        pix_sample = QPixmap(photo_p) if (photo_p and os.path.exists(photo_p)) else None
+        if pix_sample and not pix_sample.isNull():
+            di_lbl.setPixmap(pix_sample.scaled(130, 90, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        else:
+            di_lbl.setPixmap(get_pixmap("image", "#00FF85", 36))
+        di_lay.addWidget(di_lbl)
+        lbc_lay.addWidget(demo_img_box)
+
+        # Text explanation & trigger button
+        dt_col = QVBoxLayout()
+        dt_col.setSpacing(6)
+        dt_t = QLabel("Interactive Zoomable Lightbox")
+        dt_t.setStyleSheet("font-size: 14.5px; font-weight: 700;")
+        dt_d = QLabel("Every captured photo and matched manual figure supports full-screen inspection: zoom in/out with buttons or mouse wheel, drag to pan across high-density circuit traces, and reset to 1:1 view.")
+        dt_d.setStyleSheet("font-size: 12.5px; line-height: 1.5; color: #8ca394;")
+        dt_d.setWordWrap(True)
+        dt_col.addWidget(dt_t)
+        dt_col.addWidget(dt_d)
+
+        def open_sample_lightbox():
+            if pix_sample and not pix_sample.isNull():
+                ImageLightboxDialog(self.win, pix_sample, "NE555 Timer IC — High-Res Inspection").exec()
+
+        zoom_test_btn = QPushButton("Open Lightbox Viewer")
+        zoom_test_btn.setIcon(get_icon("maximize", "#00FF85", 14))
+        zoom_test_btn.setProperty("kind", "secondary")
+        zoom_test_btn.clicked.connect(open_sample_lightbox)
+        dt_col.addWidget(zoom_test_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        lbc_lay.addLayout(dt_col, 1)
+        s2_lay.addWidget(lb_demo_card)
+
+        s2_lay.addWidget(make_callout(
+            "tip", "Bench Lighting & Package Glare Tip",
+            "When capturing small SOIC or QFN packages, angled side lighting reduces specular reflection from glossy black epoxy, making faint laser-etched part numbers significantly crisper for OCR."
+        ))
+
+        sec2._text_corpus = "dashboard vision identification scanning package markings zoom lightbox zoomable ne555 optical glare"
+        dc_lay.addWidget(sec2)
+        self.doc_sections.append((sec2, self.toc_buttons[1]))
+
+        # ---------------------------------------------------------------------
+        # SECTION 3: AI Assistant & Continuous Chat
+        # ---------------------------------------------------------------------
+        sec3 = QWidget()
+        s3_lay = QVBoxLayout(sec3)
+        s3_lay.setContentsMargins(0, 0, 0, 0)
+        s3_lay.setSpacing(14)
+
+        s3_title = QLabel("3. AI Assistant & RAG Querying")
+        s3_title.setStyleSheet("font-size: 20px; font-weight: 800;")
+        s3_sub = QLabel("Context-aware circuit design assistance, calculation derivations, and automated datasheet citation linking.")
+        s3_sub.setStyleSheet("font-size: 13.5px; color: #8ca394;")
+        s3_sub.setWordWrap(True)
+        s3_lay.addWidget(s3_title)
+        s3_lay.addWidget(s3_sub)
+
+        s3_lay.addWidget(make_step_card(
+            1, "Multi-Turn Continuous Conversation Memory",
+            "Follow-up queries remember previous calculations and component parameters. Ask 'What capacitor value should I use?' followed by 'What if the frequency is 10kHz?' seamlessly."
+        ))
+        s3_lay.addWidget(make_step_card(
+            2, "Clickable Manual Citations [Manual, p.12]",
+            "Whenever the assistant draws facts from uploaded manuals, it generates interactive citation chips. Clicking any citation opens the Hardware Manual viewer straight to the referenced page."
+        ))
+        s3_lay.addWidget(make_step_card(
+            3, "Deep-Dive Mode for Comprehensive Analysis",
+            "Enable 'Deep-dive Mode' in the chat header when you require step-by-step mathematical proofs, formula derivations, thermal dissipation models, or alternative replacement part tables."
+        ))
+
+        s3_lay.addWidget(make_callout(
+            "tip", "Chat History Management",
+            "Your diagnostic conversations are organized in the AI Assistant sidebar by timeline (Today, Yesterday, 7 Days, Older). You can search chat topics, export answers, or start a new thread anytime."
+        ))
+
+        sec3._text_corpus = "ai assistant rag continuous chat memory citations deep-dive calculations manual citation chips"
+        dc_lay.addWidget(sec3)
+        self.doc_sections.append((sec3, self.toc_buttons[2]))
+
+        # ---------------------------------------------------------------------
+        # SECTION 4: Component Library & Pinouts
+        # ---------------------------------------------------------------------
+        sec4 = QWidget()
+        s4_lay = QVBoxLayout(sec4)
+        s4_lay.setContentsMargins(0, 0, 0, 0)
+        s4_lay.setSpacing(14)
+
+        s4_title = QLabel("4. Curated Component Library & Visual Gallery")
+        s4_title.setStyleSheet("font-size: 20px; font-weight: 800;")
+        s4_sub = QLabel("Explore electronic components across 8 categories with actual photography, labeled pinouts, and standard schematic symbols.")
+        s4_sub.setStyleSheet("font-size: 13.5px; color: #8ca394;")
+        s4_sub.setWordWrap(True)
+        s4_lay.addWidget(s4_title)
+        s4_lay.addWidget(s4_sub)
+
+        # 3-View Gallery description card
+        v_card = QFrame()
+        v_card.setObjectName("card")
+        vc_lay = QVBoxLayout(v_card)
+        vc_lay.setContentsMargins(18, 16, 18, 16)
+        vc_lay.setSpacing(10)
+
+        vc_t = QLabel("3-View Visual Inspection System")
+        vc_t.setStyleSheet("font-size: 15px; font-weight: 700; color: #00FF85;")
+        vc_lay.addWidget(vc_t)
+
+        v_desc = QLabel(
+            "Under every component's detail dialog, you have immediate access to:\n"
+            "• Actual Component: High-resolution photographs showing physical form factor and package markings.\n"
+            "• Pinout Diagram: Clear, color-coded pinout maps with numbering, signal names (VCC, GND, OUT), and notch orientation.\n"
+            "• Schematic Symbol: Standard IEEE/IEC circuit diagram symbols illustrating internal logic and terminal connections."
+        )
+        v_desc.setStyleSheet("font-size: 13px; line-height: 1.6;")
+        v_desc.setWordWrap(True)
+        vc_lay.addWidget(v_desc)
+
+        lib_btn_row = QHBoxLayout()
+        to_lib_btn = QPushButton("Open Component Library")
+        to_lib_btn.setIcon(get_icon("cpu", "#060907", 14))
+        to_lib_btn.setProperty("kind", "primary")
+        to_lib_btn.clicked.connect(lambda: self.win.navigate_to(2))
+        lib_btn_row.addWidget(to_lib_btn)
+        lib_btn_row.addStretch()
+        vc_lay.addLayout(lib_btn_row)
+
+        s4_lay.addWidget(v_card)
+
+        sec4._text_corpus = "component library pinouts schematic symbol 3-view actual component dip to-92 ic categories"
+        dc_lay.addWidget(sec4)
+        self.doc_sections.append((sec4, self.toc_buttons[3]))
+
+        # ---------------------------------------------------------------------
+        # SECTION 5: Hardware Manuals Hub & PDF Reader
+        # ---------------------------------------------------------------------
+        sec5 = QWidget()
+        s5_lay = QVBoxLayout(sec5)
+        s5_lay.setContentsMargins(0, 0, 0, 0)
+        s5_lay.setSpacing(14)
+
+        s5_title = QLabel("5. Hardware Manuals & Interactive PDF Reader")
+        s5_title.setStyleSheet("font-size: 20px; font-weight: 800;")
+        s5_sub = QLabel("Batch index PDF service manuals, datasheets, and schematics with full-text search and visual FAISS embeddings.")
+        s5_sub.setStyleSheet("font-size: 13.5px; color: #8ca394;")
+        s5_sub.setWordWrap(True)
+        s5_lay.addWidget(s5_title)
+        s5_lay.addWidget(s5_sub)
+
+        s5_lay.addWidget(make_step_card(
+            1, "Multi-PDF Batch Upload & OCR Indexing",
+            "Drag & drop multiple PDF files into the upload zone. The system automatically extracts text layers, applies Tesseract OCR to scanned pages, generates page snapshots, and builds vector indexes."
+        ))
+        s5_lay.addWidget(make_step_card(
+            2, "'Include in AI Search' Toggle Control",
+            "Every indexed manual features a toggle switch. Enable or disable individual manuals from the AI knowledge retrieval pool to focus answers on the specific machine you are repairing."
+        ))
+        s5_lay.addWidget(make_step_card(
+            3, "Interactive Bench PDF Reader",
+            "Includes thumbnail strip navigation, dark reading mode (inverted contrast for low-light benches), full-text search with term highlighting, and bookmarked pages."
+        ))
+
+        # Switch to Hardware Manuals Hub button
+        hw_hub_act_card = QFrame()
+        hw_hub_act_card.setObjectName("card")
+        hac_lay = QHBoxLayout(hw_hub_act_card)
+        hac_lay.setContentsMargins(18, 14, 18, 14)
+        hac_lay.setSpacing(14)
+
+        hac_icon = QLabel()
+        hac_icon.setPixmap(get_pixmap("book-open", "#00FF85", 26))
+        hac_lay.addWidget(hac_icon)
+
+        hac_col = QVBoxLayout()
+        hac_t = QLabel("Ready to upload or inspect hardware datasheets?")
+        hac_t.setStyleSheet("font-size: 14.5px; font-weight: 700;")
+        hac_d = QLabel("Switch to the Hardware PDF Manuals Hub to manage your PDF library, re-index documents, or browse the interactive PDF reader.")
+        hac_d.setStyleSheet("font-size: 12.5px; color: #8ca394;")
+        hac_d.setWordWrap(True)
+        hac_col.addWidget(hac_t)
+        hac_col.addWidget(hac_d)
+        hac_lay.addLayout(hac_col, 1)
+
+        to_hw_hub_btn = QPushButton("Open Hardware PDF Hub")
+        to_hw_hub_btn.setIcon(get_icon("external-link", "#060907", 14))
+        to_hw_hub_btn.setProperty("kind", "primary")
+        to_hw_hub_btn.clicked.connect(self.switch_to_hw_manuals)
+        hac_lay.addWidget(to_hw_hub_btn)
+        s5_lay.addWidget(hw_hub_act_card)
+
+        sec5._text_corpus = "hardware manuals pdf hub interactive reader indexing ocr faiss search bookmarks dark mode datasheets"
+        dc_lay.addWidget(sec5)
+        self.doc_sections.append((sec5, self.toc_buttons[4]))
+
+        # ---------------------------------------------------------------------
+        # SECTION 6: Voice Recognition & Live Camera
+        # ---------------------------------------------------------------------
+        sec6 = QWidget()
+        s6_lay = QVBoxLayout(sec6)
+        s6_lay.setContentsMargins(0, 0, 0, 0)
+        s6_lay.setSpacing(14)
+
+        s6_title = QLabel("6. Voice Recognition & Live Bench Camera")
+        s6_title.setStyleSheet("font-size: 20px; font-weight: 800;")
+        s6_sub = QLabel("Hands-free voice dictation using Whisper speech recognition and optical bench microscope live feeds.")
+        s6_sub.setStyleSheet("font-size: 13.5px; color: #8ca394;")
+        s6_sub.setWordWrap(True)
+        s6_lay.addWidget(s6_title)
+        s6_lay.addWidget(s6_sub)
+
+        s6_lay.addWidget(make_step_card(
+            1, "Whisper Voice Dictation with Animated Waveform",
+            "Press the microphone button to dictate questions. The real-time animated waveform monitors audio amplitude, and automatic silence detection detects pauses to transcribe immediately."
+        ))
+        s6_lay.addWidget(make_step_card(
+            2, "USB Microscope & Optical Bench Camera Support",
+            "Select your USB microscope or external webcam from the camera device dropdown. Use freeze-frame mode to align micro-components before capturing high-resolution photos."
+        ))
+
+        s6_lay.addWidget(make_callout(
+            "tip", "Hands-Free Bench Tip",
+            "When holding multimeter probes or hot soldering irons, use the voice dictation shortcut to ask pinout and voltage drop questions without having to touch your mouse or keyboard."
+        ))
+
+        sec6._text_corpus = "voice recognition whisper dictation audio waveform silence detection camera microscope optical bench hands-free"
+        dc_lay.addWidget(sec6)
+        self.doc_sections.append((sec6, self.toc_buttons[5]))
+
+        # ---------------------------------------------------------------------
+        # SECTION 7: Exporting Transcripts & Reports
+        # ---------------------------------------------------------------------
+        sec7 = QWidget()
+        s7_lay = QVBoxLayout(sec7)
+        s7_lay.setContentsMargins(0, 0, 0, 0)
+        s7_lay.setSpacing(14)
+
+        s7_title = QLabel("7. Exporting Diagnostic Reports & Transcripts")
+        s7_title.setStyleSheet("font-size: 20px; font-weight: 800;")
+        s7_sub = QLabel("Generate engineering reports, bench notes, and documentation in PDF, Markdown, and Plain Text.")
+        s7_sub.setStyleSheet("font-size: 13.5px; color: #8ca394;")
+        s7_sub.setWordWrap(True)
+        s7_lay.addWidget(s7_title)
+        s7_lay.addWidget(s7_sub)
+
+        s7_lay.addWidget(make_step_card(
+            1, "Export Answer (Single Response)",
+            "Click the 'Export' icon beneath any individual AI answer to export that specific pinout reference, formula derivation, or diagnostic procedure."
+        ))
+        s7_lay.addWidget(make_step_card(
+            2, "Export Full Chat Session",
+            "Use the 'Export Chat' button in the chat header to export the entire multi-turn thread with timestamps, user prompts, and cited datasheet references."
+        ))
+
+        s7_lay.addWidget(make_code_block(
+            "# Export Report Formats:\n• PDF (.pdf): Formatted printable bench document with headers & syntax blocks\n• Markdown (.md): Structured markdown document formatted for GitHub & Obsidian\n• Plain Text (.txt): Lightweight clean ASCII notes for terminal logs",
+            "Supported Formats"
+        ))
+
+        sec7._text_corpus = "exporting reports transcripts pdf markdown text lab notes documentation single answer chat export"
+        dc_lay.addWidget(sec7)
+        self.doc_sections.append((sec7, self.toc_buttons[6]))
+
+        # ---------------------------------------------------------------------
+        # SECTION 8: Safety & Workbench Rules
+        # ---------------------------------------------------------------------
+        sec8 = QWidget()
+        s8_lay = QVBoxLayout(sec8)
+        s8_lay.setContentsMargins(0, 0, 0, 0)
+        s8_lay.setSpacing(14)
+
+        s8_title = QLabel("8. Electronics Workbench Safety & Standards")
+        s8_title.setStyleSheet("font-size: 20px; font-weight: 800;")
+        s8_sub = QLabel("Vital rules for IC pin 1 orientation, polarity standards, electrostatic discharge (ESD), and live testing.")
+        s8_sub.setStyleSheet("font-size: 13.5px; color: #8ca394;")
+        s8_sub.setWordWrap(True)
+        s8_lay.addWidget(s8_title)
+        s8_lay.addWidget(s8_sub)
+
+        # Pin 1 & Polarity Card
+        rules_card = QFrame()
+        rules_card.setObjectName("card")
+        rc_lay = QVBoxLayout(rules_card)
+        rc_lay.setContentsMargins(18, 16, 18, 16)
+        rc_lay.setSpacing(10)
+
+        r_title = QLabel("Universal Component Orientation Rules")
+        r_title.setStyleSheet("font-size: 15px; font-weight: 700; color: #00FF85;")
+        rc_lay.addWidget(r_title)
+
+        r_text = QLabel(
+            "1. IC Pin 1 Orientation: When the U-notch points UP, Pin 1 is the top-left pin. When marked with an embossed circular dot, Pin 1 is the pin directly adjacent to the dot. Pin numbering proceeds counter-clockwise around the package.\n\n"
+            "2. Diode Polarity: Rectifier and signal diodes feature an embossed silver, white, or black band marking the CATHODE (-) terminal. Current flows from Anode (+) to Cathode (-).\n\n"
+            "3. Electrolytic Capacitor Polarity: The printed stripe with minus signs (---) indicates the NEGATIVE lead. On new through-hole capacitors, the negative lead is also physically shorter. NEVER connect in reverse polarity!\n\n"
+            "4. Multimeter Resistance & Continuity: ALWAYS disconnect power and discharge all capacitors before probing resistance. Testing an energized circuit can blow the multimeter fuse or damage sensitive semiconductors."
+        )
+        r_text.setStyleSheet("font-size: 13px; line-height: 1.6;")
+        r_text.setWordWrap(True)
+        rc_lay.addWidget(r_text)
+        s8_lay.addWidget(rules_card)
+
+        s8_lay.addWidget(make_callout(
+            "caution", "High-Voltage Energy Hazards (SMPS Capacitors)",
+            "Primary filter capacitors in switched-mode power supplies (SMPS) and motor drives can retain lethal DC voltages (300V-400V+) long after mains power is unplugged. Always measure voltage across capacitor terminals with a meter before touching."
+        ))
+
+        s8_lay.addWidget(make_callout(
+            "warning", "ESD Protection for CMOS & Microcontrollers",
+            "Integrated circuits containing MOSFETs, CMOS gates, or microcontrollers can be permanently damaged by sub-perceptual static discharge (sub-100V). Use an ESD wrist strap and grounded bench mat."
+        ))
+
+        sec8._text_corpus = "safety bench rules pin 1 orientation notch dot diode polarity cathode capacitor electrolytic esd static high voltage smps"
+        dc_lay.addWidget(sec8)
+        self.doc_sections.append((sec8, self.toc_buttons[7]))
+
+        # ---------------------------------------------------------------------
+        # SECTION 9: Troubleshooting & FAQ
+        # ---------------------------------------------------------------------
+        sec9 = QWidget()
+        s9_lay = QVBoxLayout(sec9)
+        s9_lay.setContentsMargins(0, 0, 0, 0)
+        s9_lay.setSpacing(14)
+
+        s9_title = QLabel("9. Troubleshooting & Diagnostics FAQ")
+        s9_title.setStyleSheet("font-size: 20px; font-weight: 800;")
+        s9_sub = QLabel("Quick solutions for common connection, camera, OCR, and model loading issues.")
+        s9_sub.setStyleSheet("font-size: 13.5px; color: #8ca394;")
+        s9_sub.setWordWrap(True)
+        s9_lay.addWidget(s9_title)
+        s9_lay.addWidget(s9_sub)
+
+        # Collapsible FAQ accordion items
+        class FaqCard(QFrame):
+            def __init__(self, q: str, a: str):
+                super().__init__()
+                self.setObjectName("card")
+                l = QVBoxLayout(self)
+                l.setContentsMargins(16, 12, 16, 12)
+                l.setSpacing(6)
+
+                self.btn = QPushButton(q)
+                self.btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                self.btn.setIcon(get_icon("chevron-down", "#00FF85", 14))
+                self.btn.setStyleSheet("text-align: left; background: transparent; border: none; font-size: 14px; font-weight: 600; padding: 0;")
+                self.btn.clicked.connect(self.toggle)
+                l.addWidget(self.btn)
+
+                self.ans = QLabel(a)
+                self.ans.setStyleSheet("font-size: 12.5px; line-height: 1.55; color: #8ca394; padding-top: 4px;")
+                self.ans.setWordWrap(True)
+                self.ans.setVisible(False)
+                l.addWidget(self.ans)
+
+            def toggle(self):
+                vis = not self.ans.isVisible()
+                self.ans.setVisible(vis)
+                self.btn.setIcon(get_icon("chevron-down" if not vis else "chevron-right", "#00FF85", 14))
+
+        s9_lay.addWidget(FaqCard(
+            "Q: The Ollama status pill in the sidebar shows red / 'Offline'?",
+            "A: Ensure the Ollama service is running in a terminal by executing 'ollama serve'. Check that port 11434 is accessible and not blocked by local firewalls. Verify the host address in Settings."
+        ))
+        s9_lay.addWidget(FaqCard(
+            "Q: Camera says 'Device Busy' or will not open?",
+            "A: Make sure other applications (such as Windows Camera, Zoom, Teams, or OBS) are not currently using the webcam. Open Settings to select a different camera index (0, 1, or 2)."
+        ))
+        s9_lay.addWidget(FaqCard(
+            "Q: OCR does not recognize laser markings on black IC packages?",
+            "A: Adjust the angle of your bench light. Faint laser etchings reflect light best when illuminated from an oblique 45-degree angle. You can also use the Zoom Lightbox to crop and examine the image."
+        ))
+        s9_lay.addWidget(FaqCard(
+            "Q: Whisper voice dictation returns empty text?",
+            "A: Verify that your microphone is set as the Windows default recording device. Ensure speaking clearly at normal conversation volume within 0.5 to 1 meter of the microphone."
+        ))
+        s9_lay.addWidget(FaqCard(
+            "Q: How do I re-index all manuals or clear vector cache?",
+            "A: Open the Hardware PDF Hub and click 'Re-index All'. This regenerates text embeddings and visual vector indexes for all uploaded PDF manuals."
+        ))
+
+        sec9._text_corpus = "troubleshooting faq ollama offline camera device busy ocr markings whisper microphone empty re-index manuals"
+        dc_lay.addWidget(sec9)
+        self.doc_sections.append((sec9, self.toc_buttons[8]))
+
+        self.doc_scroll.setWidget(self.doc_scroll_content)
+        ds_lay.addWidget(self.doc_scroll, 1)
+
+        # Connect scroll spy
+        self.doc_scroll.verticalScrollBar().valueChanged.connect(self._on_doc_scroll)
+
+        doc_main_lay.addWidget(doc_split, 1)
+        return doc_widget
+
+    def _scroll_to_doc_section(self, idx: int):
+        if 0 <= idx < len(self.doc_sections):
+            sec_widget, _ = self.doc_sections[idx]
+            pos = sec_widget.mapTo(self.doc_scroll_content, sec_widget.rect().topLeft()).y()
+            self.doc_scroll.verticalScrollBar().setValue(pos - 10)
+            self._set_active_toc(idx)
+
+    def _on_doc_scroll(self, value: int):
+        if value <= 50:
+            self._set_active_toc(0)
+            return
+        active_idx = 0
+        for i, (sec_widget, _) in enumerate(self.doc_sections):
+            pos = sec_widget.mapTo(self.doc_scroll_content, sec_widget.rect().topLeft()).y()
+            if pos - 80 <= value:
+                active_idx = i
+        self._set_active_toc(active_idx)
+
+    def _set_active_toc(self, idx: int):
+        for i, b in enumerate(self.toc_buttons):
+            is_active = (i == idx)
+            b.setProperty("kind", "tocItemActive" if is_active else "tocItem")
+            is_dark = getattr(self.win, "is_dark_theme", True)
+            accent = "#00FF85" if is_dark else "#10B981"
+            muted = "#8ca394" if is_dark else "#5E7060"
+            ic_name = getattr(b, "_icon_name", "check")
+            b.setIcon(get_icon(ic_name, accent if is_active else muted, 15))
+            b.style().unpolish(b)
+            b.style().polish(b)
+
+    def _filter_doc_topics(self, text: str):
+        q = text.strip().lower()
+        for sec_widget, toc_btn in self.doc_sections:
+            match = (q in getattr(sec_widget, "_text_corpus", "")) if q else True
+            sec_widget.setVisible(match)
+            toc_btn.setVisible(match)
+
+    def switch_to_user_manual(self):
+        if hasattr(self, "manuals_main_stack"):
+            self.manuals_main_stack.setCurrentIndex(0)
+            self.seg_doc_btn.setProperty("kind", "chipActive")
+            self.seg_hw_btn.setProperty("kind", "chip")
+            self.seg_doc_btn.style().unpolish(self.seg_doc_btn)
+            self.seg_doc_btn.style().polish(self.seg_doc_btn)
+            self.seg_hw_btn.style().unpolish(self.seg_hw_btn)
+            self.seg_hw_btn.style().polish(self.seg_hw_btn)
+
+    def switch_to_hw_manuals(self):
+        if hasattr(self, "manuals_main_stack"):
+            self.manuals_main_stack.setCurrentIndex(1)
+            self.seg_hw_btn.setProperty("kind", "chipActive")
+            self.seg_doc_btn.setProperty("kind", "chip")
+            self.seg_hw_btn.style().unpolish(self.seg_hw_btn)
+            self.seg_hw_btn.style().polish(self.seg_hw_btn)
+            self.seg_doc_btn.style().unpolish(self.seg_doc_btn)
+            self.seg_doc_btn.style().polish(self.seg_doc_btn)
+
+    # =========================================================================
     # PAGE 4: HARDWARE MANUALS & INTERACTIVE PDF VIEWER
     # =========================================================================
     def _build_manuals_page(self):
         page = QWidget()
         outer = QVBoxLayout(page)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
+        outer.setContentsMargins(28, 16, 28, 20)
+        outer.setSpacing(14)
 
+        # Top Switcher Bar: Segment pill buttons to toggle between User Manual and Hardware PDF Hub
+        top_bar_row = QHBoxLayout()
+        top_bar_row.setContentsMargins(0, 0, 0, 0)
+        top_bar_row.setSpacing(12)
+
+        p_col = QVBoxLayout()
+        p_col.setSpacing(2)
+        p_title = QLabel("User Manual & Hardware Documentation")
+        p_title.setObjectName("title")
+        p_title.setStyleSheet("font-size: 19px; font-weight: 800;")
+        p_sub = QLabel("Official guide, pinouts, workbench safety rules, and manufacturer hardware datasheets")
+        p_sub.setObjectName("subtitle")
+        p_col.addWidget(p_title)
+        p_col.addWidget(p_sub)
+        top_bar_row.addLayout(p_col, 1)
+
+        # Segmented Buttons
+        seg_box = QFrame()
+        seg_box.setObjectName("card")
+        sb_lay = QHBoxLayout(seg_box)
+        sb_lay.setContentsMargins(4, 4, 4, 4)
+        sb_lay.setSpacing(4)
+
+        self.seg_doc_btn = QPushButton("User Manual & Guides")
+        self.seg_doc_btn.setIcon(get_icon("book-open", "#00FF85", 14))
+        self.seg_doc_btn.setProperty("kind", "chipActive")
+        self.seg_doc_btn.clicked.connect(self.switch_to_user_manual)
+        sb_lay.addWidget(self.seg_doc_btn)
+
+        self.seg_hw_btn = QPushButton("Hardware PDF Hub")
+        self.seg_hw_btn.setIcon(get_icon("file-text", "#8ca394", 14))
+        self.seg_hw_btn.setProperty("kind", "chip")
+        self.seg_hw_btn.clicked.connect(self.switch_to_hw_manuals)
+        sb_lay.addWidget(self.seg_hw_btn)
+
+        top_bar_row.addWidget(seg_box)
+        outer.addLayout(top_bar_row)
+
+        # Main Page Stack: Index 0 = User Manual Doc View; Index 1 = Hardware Manuals Hub & Viewer
+        self.manuals_main_stack = QStackedWidget()
+
+        # VIEW 0: Redesigned Modern Documentation
+        self.doc_view = self._build_doc_view()
+        self.manuals_main_stack.addWidget(self.doc_view)
+
+        # VIEW 1: Hardware Manuals Hub & Interactive PDF Viewer
         self.manuals_stack = QStackedWidget()
 
         # VIEW 0: Manuals Hub & Management
@@ -4988,8 +6201,8 @@ class MainView:
         # VIEW 1: Interactive PDF Viewer
         self.viewer_widget = InteractiveManualViewer(self.win, on_back_cb=lambda: self.manuals_stack.setCurrentIndex(0))
         self.manuals_stack.addWidget(self.viewer_widget)
-
-        outer.addWidget(self.manuals_stack)
+        self.manuals_main_stack.addWidget(self.manuals_stack)
+        outer.addWidget(self.manuals_main_stack, 1)
 
         # Backward compatibility aliases
         self.embedded_viewer_widget = self.viewer_widget

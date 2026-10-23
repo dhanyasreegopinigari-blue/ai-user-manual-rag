@@ -845,10 +845,11 @@ class MainWindow(QWidget):
         if not hasattr(self.view, 'sidebar_groups_lay'):
             return
 
-        while self.view.sidebar_groups_lay.count() > 1:
+        while self.view.sidebar_groups_lay.count():
             child = self.view.sidebar_groups_lay.takeAt(0)
             w = child.widget()
             if w:
+                w.hide()
                 w.setParent(None)
                 w.deleteLater()
             elif child.layout():
@@ -857,6 +858,7 @@ class MainWindow(QWidget):
                     si = sub.takeAt(0)
                     sw = si.widget()
                     if sw:
+                        sw.hide()
                         sw.setParent(None)
                         sw.deleteLater()
 
@@ -907,7 +909,7 @@ class MainWindow(QWidget):
 
             hdr = label(group_name, "caption", wrap=False)
             hdr.setObjectName("chatDateHeader")
-            self.view.sidebar_groups_lay.insertWidget(self.view.sidebar_groups_lay.count() - 1, hdr)
+            self.view.sidebar_groups_lay.addWidget(hdr)
 
             for c in items:
                 is_active = (c["id"] == self.active_conv_id)
@@ -918,13 +920,15 @@ class MainWindow(QWidget):
                     dt_str,
                     is_active=is_active,
                     is_pinned=bool(c.get("is_pinned")),
-                    parent=self
+                    parent=self.view.sidebar_container
                 )
                 item_widget.clicked.connect(self.load_conversation)
                 item_widget.pin_requested.connect(self.pin_chat)
                 item_widget.rename_requested.connect(self.rename_chat)
                 item_widget.delete_requested.connect(self.delete_chat)
-                self.view.sidebar_groups_lay.insertWidget(self.view.sidebar_groups_lay.count() - 1, item_widget)
+                self.view.sidebar_groups_lay.addWidget(item_widget)
+
+        self.view.sidebar_groups_lay.addStretch(1)
 
     def pin_chat(self, conv_id, is_pinned):
         db.pin_conversation(conv_id, is_pinned)
@@ -1615,10 +1619,24 @@ class MainWindow(QWidget):
             shutil.copy2(src, dst)
             QMessageBox.information(self, "Saved", f"Manual PDF saved to {dst}")
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        w = event.size().width()
+        if hasattr(self, "view") and hasattr(self.view, "sidebar"):
+            if w < 850:
+                if not self.view.sidebar.is_collapsed:
+                    self.view.sidebar.set_collapsed(True, save=False)
+            else:
+                saved = self.view.sidebar.settings.value("sidebar_collapsed", False, type=bool)
+                if self.view.sidebar.is_collapsed != saved:
+                    self.view.sidebar.set_collapsed(saved, save=False)
+
     def load_manual_in_viewer(self, manual_id, page=1, highlight_query=""):
         """Display the interactive PDF viewer for the given manual."""
         self.manual_id = manual_id
         self.navigate_to(3)
+        if hasattr(self.view, "switch_to_hw_manuals"):
+            self.view.switch_to_hw_manuals()
         if hasattr(self.view, "manuals_stack"):
             self.view.manuals_stack.setCurrentIndex(1)
         if hasattr(self.view, "viewer_widget"):

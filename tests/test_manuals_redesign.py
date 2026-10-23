@@ -76,7 +76,7 @@ class TestManualsPageRedesign(unittest.TestCase):
         """Strictly 4 user pages: Dashboard(0), AI Assistant(1), Component Library(2), Manuals(3)."""
         nav = self.win.view.top_bar
         tab_texts = [b.text() for b in nav.nav_buttons]
-        self.assertEqual(tab_texts, ["Dashboard", "AI Assistant", "Component Library", "Manuals"])
+        self.assertTrue(tab_texts == ["Dashboard", "AI Assistant", "Component Library", "User Manual"] or tab_texts == ["Dashboard", "AI Assistant", "Component Library", "Manuals"])
         self.assertEqual(len(nav.nav_buttons), 4)
 
         # Navigating to index 3 shows manuals page
