@@ -11,9 +11,11 @@ except ImportError:                 # older versions
 
 import config
 import database as db
-import rag
-import vision
+import services.rag as rag
+import services.vision as vision
+import services.visual_search as visual_search
 from config import AppError
+
 
 MIN_IMAGE_SIDE = 100   # ignore icons / tiny decorations
 MAX_IMAGES_PER_PAGE = 6
@@ -96,6 +98,11 @@ def _process(doc, manual_id, cb):
     chunk_ids = db.add_chunks(manual_id, chunks)
 
     rag.build_index(manual_id, chunk_ids, [c["text"] for c in chunks], cb)
+    try:
+        visual_search.index_manual(manual_id, image_rows, page_rows, cb)
+    except Exception as e:
+        print(f"[MANUAL] Visual index warning: {e}")
+
 
 
 def _extract_images(doc, page, manual_id, pno, repeated):
@@ -126,28 +133,61 @@ def _extract_images(doc, page, manual_id, pno, repeated):
 # Chunking
 # =============================================================================
 def make_chunks(page_texts):
-    """Group page text into chunks of ~CHUNK_MIN..CHUNK_MAX words.
+    """Group page text into chunks of ~CHUNK_MIN..CHUNK_MAX words with overlap.
     Every page's text is prefixed with a [Page N] marker so answers can cite pages."""
-    segments = []   # (page, text); very long pages are split into several segments
+    segments = []   # (page, text); very long pages are split along paragraph/sentence boundaries
     for pno, text in page_texts:
         words = text.split()
-        for i in range(0, len(words), config.CHUNK_MAX_WORDS):
-            part = " ".join(words[i:i + config.CHUNK_MAX_WORDS]) if len(words) > config.CHUNK_MAX_WORDS else text
-            if part.strip():
-                segments.append((pno, part))
-            if len(words) <= config.CHUNK_MAX_WORDS:
-                break
+        if not words:
+            continue
+        if len(words) <= config.CHUNK_MAX_WORDS:
+            segments.append((pno, text))
+        else:
+            paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+            part_words = []
+            for para in paragraphs:
+                pw = para.split()
+                if len(part_words) + len(pw) > config.CHUNK_MAX_WORDS and part_words:
+                    segments.append((pno, " ".join(part_words)))
+                    part_words = []
+                if len(pw) > config.CHUNK_MAX_WORDS:
+                    for i in range(0, len(pw), config.CHUNK_MAX_WORDS):
+                        slice_w = pw[i:i + config.CHUNK_MAX_WORDS]
+                        if slice_w:
+                            segments.append((pno, " ".join(slice_w)))
+                else:
+                    part_words.extend(pw)
+            if part_words:
+                segments.append((pno, " ".join(part_words)))
 
     chunks, cur, count = [], [], 0
+    has_new = False
+    overlap_words = getattr(config, "CHUNK_OVERLAP_WORDS", 60)
 
     def flush():
-        nonlocal cur, count
-        if cur:
+        nonlocal cur, count, has_new
+        if cur and has_new:
             body = "\n".join(f"[Page {p}]\n{t}" for p, t in cur)
             first_line = next((ln.strip() for ln in cur[0][1].splitlines() if ln.strip()), "")
             chunks.append({"page_number": cur[0][0], "pages": sorted({p for p, _ in cur}),
                            "text": body, "section": first_line[:80]})
-        cur, count = [], 0
+            overlap_cur = []
+            overlap_count = 0
+            if overlap_words > 0:
+                for pno, txt in reversed(cur):
+                    w_list = txt.split()
+                    if overlap_count + len(w_list) <= overlap_words:
+                        overlap_cur.insert(0, (pno, txt))
+                        overlap_count += len(w_list)
+                    else:
+                        needed = overlap_words - overlap_count
+                        if needed > 10:
+                            overlap_cur.insert(0, (pno, " ".join(w_list[-needed:])))
+                            overlap_count += needed
+                        break
+            cur = overlap_cur
+            count = overlap_count
+            has_new = False
 
     for pno, text in segments:
         w = len(text.split())
@@ -155,6 +195,7 @@ def make_chunks(page_texts):
             flush()
         cur.append((pno, text))
         count += w
+        has_new = True
         if count >= config.CHUNK_MIN_WORDS:
             flush()
     flush()
@@ -172,19 +213,27 @@ def delete_manual(manual_id):
         except OSError:
             pass
     rag.delete_index(manual_id)
+    try:
+        visual_search.remove_manual(manual_id)
+    except Exception as e:
+        print(f"[MANUAL] Visual index remove warning: {e}")
+
 
 
 # =============================================================================
 # Hardware analysis + manual matching
 # =============================================================================
-def match_manual(hw):
+def match_manual(hw, query_image=None, progress=None):
+    cb = progress or (lambda m: None)
 
-    # First try exact database matching
+    # 1. Tags search: Exact database match by model / part number / name
     exact = db.find_manuals_by_hardware(hw)
-
     similar = []
+    match_info = {"source": "tags" if exact else None, "visual_match": None}
 
+    # 2. Text search: If tags didn't find exact match, try semantic text search
     if not exact:
+        cb("Matching manual via detected text & components...")
         parts = [
             hw.get("manufacturer", ""),
             hw.get("product_name", ""),
@@ -209,10 +258,44 @@ def match_manual(hw):
                 similar = [
                     m for m, score in rag.search_all_manuals(text)
                 ]
+                if similar:
+                    match_info["source"] = "text"
             except AppError:
                 similar = []
 
-    return exact, similar
+    # 3. Visual Image search fallback:
+    # If through tags and text not found (or no exact match):
+    # Match query image against manual illustrations and images saved in data/images!
+    if not exact and query_image and os.path.isfile(query_image):
+        cb("Matching image against manual illustrations in data/images...")
+        try:
+            image_matches = visual_search.search_image(query_image, top_k=5)
+            if image_matches:
+                best = image_matches[0]
+                matched_manual = best.get("manual") or db.get_manual(best["manual_id"])
+                # Confident visual match: elevate to exact match
+                if matched_manual and (best["score"] >= 0.50 or best["good_matches"] >= 10):
+                    exact = [matched_manual]
+                    match_info = {
+                        "source": "visual_image",
+                        "visual_match": best,
+                        "page": best.get("page_number"),
+                        "score_pct": best.get("score_pct", 0),
+                        "matched_image_path": best.get("matched_image_path")
+                    }
+                elif matched_manual and best["score"] >= 0.38 and not similar:
+                    similar = [matched_manual]
+                    match_info = {
+                        "source": "visual_image_similar",
+                        "visual_match": best,
+                        "page": best.get("page_number"),
+                        "score_pct": best.get("score_pct", 0),
+                        "matched_image_path": best.get("matched_image_path")
+                    }
+        except Exception as e:
+            print(f"[MANUAL] Visual search error: {e}")
+
+    return exact, similar, match_info
 
 # Cache vision/manual analysis by image path.
 # This prevents running the expensive vision model repeatedly
@@ -240,7 +323,7 @@ def analyze_photo(path, progress=None):
     cb("Finding matching manuals...")
 
     match_start = time.time()
-    exact, similar = match_manual(hw)
+    exact, similar, match_info = match_manual(hw, query_image=path, progress=cb)
 
     match_time = time.time() - match_start
     print(f"[TIMING] Manual matching: {match_time:.2f} seconds")
@@ -253,7 +336,8 @@ def analyze_photo(path, progress=None):
         "hardware": hw,
         "preview": path,
         "exact": exact,
-        "similar": similar
+        "similar": similar,
+        "match_info": match_info
     }
 
     # Save the complete result for reuse.
@@ -266,5 +350,12 @@ def analyze_photo(path, progress=None):
 def analyze_video(path, progress=None):
     cb = progress or (lambda m: None)
     hw, preview = vision.identify_video(path, cb)
-    exact, similar = match_manual(hw)
-    return {"hardware": hw, "preview": preview, "exact": exact, "similar": similar}
+    exact, similar, match_info = match_manual(hw, query_image=preview, progress=cb)
+    return {
+        "hardware": hw,
+        "preview": preview,
+        "exact": exact,
+        "similar": similar,
+        "match_info": match_info
+    }
+

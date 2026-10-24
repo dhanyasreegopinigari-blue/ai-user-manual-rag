@@ -6,6 +6,8 @@ import sys
 import tempfile
 import traceback
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import config
 
 TMP = tempfile.mkdtemp(prefix="aum_test_")
@@ -15,10 +17,10 @@ config.MANUALS_DIR = os.path.join(TMP, "manuals")
 config.IMAGES_DIR = os.path.join(TMP, "images")
 config.FAISS_DIR = os.path.join(TMP, "faiss")
 
-import database as db          # noqa: E402
-import manual                  # noqa: E402
-import rag                     # noqa: E402
-import vision                  # noqa: E402
+import database as db                  # noqa: E402
+import services.manual as manual        # noqa: E402
+import services.rag as rag             # noqa: E402
+import services.vision as vision       # noqa: E402
 
 try:
     import pymupdf as fitz
@@ -84,6 +86,12 @@ def t_retrieve():
     return f"top chunk page {chunks[0]['page_number']}"
 
 
+def t_hybrid():
+    chunks = rag.search(state["mid"], "ERROR E03")
+    assert chunks and "E03" in chunks[0]["chunk_text"], "hybrid keyword search failed to find E03"
+    return f"keyword hit found on page {chunks[0]['page_number']} (score {chunks[0]['score']:.4f})"
+
+
 def t_match():
     assert db.find_manuals_by_hardware({"model": "p 3000"}), "model match failed"
 
@@ -111,6 +119,7 @@ if results[-1]:
     check("4+5. PDF processed, FAISS index created", t_pdf)
     if results[-1]:
         check("6. Manual chunks can be retrieved", t_retrieve)
+        check("   Hybrid keyword+vector search (FTS5+FAISS)", t_hybrid)
         check("   Hardware -> manual matching", t_match)
         check("8. LLM answers from retrieved context", t_answer)
     check("7. Vision model can analyze an image", t_vision)
